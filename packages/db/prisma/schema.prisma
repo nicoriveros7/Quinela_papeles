@@ -6,3 +6,457 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum SportType {
+  FOOTBALL
+}
+
+enum SystemRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum TournamentStatus {
+  DRAFT
+  PUBLISHED
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum MatchStage {
+  GROUP
+  KNOCKOUT
+  PLAYOFF
+  FINAL
+  OTHER
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+  POSTPONED
+  CANCELLED
+}
+
+enum PoolVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum PoolStatus {
+  DRAFT
+  ACTIVE
+  LOCKED
+  CLOSED
+  ARCHIVED
+}
+
+enum PoolRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum PoolMemberStatus {
+  INVITED
+  ACTIVE
+  LEFT
+  REMOVED
+}
+
+enum PoolEntryStatus {
+  ACTIVE
+  LOCKED
+  DISQUALIFIED
+}
+
+enum QuestionAnswerType {
+  BOOLEAN
+  SINGLE_CHOICE
+  TEAM_PICK
+  TIME_RANGE
+}
+
+enum QuestionResolutionMode {
+  MANUAL
+  CORRECT_OPTION
+  MATCH_RESULT_DERIVED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  SCORE_RECALCULATED
+  STATUS_CHANGED
+  LOGIN
+  LOGOUT
+}
+
+enum AuditEntityType {
+  USER
+  TOURNAMENT
+  TEAM
+  MATCH
+  POOL
+  POOL_MEMBER
+  POOL_ENTRY
+  MATCH_PREDICTION
+  MATCH_QUESTION
+  QUESTION_TEMPLATE
+  SYSTEM
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  displayName  String
+  passwordHash String?
+  systemRole   SystemRole @default(USER)
+  isActive     Boolean    @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  createdPools Pool[]       @relation("PoolOwner")
+  poolMembers  PoolMember[]
+  poolEntries  PoolEntry[]
+  auditLogs    AuditLog[]   @relation("AuditActor")
+
+  @@index([systemRole])
+}
+
+model Tournament {
+  id        String           @id @default(cuid())
+  slug      String           @unique
+  name      String
+  shortName String?
+  sport     SportType        @default(FOOTBALL)
+  status    TournamentStatus @default(DRAFT)
+  startDate DateTime
+  endDate   DateTime
+  timezone  String           @default("UTC")
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  groups    TournamentGroup[]
+  teams     TournamentTeam[]
+  matches   Match[]
+  pools     Pool[]
+  auditLogs AuditLog[]
+
+  @@index([status, startDate])
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  code        String   @unique
+  countryCode String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tournaments              TournamentTeam[]
+  matchQuestionOptions     MatchQuestionOption[]
+  matchQuestionPredictions MatchQuestionPrediction[]
+}
+
+model TournamentGroup {
+  id           String   @id @default(cuid())
+  tournamentId String
+  code         String
+  name         String
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tournament Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  teams      TournamentTeam[]
+  matches    Match[]
+
+  @@unique([tournamentId, code])
+  @@index([tournamentId, sortOrder])
+}
+
+model TournamentTeam {
+  id           String   @id @default(cuid())
+  tournamentId String
+  teamId       String
+  groupId      String?
+  seed         Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tournament  Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  team        Team             @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  group       TournamentGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  homeMatches Match[]          @relation("HomeTournamentTeam")
+  awayMatches Match[]          @relation("AwayTournamentTeam")
+
+  @@unique([tournamentId, teamId])
+  @@index([tournamentId, groupId])
+}
+
+model Venue {
+  id          String   @id @default(cuid())
+  name        String
+  city        String
+  countryCode String?
+  timezone    String   @default("UTC")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  matches Match[]
+
+  @@unique([name, city])
+}
+
+model Match {
+  id                   String      @id @default(cuid())
+  tournamentId         String
+  groupId              String?
+  homeTournamentTeamId String
+  awayTournamentTeamId String
+  venueId              String?
+  stage                MatchStage  @default(GROUP)
+  roundLabel           String?
+  matchNumber          Int?
+  kickoffAt            DateTime
+  status               MatchStatus @default(SCHEDULED)
+  homeScore            Int?
+  awayScore            Int?
+  homePenaltyScore     Int?
+  awayPenaltyScore     Int?
+  resultConfirmedAt    DateTime?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  tournament         Tournament        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  group              TournamentGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  homeTournamentTeam TournamentTeam    @relation("HomeTournamentTeam", fields: [homeTournamentTeamId], references: [id], onDelete: Restrict)
+  awayTournamentTeam TournamentTeam    @relation("AwayTournamentTeam", fields: [awayTournamentTeamId], references: [id], onDelete: Restrict)
+  venue              Venue?            @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  predictions        MatchPrediction[]
+  questions          MatchQuestion[]
+
+  @@unique([tournamentId, matchNumber])
+  @@index([tournamentId, kickoffAt])
+  @@index([status, kickoffAt])
+  @@index([homeTournamentTeamId])
+  @@index([awayTournamentTeamId])
+}
+
+model Pool {
+  id                       String         @id @default(cuid())
+  tournamentId             String
+  ownerUserId              String
+  slug                     String         @unique
+  name                     String
+  description              String?
+  visibility               PoolVisibility @default(PRIVATE)
+  status                   PoolStatus     @default(DRAFT)
+  joinCode                 String?        @unique
+  maxEntriesPerMember      Int            @default(1)
+  lockMinutesBeforeKickoff Int            @default(0)
+  pointsExactScore         Int            @default(3)
+  pointsMatchOutcome       Int            @default(1)
+  pointsBonusCorrect       Int            @default(2)
+  pointsConfig             Json?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+
+  tournament Tournament   @relation(fields: [tournamentId], references: [id], onDelete: Restrict)
+  owner      User         @relation("PoolOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  members    PoolMember[]
+  entries    PoolEntry[]
+  auditLogs  AuditLog[]
+
+  @@index([tournamentId, status])
+  @@index([ownerUserId])
+}
+
+model PoolMember {
+  id        String           @id @default(cuid())
+  poolId    String
+  userId    String
+  role      PoolRole         @default(MEMBER)
+  status    PoolMemberStatus @default(ACTIVE)
+  joinedAt  DateTime         @default(now())
+  leftAt    DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  pool    Pool        @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  entries PoolEntry[]
+
+  @@unique([poolId, userId])
+  @@index([userId, status])
+}
+
+model PoolEntry {
+  id          String          @id @default(cuid())
+  poolId      String
+  userId      String
+  entryNumber Int             @default(1)
+  entryName   String?
+  status      PoolEntryStatus @default(ACTIVE)
+  totalPoints Int             @default(0)
+  rank        Int?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  pool                Pool                      @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  user                User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  member              PoolMember                @relation(fields: [poolId, userId], references: [poolId, userId], onDelete: Restrict)
+  matchPredictions    MatchPrediction[]
+  questionPredictions MatchQuestionPrediction[]
+
+  @@unique([poolId, userId, entryNumber])
+  @@index([poolId, totalPoints])
+  @@index([userId])
+}
+
+model MatchPrediction {
+  id                 String    @id @default(cuid())
+  poolEntryId        String
+  matchId            String
+  predictedHomeScore Int
+  predictedAwayScore Int
+  pointsAwarded      Int       @default(0)
+  isScored           Boolean   @default(false)
+  scoredAt           DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  poolEntry PoolEntry @relation(fields: [poolEntryId], references: [id], onDelete: Cascade)
+  match     Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([poolEntryId, matchId])
+  @@index([matchId])
+}
+
+model QuestionTemplate {
+  id                   String             @id @default(cuid())
+  code                 String             @unique
+  title                String
+  description          String?
+  answerType           QuestionAnswerType @default(SINGLE_CHOICE)
+  defaultPoints        Int                @default(1)
+  defaultScoringConfig Json?
+  defaultAnswerConfig  Json?
+  defaultOptionsConfig Json?
+  isActive             Boolean            @default(true)
+  metadata             Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  matchQuestions MatchQuestion[]
+}
+
+model MatchQuestion {
+  id              String                 @id @default(cuid())
+  matchId         String
+  templateId      String?
+  key             String
+  questionText    String
+  answerType      QuestionAnswerType     @default(SINGLE_CHOICE)
+  pointsOverride  Int?
+  scoringConfig   Json?
+  answerConfig    Json?
+  resolutionMode  QuestionResolutionMode @default(MANUAL)
+  isPublished     Boolean                @default(false)
+  isResolved      Boolean                @default(false)
+  lockAt          DateTime?
+  resolvedAt      DateTime?
+  correctOptionId String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  match         Match                     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  template      QuestionTemplate?         @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  options       MatchQuestionOption[]     @relation("MatchQuestionOptions")
+  correctOption MatchQuestionOption?      @relation("MatchQuestionCorrectOption", fields: [correctOptionId], references: [id], onDelete: SetNull)
+  predictions   MatchQuestionPrediction[]
+
+  @@unique([matchId, key])
+  @@index([matchId, isPublished])
+  @@index([matchId, isResolved])
+  @@index([templateId])
+  @@index([correctOptionId])
+}
+
+model MatchQuestionOption {
+  id              String   @id @default(cuid())
+  matchQuestionId String
+  key             String
+  label           String
+  teamId          String?
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  optionConfig    Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  matchQuestion       MatchQuestion             @relation("MatchQuestionOptions", fields: [matchQuestionId], references: [id], onDelete: Cascade)
+  team                Team?                     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  correctForQuestions MatchQuestion[]           @relation("MatchQuestionCorrectOption")
+  predictions         MatchQuestionPrediction[]
+
+  @@unique([matchQuestionId, key])
+  @@index([matchQuestionId, sortOrder])
+  @@index([teamId])
+}
+
+model MatchQuestionPrediction {
+  id                   String    @id @default(cuid())
+  poolEntryId          String
+  matchQuestionId      String
+  selectedOptionId     String?
+  selectedBoolean      Boolean?
+  selectedTeamId       String?
+  selectedTimeRangeKey String?
+  pointsAwarded        Int       @default(0)
+  isScored             Boolean   @default(false)
+  scoredAt             DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  poolEntry      PoolEntry            @relation(fields: [poolEntryId], references: [id], onDelete: Cascade)
+  matchQuestion  MatchQuestion        @relation(fields: [matchQuestionId], references: [id], onDelete: Cascade)
+  selectedOption MatchQuestionOption? @relation(fields: [selectedOptionId], references: [id], onDelete: SetNull)
+  selectedTeam   Team?                @relation(fields: [selectedTeamId], references: [id], onDelete: SetNull)
+
+  @@unique([poolEntryId, matchQuestionId])
+  @@index([matchQuestionId])
+  @@index([selectedOptionId])
+  @@index([selectedTeamId])
+}
+
+model AuditLog {
+  id           String          @id @default(cuid())
+  actorUserId  String?
+  action       AuditAction
+  entityType   AuditEntityType
+  entityId     String?
+  tournamentId String?
+  poolId       String?
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime        @default(now())
+
+  actor      User?       @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  tournament Tournament? @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+  pool       Pool?       @relation(fields: [poolId], references: [id], onDelete: SetNull)
+
+  @@index([action, createdAt])
+  @@index([entityType, entityId])
+  @@index([actorUserId])
+  @@index([tournamentId])
+  @@index([poolId])
+}
