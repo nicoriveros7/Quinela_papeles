@@ -277,10 +277,13 @@ export class PredictionsService {
     dto: UpsertMatchQuestionPredictionDto,
     options: Array<{ id: string; key: string; teamId: string | null; optionConfig: unknown }>,
   ) {
+    const providedFields = this.getProvidedAnswerFields(dto);
     const byId = new Map(options.map((option) => [option.id, option]));
     const byKey = new Map(options.map((option) => [option.key, option]));
 
     if (answerType === QuestionAnswerType.SINGLE_CHOICE) {
+      this.assertExactAnswerFields(providedFields, ['selectedOptionId']);
+
       if (!dto.selectedOptionId) {
         throw new BadRequestException('selectedOptionId is required for SINGLE_CHOICE');
       }
@@ -299,6 +302,8 @@ export class PredictionsService {
     }
 
     if (answerType === QuestionAnswerType.TIME_RANGE) {
+      this.assertExactAnswerFields(providedFields, ['selectedTimeRangeKey']);
+
       if (!dto.selectedTimeRangeKey) {
         throw new BadRequestException('selectedTimeRangeKey is required for TIME_RANGE');
       }
@@ -306,10 +311,6 @@ export class PredictionsService {
       const option = byKey.get(dto.selectedTimeRangeKey);
       if (!option) {
         throw new BadRequestException('selectedTimeRangeKey is not valid for this question');
-      }
-
-      if (dto.selectedOptionId && dto.selectedOptionId !== option.id) {
-        throw new BadRequestException('selectedOptionId does not match selectedTimeRangeKey');
       }
 
       return {
@@ -321,6 +322,8 @@ export class PredictionsService {
     }
 
     if (answerType === QuestionAnswerType.TEAM_PICK) {
+      this.assertAnyAnswerFieldSet(providedFields, ['selectedTeamId', 'selectedOptionId']);
+
       const optionByTeam = dto.selectedTeamId
         ? options.find((option) => option.teamId === dto.selectedTeamId)
         : undefined;
@@ -333,10 +336,6 @@ export class PredictionsService {
         throw new BadRequestException('A valid selectedTeamId or selectedOptionId is required for TEAM_PICK');
       }
 
-      if (dto.selectedTeamId && option.teamId !== dto.selectedTeamId) {
-        throw new BadRequestException('selectedTeamId does not match selectedOptionId');
-      }
-
       return {
         selectedOptionId: option.id,
         selectedBoolean: null,
@@ -346,6 +345,8 @@ export class PredictionsService {
     }
 
     if (answerType === QuestionAnswerType.BOOLEAN) {
+      this.assertExactAnswerFields(providedFields, ['selectedBoolean']);
+
       if (typeof dto.selectedBoolean !== 'boolean') {
         throw new BadRequestException('selectedBoolean is required for BOOLEAN');
       }
@@ -375,5 +376,40 @@ export class PredictionsService {
     }
 
     throw new BadRequestException('Unsupported answer type');
+  }
+
+  private getProvidedAnswerFields(dto: UpsertMatchQuestionPredictionDto) {
+    const provided: string[] = [];
+
+    if (dto.selectedOptionId !== undefined) {
+      provided.push('selectedOptionId');
+    }
+    if (dto.selectedBoolean !== undefined) {
+      provided.push('selectedBoolean');
+    }
+    if (dto.selectedTeamId !== undefined) {
+      provided.push('selectedTeamId');
+    }
+    if (dto.selectedTimeRangeKey !== undefined) {
+      provided.push('selectedTimeRangeKey');
+    }
+
+    return provided;
+  }
+
+  private assertExactAnswerFields(provided: string[], expected: string[]) {
+    if (provided.length !== expected.length || provided.some((field) => !expected.includes(field))) {
+      throw new BadRequestException(
+        `Invalid answer payload for this question type. Expected only: ${expected.join(', ')}`,
+      );
+    }
+  }
+
+  private assertAnyAnswerFieldSet(provided: string[], allowed: string[]) {
+    if (provided.length !== 1 || !allowed.includes(provided[0])) {
+      throw new BadRequestException(
+        `Invalid answer payload for this question type. Provide exactly one of: ${allowed.join(' or ')}`,
+      );
+    }
   }
 }

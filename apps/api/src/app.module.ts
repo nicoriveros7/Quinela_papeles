@@ -10,6 +10,7 @@ import { HealthModule } from './health/health.module';
 import { PoolsModule } from './pools/pools.module';
 import { PredictionsModule } from './predictions/predictions.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ScoringModule } from './scoring/scoring.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -25,6 +26,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     PoolsModule,
     PredictionsModule,
+    ScoringModule,
     HealthModule,
   ],
   providers: [
