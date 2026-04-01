@@ -158,6 +158,93 @@ export class PoolsService {
     };
   }
 
+  async listPoolMatches(poolId: string, currentUser: JwtUserPayload) {
+    const membership = await this.getActiveMembership(poolId, currentUser.sub);
+
+    const pool = await this.prisma.pool.findUnique({
+      where: { id: poolId },
+      select: {
+        id: true,
+        tournamentId: true,
+      },
+    });
+
+    if (!pool) {
+      throw new NotFoundException('Pool not found');
+    }
+
+    const matches = await this.prisma.match.findMany({
+      where: {
+        tournamentId: pool.tournamentId,
+      },
+      orderBy: {
+        kickoffAt: 'asc',
+      },
+      select: {
+        id: true,
+        stage: true,
+        roundLabel: true,
+        matchNumber: true,
+        kickoffAt: true,
+        status: true,
+        homeScore: true,
+        awayScore: true,
+        homeTournamentTeam: {
+          select: {
+            team: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+          },
+        },
+        awayTournamentTeam: {
+          select: {
+            team: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+          },
+        },
+        questions: {
+          where: {
+            isPublished: true,
+          },
+          select: {
+            id: true,
+            questionText: true,
+            answerType: true,
+            isResolved: true,
+            pointsOverride: true,
+            lockAt: true,
+            options: {
+              where: { isActive: true },
+              orderBy: { sortOrder: 'asc' },
+              select: {
+                id: true,
+                key: true,
+                label: true,
+                teamId: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    return {
+      poolId,
+      membership,
+      matches,
+    };
+  }
+
   async joinPool(currentUser: JwtUserPayload, dto: JoinPoolDto) {
     const pool = await this.prisma.pool.findFirst({
       where: { joinCode: dto.joinCode.toUpperCase() },

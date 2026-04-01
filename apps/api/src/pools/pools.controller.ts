@@ -28,6 +28,11 @@ export class PoolsController {
     return this.poolsService.getPoolDetail(poolId, user);
   }
 
+  @Get(':poolId/matches')
+  async listPoolMatches(@Param('poolId') poolId: string, @CurrentUser() user: JwtUserPayload) {
+    return this.poolsService.listPoolMatches(poolId, user);
+  }
+
   @Post('join')
   async joinPool(@CurrentUser() user: JwtUserPayload, @Body() dto: JoinPoolDto) {
     return this.poolsService.joinPool(user, dto);

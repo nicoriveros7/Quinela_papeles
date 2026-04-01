@@ -1,60 +1,80 @@
-import { ArrowRight, Trophy } from 'lucide-react';
-
-import { AppSurface } from '@quinela/types';
+import Link from 'next/link';
+import { ArrowRight, Goal, Shield, Trophy, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 
-const highlights = [
-  'Monorepo listo para escalar por torneo',
-  'Backend NestJS con health endpoint',
-  'Frontend Next.js con base shadcn/ui',
+const features = [
+  {
+    icon: Users,
+    title: 'Pools entre amigos',
+    description: 'Crea o unete con codigo y juega en grupos privados.',
+  },
+  {
+    icon: Goal,
+    title: 'Predicciones y bonus',
+    description: 'Marca resultados, responde preguntas y suma puntos.',
+  },
+  {
+    icon: Trophy,
+    title: 'Leaderboard en vivo del MVP',
+    description: 'Ranking claro por entry para competir jornada a jornada.',
+  },
 ];
 
 export default function HomePage() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
-      <div className="absolute inset-0 -z-10 bg-pitch" />
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-10 sm:px-8 lg:px-12">
-        <header className="mb-12 flex items-center justify-between">
-          <span className="rounded-full border border-border/60 bg-white/70 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-emerald-900 backdrop-blur">
-            Fase 1 · {AppSurface.Web}
+      <div className="absolute inset-0 -z-10 bg-stadium" />
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-8 sm:px-8 lg:px-12 lg:py-10">
+        <header className="mb-10 flex items-center justify-between">
+          <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-primary">
+            <Shield className="h-3.5 w-3.5" />
+            Quinela Pro
           </span>
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-900/70">World Cup 2026 MVP</span>
+          <Link href="/login" className="text-xs font-semibold uppercase tracking-[0.12em] text-primary hover:underline">
+            Entrar
+          </Link>
         </header>
 
-        <section className="grid gap-8 rounded-3xl border border-border/70 bg-white/85 p-6 shadow-card backdrop-blur sm:p-8 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
+        <section className="grid gap-6 rounded-3xl border border-white/20 bg-surface/90 p-6 shadow-card backdrop-blur sm:p-8 lg:grid-cols-[1.1fr_0.9fr] lg:p-10">
           <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-emerald-800">
-              <Trophy className="h-4 w-4" />
-              Plataforma de quinielas
-            </div>
-            <h1 className="max-w-xl text-3xl font-extrabold leading-tight text-emerald-950 sm:text-4xl">
-              Base tecnica lista para construir una quiniela profesional, moderna y escalable.
+            <h1 className="text-3xl font-extrabold leading-tight text-foreground sm:text-4xl lg:text-5xl">
+              Tu fantasy futbol, con experiencia real de producto.
             </h1>
-            <p className="max-w-lg text-sm leading-relaxed text-emerald-900/80 sm:text-base">
-              Esta pantalla es un placeholder de arranque. El monorepo ya integra web, API y packages compartidos para empezar la Fase 2 sin deuda tecnica inicial.
+            <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+              Quinela moderna para seguir torneos, competir en pools y dominar el ranking con estrategia.
+              Mobile first, veloz y conectada a tu API NestJS.
             </p>
+
             <div className="flex flex-wrap gap-3">
-              <Button className="gap-2 bg-emerald-700 text-white hover:bg-emerald-800">
-                Empezar desarrollo
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" className="border-emerald-300 text-emerald-900">
-                Ver roadmap del MVP
-              </Button>
+              <Link href="/register" className="inline-flex">
+                <Button size="lg" className="gap-2">
+                  Crear cuenta
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/login" className="inline-flex">
+                <Button variant="outline" size="lg">
+                  Ya tengo cuenta
+                </Button>
+              </Link>
             </div>
           </div>
 
-          <aside className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 sm:p-5">
-            <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-emerald-900/85">Estado del bootstrap</h2>
-            <ul className="space-y-2">
-              {highlights.map((item) => (
-                <li key={item} className="rounded-xl border border-emerald-200/70 bg-white/70 px-3 py-2 text-sm text-emerald-900">
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </aside>
+          <div className="grid gap-3">
+            {features.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <article key={feature.title} className="rounded-2xl border border-border/60 bg-white/70 p-4">
+                  <div className="mb-2 inline-flex rounded-lg bg-primary/10 p-2 text-primary">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <h2 className="text-sm font-bold uppercase tracking-[0.08em] text-foreground">{feature.title}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">{feature.description}</p>
+                </article>
+              );
+            })}
+          </div>
         </section>
       </div>
     </main>

@@ -3,19 +3,20 @@
 @tailwind utilities;
 
 :root {
-  --background: 151 34% 94%;
-  --foreground: 154 56% 11%;
-  --primary: 158 72% 31%;
+  --background: 153 43% 96%;
+  --foreground: 162 50% 11%;
+  --primary: 168 78% 28%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 156 38% 88%;
-  --secondary-foreground: 154 56% 14%;
-  --muted: 150 28% 91%;
-  --muted-foreground: 155 16% 36%;
-  --accent: 43 93% 50%;
-  --accent-foreground: 34 40% 15%;
-  --border: 154 21% 80%;
-  --input: 154 21% 80%;
-  --ring: 158 72% 31%;
+  --secondary: 164 41% 88%;
+  --secondary-foreground: 162 55% 14%;
+  --muted: 154 24% 90%;
+  --muted-foreground: 162 15% 36%;
+  --accent: 41 97% 58%;
+  --accent-foreground: 33 38% 17%;
+  --border: 159 22% 79%;
+  --input: 159 22% 79%;
+  --ring: 168 78% 28%;
+  --surface: 0 0% 100%;
   --radius: 0.9rem;
 }
 
@@ -25,4 +26,8 @@
 
 body {
   @apply bg-background text-foreground antialiased;
+}
+
+main {
+  min-height: 100vh;
 }
