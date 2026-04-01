@@ -7,6 +7,8 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { envValidationSchema } from './config/env.validation';
 import { HealthModule } from './health/health.module';
+import { PoolsModule } from './pools/pools.module';
+import { PredictionsModule } from './predictions/predictions.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
 
@@ -21,6 +23,8 @@ import { UsersModule } from './users/users.module';
     PrismaModule,
     UsersModule,
     AuthModule,
+    PoolsModule,
+    PredictionsModule,
     HealthModule,
   ],
   providers: [
