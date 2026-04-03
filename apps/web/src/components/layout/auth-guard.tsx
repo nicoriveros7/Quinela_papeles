@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, LogOut, Medal, ShieldCheck, Target, Users } from 'lucide-react';
+import { Home, LogOut, Medal, ShieldCheck, ShieldUser, Target, Users } from 'lucide-react';
 
 import { useAuth } from '@/providers/auth-provider';
 
@@ -64,6 +64,18 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
               );
             })}
           </nav>
+
+          {user?.systemRole === 'ADMIN' || user?.systemRole === 'SUPER_ADMIN' ? (
+            <div className="mt-3">
+              <Link
+                href="/admin"
+                className="inline-flex w-full items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.08em] text-primary"
+              >
+                <ShieldUser className="h-4 w-4" />
+                Ir a Admin Console
+              </Link>
+            </div>
+          ) : null}
 
           <div className="mt-8 rounded-xl border border-border bg-white/70 p-3 text-sm">
             <p className="font-semibold text-foreground">{user?.displayName}</p>

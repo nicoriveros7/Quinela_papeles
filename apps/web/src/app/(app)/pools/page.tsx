@@ -10,7 +10,7 @@ import { PoolSummary } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LoadingBlock } from '@/components/ui/loading';
+import { StatePanel } from '@/components/ui/state-panel';
 
 export default function PoolsPage() {
   const { token } = useAuth();
@@ -54,15 +54,11 @@ export default function PoolsPage() {
         </Link>
       </header>
 
-      {loading ? <LoadingBlock label="Cargando pools..." /> : null}
-      {error ? <p className="text-sm font-semibold text-rose-600">{error}</p> : null}
+      {loading ? <StatePanel variant="loading" description="Cargando pools..." /> : null}
+      {error ? <StatePanel variant="error" description={error} /> : null}
 
       {!loading && !error && pools.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No hay pools disponibles para tu usuario.
-          </CardContent>
-        </Card>
+        <StatePanel variant="empty" description="No hay pools disponibles para tu usuario." />
       ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2">

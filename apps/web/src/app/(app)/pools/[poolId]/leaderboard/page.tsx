@@ -6,9 +6,10 @@ import { useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
 import { LeaderboardResponse } from '@/types/api';
+import { PoolContextTabs } from '@/components/layout/pool-context-tabs';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LoadingBlock } from '@/components/ui/loading';
+import { StatePanel } from '@/components/ui/state-panel';
 
 export default function LeaderboardPage() {
   const params = useParams<{ poolId: string }>();
@@ -41,19 +42,21 @@ export default function LeaderboardPage() {
   }, [poolId, token]);
 
   if (loading) {
-    return <LoadingBlock label="Cargando leaderboard..." />;
+    return <StatePanel variant="loading" description="Cargando leaderboard..." />;
   }
 
   if (error) {
-    return <p className="text-sm font-semibold text-rose-600">{error}</p>;
+    return <StatePanel variant="error" description={error} />;
   }
 
   if (!data) {
-    return null;
+    return <StatePanel variant="empty" description="No hay datos de leaderboard en esta pool." />;
   }
 
   return (
     <div className="grid gap-4">
+      <PoolContextTabs poolId={poolId} />
+
       <header className="rounded-2xl border border-border/70 bg-surface p-4">
         <h1 className="text-2xl font-extrabold">Leaderboard</h1>
         <p className="text-sm text-muted-foreground">Ranking oficial de esta pool.</p>

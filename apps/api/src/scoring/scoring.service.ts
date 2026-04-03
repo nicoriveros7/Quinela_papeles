@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { MatchStatus, PoolMemberStatus, PoolRole, Prisma } from '@prisma/client';
+import { MatchStatus, PoolMemberStatus, PoolRole, Prisma, SystemRole } from '@prisma/client';
 
 import { JwtUserPayload } from '../auth/types/jwt-user-payload.type';
 import { PrismaService } from '../prisma/prisma.service';
@@ -36,7 +36,7 @@ export class ScoringService {
   }
 
   async recalculatePool(poolId: string, user: JwtUserPayload) {
-    await this.ensurePoolAdminOrOwner(poolId, user.sub);
+    await this.ensurePoolAdminOrOwner(poolId, user);
 
     const pool = await this.prisma.pool.findUnique({
       where: { id: poolId },
@@ -86,7 +86,7 @@ export class ScoringService {
     skipAuth = false,
   ) {
     if (!skipAuth) {
-      await this.ensurePoolAdminOrOwner(poolId, user.sub);
+      await this.ensurePoolAdminOrOwner(poolId, user);
     }
 
     const pool = await this.prisma.pool.findUnique({
@@ -191,7 +191,7 @@ export class ScoringService {
     skipAuth = false,
   ) {
     if (!skipAuth) {
-      await this.ensurePoolAdminOrOwner(poolId, user.sub);
+      await this.ensurePoolAdminOrOwner(poolId, user);
     }
 
     const pool = await this.prisma.pool.findUnique({
@@ -291,8 +291,12 @@ export class ScoringService {
     };
   }
 
-  private async ensurePoolAdminOrOwner(poolId: string, userId: string) {
-    const membership = await this.ensureActiveMembership(poolId, userId);
+  private async ensurePoolAdminOrOwner(poolId: string, user: JwtUserPayload) {
+    if (user.role === SystemRole.ADMIN || user.role === SystemRole.SUPER_ADMIN) {
+      return null;
+    }
+
+    const membership = await this.ensureActiveMembership(poolId, user.sub);
     if (membership.role !== PoolRole.OWNER && membership.role !== PoolRole.ADMIN) {
       throw new ForbiddenException('Only pool OWNER or ADMIN can run scoring');
     }

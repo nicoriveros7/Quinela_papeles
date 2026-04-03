@@ -8,11 +8,13 @@ import { api, ApiError } from '@/lib/api';
 import { formatDateTime, matchStatusLabel, questionTypeLabel } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
 import { MatchPredictionsBundle, PoolDetail, PoolMatch, PoolMatchesResponse } from '@/types/api';
+import { PoolContextTabs } from '@/components/layout/pool-context-tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { LoadingBlock } from '@/components/ui/loading';
+import { SaveFeedback } from '@/components/ui/save-feedback';
+import { StatePanel } from '@/components/ui/state-panel';
 
 type QuestionDraft = {
   selectedOptionId?: string;
@@ -158,16 +160,23 @@ export default function EntryPredictionsPage() {
   };
 
   if (loading) {
-    return <LoadingBlock label="Cargando entry y calendario..." />;
+    return <StatePanel variant="loading" description="Cargando entry y calendario..." />;
   }
 
   return (
     <div className="grid gap-4">
+      <PoolContextTabs poolId={poolId} entryId={entryId} />
+
       <header className="rounded-2xl border border-border/70 bg-surface p-4">
-        <h1 className="text-xl font-extrabold">Predicciones de Entry</h1>
-        <p className="text-sm text-muted-foreground">
-          Pool: {pool?.name ?? '-'} · Entry: {entryId.slice(-6)}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h1 className="text-xl font-extrabold">Predicciones de Entry</h1>
+            <p className="text-sm text-muted-foreground">
+              Pool: {pool?.name ?? '-'} · Entry: {entryId.slice(-6)}
+            </p>
+          </div>
+          <SaveFeedback saving={saving} message={success} />
+        </div>
       </header>
 
       <section className="overflow-x-auto rounded-2xl border border-border/70 bg-surface p-3">
@@ -175,7 +184,7 @@ export default function EntryPredictionsPage() {
           {matches.map((match) => (
             <button
               key={match.id}
-              className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+              className={`min-w-[170px] rounded-xl border px-3 py-2 text-left text-sm transition ${
                 selectedMatchId === match.id
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border/70 bg-white/70 text-foreground'
@@ -183,7 +192,10 @@ export default function EntryPredictionsPage() {
               onClick={() => setSelectedMatchId(match.id)}
             >
               <p className="font-semibold">{match.homeTournamentTeam.team.code} vs {match.awayTournamentTeam.team.code}</p>
-              <p className="text-xs text-muted-foreground">{formatDateTime(match.kickoffAt)}</p>
+              <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                <span>{formatDateTime(match.kickoffAt)}</span>
+                <span>{matchStatusLabel(match.status)}</span>
+              </div>
             </button>
           ))}
         </div>
@@ -231,6 +243,10 @@ export default function EntryPredictionsPage() {
             </div>
 
             <div className="grid gap-3">
+              {bundle?.questions.length === 0 ? (
+                <StatePanel variant="empty" description="Este partido no tiene preguntas bonus publicadas." />
+              ) : null}
+
               {bundle?.questions.map((question) => (
                 <Card key={question.id} className="border border-border/60 bg-white/70">
                   <CardContent className="grid gap-2 py-4">
@@ -252,7 +268,11 @@ export default function EntryPredictionsPage() {
                     />
 
                     <div>
-                      <Button size="sm" onClick={() => saveQuestionPrediction(question.id)} disabled={saving || question.isResolved}>
+                      <Button
+                        size="sm"
+                        onClick={() => saveQuestionPrediction(question.id)}
+                        disabled={saving || question.isResolved || !questionDrafts[question.id]}
+                      >
                         Guardar bonus
                       </Button>
                     </div>
@@ -261,12 +281,11 @@ export default function EntryPredictionsPage() {
               ))}
             </div>
 
-            {error ? <p className="text-sm font-semibold text-rose-600">{error}</p> : null}
-            {success ? <p className="text-sm font-semibold text-emerald-700">{success}</p> : null}
+            {error ? <StatePanel variant="error" description={error} /> : null}
           </CardContent>
         </Card>
       ) : (
-        <LoadingBlock label="No hay partidos disponibles para esta pool." />
+        <StatePanel variant="empty" description="No hay partidos disponibles para esta pool." />
       )}
     </div>
   );

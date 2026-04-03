@@ -151,3 +151,119 @@ export type ApiErrorShape = {
   error?: string;
   statusCode?: number;
 };
+
+export type AdminTournament = {
+  id: string;
+  slug: string;
+  name: string;
+  shortName: string | null;
+  status: string;
+  startDate: string;
+  endDate: string;
+  _count: {
+    matches: number;
+    pools: number;
+  };
+};
+
+export type AdminPool = {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  joinCode: string | null;
+  tournamentId: string;
+  tournament: {
+    id: string;
+    name: string;
+    slug: string;
+    status: string;
+  };
+  _count: {
+    members: number;
+    entries: number;
+  };
+};
+
+export type AdminMatch = {
+  id: string;
+  tournamentId: string;
+  stage: string;
+  roundLabel: string | null;
+  matchNumber: number | null;
+  kickoffAt: string;
+  status: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'POSTPONED' | 'CANCELLED';
+  homeScore: number | null;
+  awayScore: number | null;
+  homeTournamentTeam: { team: { id: string; name: string; code: string } };
+  awayTournamentTeam: { team: { id: string; name: string; code: string } };
+  _count: {
+    questions: number;
+    predictions: number;
+  };
+};
+
+export type AdminTournamentMatchesResponse = {
+  tournament: {
+    id: string;
+    name: string;
+  };
+  matches: AdminMatch[];
+};
+
+export type AdminPoolMatchesResponse = {
+  pool: {
+    id: string;
+    name: string;
+    tournamentId: string;
+  };
+  tournament: {
+    id: string;
+    name: string;
+  };
+  matches: AdminMatch[];
+};
+
+export type AdminMatchQuestion = {
+  id: string;
+  key: string;
+  questionText: string;
+  answerType: 'BOOLEAN' | 'SINGLE_CHOICE' | 'TEAM_PICK' | 'TIME_RANGE';
+  pointsOverride: number | null;
+  isPublished: boolean;
+  isResolved: boolean;
+  lockAt: string | null;
+  resolvedAt: string | null;
+  correctOptionId: string | null;
+  options: Array<{
+    id: string;
+    key: string;
+    label: string;
+    teamId: string | null;
+  }>;
+};
+
+export type AdminMatchQuestionsResponse = {
+  match: {
+    id: string;
+    kickoffAt: string;
+    status: string;
+    homeTournamentTeam: { team: { name: string; code: string } };
+    awayTournamentTeam: { team: { name: string; code: string } };
+  };
+  questions: AdminMatchQuestion[];
+};
+
+export type CreateAdminQuestionPayload = {
+  key?: string;
+  questionText: string;
+  answerType: 'BOOLEAN' | 'SINGLE_CHOICE' | 'TEAM_PICK' | 'TIME_RANGE';
+  pointsOverride?: number;
+  lockAt?: string;
+  isPublished?: boolean;
+  options?: Array<{
+    key: string;
+    label: string;
+    teamId?: string;
+  }>;
+};

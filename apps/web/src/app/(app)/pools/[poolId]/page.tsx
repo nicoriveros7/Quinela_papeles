@@ -8,11 +8,12 @@ import { ChevronRight, ListChecks, Medal, Plus } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
 import { PoolDetail, PoolEntry } from '@/types/api';
+import { PoolContextTabs } from '@/components/layout/pool-context-tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { LoadingBlock } from '@/components/ui/loading';
+import { StatePanel } from '@/components/ui/state-panel';
 
 export default function PoolDetailPage() {
   const params = useParams<{ poolId: string }>();
@@ -72,19 +73,21 @@ export default function PoolDetailPage() {
   };
 
   if (loading) {
-    return <LoadingBlock label="Cargando detalle de pool..." />;
+    return <StatePanel variant="loading" description="Cargando detalle de la pool..." />;
   }
 
   if (error) {
-    return <p className="text-sm font-semibold text-rose-600">{error}</p>;
+    return <StatePanel variant="error" description={error} actionLabel="Reintentar" onAction={() => void load()} />;
   }
 
   if (!pool) {
-    return <p className="text-sm text-muted-foreground">Pool no encontrada.</p>;
+    return <StatePanel variant="empty" description="Pool no encontrada o sin acceso para este usuario." />;
   }
 
   return (
     <div className="grid gap-4">
+      <PoolContextTabs poolId={poolId} entryId={entries[0]?.id} />
+
       <header className="rounded-2xl border border-border/70 bg-surface p-4">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-extrabold">{pool.name}</h1>
@@ -107,7 +110,7 @@ export default function PoolDetailPage() {
           </CardHeader>
           <CardContent className="grid gap-2">
             {entries.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aun no tienes entries en esta pool.</p>
+              <StatePanel variant="empty" description="Aun no tienes entries en esta pool." />
             ) : (
               entries.map((entry) => (
                 <Link

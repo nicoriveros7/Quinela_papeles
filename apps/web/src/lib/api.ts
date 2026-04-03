@@ -1,5 +1,13 @@
 import {
+  AdminMatch,
+  AdminMatchQuestion,
+  AdminMatchQuestionsResponse,
+  AdminPool,
+  AdminPoolMatchesResponse,
+  AdminTournament,
+  AdminTournamentMatchesResponse,
   AuthResponse,
+  CreateAdminQuestionPayload,
   LeaderboardResponse,
   MatchPredictionsBundle,
   PoolDetail,
@@ -55,7 +63,6 @@ async function request<T>(
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers,
-    cache: 'no-store',
   });
 
   if (!response.ok) {
@@ -183,4 +190,64 @@ export const api = {
 
   getLeaderboard: (poolId: string, token: string) =>
     request<LeaderboardResponse>(`/pools/${poolId}/leaderboard`, { method: 'GET' }, token),
+
+  adminListTournaments: (token: string) =>
+    request<AdminTournament[]>('/admin/tournaments', { method: 'GET' }, token),
+
+  adminListPools: (token: string) =>
+    request<AdminPool[]>('/admin/pools', { method: 'GET' }, token),
+
+  adminListTournamentMatches: (tournamentId: string, token: string) =>
+    request<AdminTournamentMatchesResponse>(
+      `/admin/tournaments/${tournamentId}/matches`,
+      { method: 'GET' },
+      token,
+    ),
+
+  adminListPoolMatches: (poolId: string, token: string) =>
+    request<AdminPoolMatchesResponse>(`/admin/pools/${poolId}/matches`, { method: 'GET' }, token),
+
+  adminUpdateMatchResult: (
+    matchId: string,
+    payload: { status?: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'POSTPONED' | 'CANCELLED'; homeScore?: number; awayScore?: number },
+    token: string,
+  ) =>
+    request<AdminMatch>(`/admin/matches/${matchId}/result`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }, token),
+
+  adminListMatchQuestions: (matchId: string, token: string) =>
+    request<AdminMatchQuestionsResponse>(`/admin/matches/${matchId}/questions`, { method: 'GET' }, token),
+
+  adminCreateQuestion: (matchId: string, payload: CreateAdminQuestionPayload, token: string) =>
+    request<AdminMatchQuestion>(`/admin/matches/${matchId}/questions`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }, token),
+
+  adminUpdateQuestion: (
+    questionId: string,
+    payload: {
+      questionText?: string;
+      pointsOverride?: number;
+      lockAt?: string;
+      isPublished?: boolean;
+      correctOptionId?: string;
+    },
+    token: string,
+  ) =>
+    request<AdminMatchQuestion>(`/admin/questions/${questionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }, token),
+
+  adminResolveQuestion: (questionId: string, correctOptionId: string, token: string) =>
+    request<AdminMatchQuestion>(`/admin/questions/${questionId}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ correctOptionId }),
+    }, token),
+
+  adminRecalculatePoolScoring: (poolId: string, token: string) =>
+    request(`/admin/pools/${poolId}/scoring/recalculate`, { method: 'POST' }, token),
 };
