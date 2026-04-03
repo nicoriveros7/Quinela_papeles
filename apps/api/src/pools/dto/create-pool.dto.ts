@@ -39,12 +39,6 @@ export class CreatePoolDto {
 
   @IsOptional()
   @IsInt()
-  @Min(1)
-  @Max(10)
-  maxEntriesPerMember?: number;
-
-  @IsOptional()
-  @IsInt()
   @Min(0)
   @Max(120)
   lockMinutesBeforeKickoff?: number;

@@ -37,7 +37,7 @@ export class PoolsService {
             description: dto.description,
             status: 'ACTIVE',
             joinCode,
-            maxEntriesPerMember: dto.maxEntriesPerMember ?? 1,
+            maxEntriesPerMember: 1,
             lockMinutesBeforeKickoff: dto.lockMinutesBeforeKickoff ?? 0,
             pointsExactScore: dto.pointsExactScore ?? 3,
             pointsMatchOutcome: dto.pointsMatchOutcome ?? 1,
@@ -302,37 +302,30 @@ export class PoolsService {
   async createMyEntry(poolId: string, currentUser: JwtUserPayload, dto: CreateEntryDto) {
     const membership = await this.getActiveMembership(poolId, currentUser.sub);
 
-    const pool = await this.prisma.pool.findUnique({
-      where: { id: poolId },
-      select: {
-        id: true,
-        maxEntriesPerMember: true,
-      },
-    });
+    const pool = await this.prisma.pool.findUnique({ where: { id: poolId }, select: { id: true } });
 
     if (!pool) {
       throw new NotFoundException('Pool not found');
     }
 
-    const currentEntriesCount = await this.prisma.poolEntry.count({
+    const existingEntry = await this.prisma.poolEntry.findFirst({
       where: {
         poolId,
         userId: currentUser.sub,
       },
+      select: { id: true },
     });
 
-    if (currentEntriesCount >= pool.maxEntriesPerMember) {
-      throw new BadRequestException('Maximum entries per member reached for this pool');
+    if (existingEntry) {
+      throw new ConflictException('User already has an entry in this pool');
     }
-
-    const entryNumber = currentEntriesCount + 1;
 
     const entry = await this.prisma.poolEntry.create({
       data: {
         poolId,
         userId: currentUser.sub,
-        entryNumber,
-        entryName: dto.entryName ?? `Entry ${entryNumber}`,
+        entryNumber: 1,
+        entryName: dto.entryName ?? 'Mi Entry',
       },
     });
 
@@ -361,7 +354,6 @@ export class PoolsService {
     const updatedPool = await this.prisma.pool.update({
       where: { id: poolId },
       data: {
-        maxEntriesPerMember: dto.maxEntriesPerMember,
         pointsExactScore: dto.pointsExactScore,
         pointsMatchOutcome: dto.pointsMatchOutcome,
         pointsBonusCorrect: dto.pointsBonusCorrect,

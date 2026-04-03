@@ -316,6 +316,7 @@ model PoolEntry {
   matchPredictions    MatchPrediction[]
   questionPredictions MatchQuestionPrediction[]
 
+  @@unique([poolId, userId])
   @@unique([poolId, userId, entryNumber])
   @@index([poolId, totalPoints])
   @@index([userId])

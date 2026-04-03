@@ -26,6 +26,7 @@ export default function PoolDetailPage() {
   const [loading, setLoading] = useState(true);
   const [creatingEntry, setCreatingEntry] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) {
@@ -58,12 +59,19 @@ export default function PoolDetailPage() {
       return;
     }
 
+    if (entries.length > 0) {
+      setError('Ya tienes una entry en esta pool.');
+      return;
+    }
+
     setCreatingEntry(true);
     setError(null);
+    setSuccess(null);
 
     try {
       await api.createEntry(poolId, entryName.trim() || 'Mi Entry', token);
       setEntryName('');
+      setSuccess('Tu entry fue creada correctamente.');
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear el entry.');
@@ -103,14 +111,16 @@ export default function PoolDetailPage() {
         </div>
       </header>
 
+      {success ? <StatePanel variant="success" description={success} compact /> : null}
+
       <section className="grid gap-3 sm:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Mis entries</CardTitle>
+            <CardTitle className="text-sm">Mi entry</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2">
             {entries.length === 0 ? (
-              <StatePanel variant="empty" description="Aun no tienes entries en esta pool." />
+              <StatePanel variant="empty" description="Aun no tienes entry en esta pool." compact />
             ) : (
               entries.map((entry) => (
                 <Link
@@ -119,7 +129,7 @@ export default function PoolDetailPage() {
                   className="flex items-center justify-between rounded-xl border border-border/60 bg-white/70 px-3 py-2 text-sm hover:border-primary/40"
                 >
                   <span>
-                    {entry.entryName ?? `Entry ${entry.entryNumber}`} · {entry.totalPoints} pts
+                    {entry.entryName ?? 'Mi Entry'} · {entry.totalPoints} pts
                   </span>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </Link>
@@ -130,22 +140,30 @@ export default function PoolDetailPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Crear entry</CardTitle>
+            <CardTitle className="text-sm">Crear mi entry</CardTitle>
           </CardHeader>
           <CardContent>
-            <form className="grid gap-2" onSubmit={onCreateEntry}>
-              <Input
-                placeholder="Nombre de tu entry"
-                value={entryName}
-                onChange={(e) => setEntryName(e.target.value)}
-                minLength={2}
-                maxLength={80}
+            {entries.length > 0 ? (
+              <StatePanel
+                variant="success"
+                description="Ya tienes tu entry activa en esta pool. Solo se permite una por usuario."
+                compact
               />
-              <Button type="submit" disabled={creatingEntry}>
-                <Plus className="mr-2 h-4 w-4" />
-                {creatingEntry ? 'Creando...' : 'Crear Entry'}
-              </Button>
-            </form>
+            ) : (
+              <form className="grid gap-2" onSubmit={onCreateEntry}>
+                <Input
+                  placeholder="Nombre de tu entry"
+                  value={entryName}
+                  onChange={(e) => setEntryName(e.target.value)}
+                  minLength={2}
+                  maxLength={80}
+                />
+                <Button type="submit" disabled={creatingEntry}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  {creatingEntry ? 'Creando...' : 'Crear Entry'}
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
       </section>

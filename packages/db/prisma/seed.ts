@@ -296,7 +296,7 @@ async function seed() {
       visibility: 'PRIVATE',
       status: 'ACTIVE',
       joinCode: 'DEMO2026',
-      maxEntriesPerMember: 2,
+      maxEntriesPerMember: 1,
       lockMinutesBeforeKickoff: 15,
       pointsExactScore: 3,
       pointsMatchOutcome: 1,
@@ -326,7 +326,7 @@ async function seed() {
       visibility: 'PRIVATE',
       status: 'ACTIVE',
       joinCode: 'DEMO2026',
-      maxEntriesPerMember: 2,
+      maxEntriesPerMember: 1,
       lockMinutesBeforeKickoff: 15,
       pointsExactScore: 3,
       pointsMatchOutcome: 1,
@@ -399,10 +399,9 @@ async function seed() {
 
   const entryAdmin = await prisma.poolEntry.upsert({
     where: {
-      poolId_userId_entryNumber: {
+      poolId_userId: {
         poolId: pool.id,
         userId: adminUser.id,
-        entryNumber: 1,
       },
     },
     update: { entryName: 'Admin Entry', status: 'ACTIVE' },
@@ -417,10 +416,9 @@ async function seed() {
 
   const entryAna = await prisma.poolEntry.upsert({
     where: {
-      poolId_userId_entryNumber: {
+      poolId_userId: {
         poolId: pool.id,
         userId: userAna.id,
-        entryNumber: 1,
       },
     },
     update: { entryName: 'Ana Picks', status: 'ACTIVE' },
@@ -435,10 +433,9 @@ async function seed() {
 
   const entryLeo = await prisma.poolEntry.upsert({
     where: {
-      poolId_userId_entryNumber: {
+      poolId_userId: {
         poolId: pool.id,
         userId: userLeo.id,
-        entryNumber: 1,
       },
     },
     update: { entryName: 'Leo Picks', status: 'ACTIVE' },

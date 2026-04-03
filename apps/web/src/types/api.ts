@@ -34,7 +34,7 @@ export type PoolSummary = {
 
 export type PoolDetail = PoolSummary & {
   description: string | null;
-  maxEntriesPerMember: number;
+  maxEntriesPerMember: 1;
   lockMinutesBeforeKickoff: number;
   pointsExactScore: number;
   pointsMatchOutcome: number;

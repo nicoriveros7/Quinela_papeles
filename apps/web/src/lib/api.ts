@@ -109,7 +109,6 @@ export const api = {
       tournamentId: string;
       description?: string;
       joinCode?: string;
-      maxEntriesPerMember?: number;
     },
     token: string,
   ) =>
