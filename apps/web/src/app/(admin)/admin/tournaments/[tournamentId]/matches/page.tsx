@@ -19,6 +19,13 @@ type ScoreDraft = {
   awayScore: string;
 };
 
+function getSideLabel(match: AdminMatch, side: 'home' | 'away') {
+  if (side === 'home') {
+    return match.homeTournamentTeam?.team.name ?? match.homeSlotLabel ?? 'TBD';
+  }
+  return match.awayTournamentTeam?.team.name ?? match.awaySlotLabel ?? 'TBD';
+}
+
 export default function TournamentMatchesPage() {
   const params = useParams<{ tournamentId: string }>();
   const tournamentId = params?.tournamentId ?? '';
@@ -129,7 +136,7 @@ export default function TournamentMatchesPage() {
         {matches.map((match) => (
           <article key={match.id} className="grid gap-3 rounded-2xl border border-border/70 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-semibold">{match.homeTournamentTeam.team.name} vs {match.awayTournamentTeam.team.name}</p>
+              <p className="font-semibold">{getSideLabel(match, 'home')} vs {getSideLabel(match, 'away')}</p>
               <p className="text-xs text-muted-foreground">{formatDateTime(match.kickoffAt)}</p>
             </div>
             <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr_auto] sm:items-end">

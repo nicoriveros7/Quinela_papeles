@@ -27,6 +27,11 @@ enum TournamentStatus {
 
 enum MatchStage {
   GROUP
+  ROUND_OF_32
+  ROUND_OF_16
+  QUARTER_FINAL
+  SEMI_FINAL
+  THIRD_PLACE
   KNOCKOUT
   PLAYOFF
   FINAL
@@ -203,6 +208,7 @@ model TournamentTeam {
 
 model Venue {
   id          String   @id @default(cuid())
+  slug        String?  @unique
   name        String
   city        String
   countryCode String?
@@ -219,8 +225,10 @@ model Match {
   id                   String      @id @default(cuid())
   tournamentId         String
   groupId              String?
-  homeTournamentTeamId String
-  awayTournamentTeamId String
+  homeTournamentTeamId String?
+  awayTournamentTeamId String?
+  homeSlotLabel        String?
+  awaySlotLabel        String?
   venueId              String?
   stage                MatchStage  @default(GROUP)
   roundLabel           String?
@@ -237,8 +245,8 @@ model Match {
 
   tournament         Tournament        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   group              TournamentGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  homeTournamentTeam TournamentTeam    @relation("HomeTournamentTeam", fields: [homeTournamentTeamId], references: [id], onDelete: Restrict)
-  awayTournamentTeam TournamentTeam    @relation("AwayTournamentTeam", fields: [awayTournamentTeamId], references: [id], onDelete: Restrict)
+  homeTournamentTeam TournamentTeam?   @relation("HomeTournamentTeam", fields: [homeTournamentTeamId], references: [id], onDelete: Restrict)
+  awayTournamentTeam TournamentTeam?   @relation("AwayTournamentTeam", fields: [awayTournamentTeamId], references: [id], onDelete: Restrict)
   venue              Venue?            @relation(fields: [venueId], references: [id], onDelete: SetNull)
   predictions        MatchPrediction[]
   questions          MatchQuestion[]

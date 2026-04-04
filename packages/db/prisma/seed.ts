@@ -1,249 +1,34 @@
-// @ts-nocheck
+import { MatchStage, PrismaClient, SystemRole } from '@prisma/client';
 
-import {
-  PrismaClient,
-  QuestionAnswerType,
-  QuestionResolutionMode,
-  SystemRole,
-} from '@prisma/client';
+import { fifa2026Venues } from './data/fifa-2026-venues.data';
+import { fifa2026GroupMatches } from './data/fifa-2026-group-matches.data';
+import { fifa2026KnockoutMatches } from './data/fifa-2026-knockout-matches.data';
 
 const prisma = new PrismaClient();
+const TOURNAMENT_SLUG = 'world-cup-2026';
 
-async function seed() {
-  const tournament = await prisma.tournament.upsert({
-    where: { slug: 'world-cup-2026-demo' },
-    update: {
-      name: 'World Cup 2026 Demo',
-      shortName: 'WC 2026',
-      status: 'PUBLISHED',
-      startDate: new Date('2026-06-11T18:00:00.000Z'),
-      endDate: new Date('2026-07-19T18:00:00.000Z'),
-      timezone: 'UTC',
-    },
-    create: {
-      slug: 'world-cup-2026-demo',
-      name: 'World Cup 2026 Demo',
-      shortName: 'WC 2026',
-      status: 'PUBLISHED',
-      startDate: new Date('2026-06-11T18:00:00.000Z'),
-      endDate: new Date('2026-07-19T18:00:00.000Z'),
-      timezone: 'UTC',
-    },
-  });
+const countryToIsoCode: Record<string, string> = {
+  USA: 'US',
+  Mexico: 'MX',
+  Canada: 'CA',
+};
 
-  const [groupA, groupB] = await Promise.all([
-    prisma.tournamentGroup.upsert({
-      where: {
-        tournamentId_code: {
-          tournamentId: tournament.id,
-          code: 'A',
-        },
-      },
-      update: { name: 'Group A', sortOrder: 1 },
-      create: {
-        tournamentId: tournament.id,
-        code: 'A',
-        name: 'Group A',
-        sortOrder: 1,
-      },
-    }),
-    prisma.tournamentGroup.upsert({
-      where: {
-        tournamentId_code: {
-          tournamentId: tournament.id,
-          code: 'B',
-        },
-      },
-      update: { name: 'Group B', sortOrder: 2 },
-      create: {
-        tournamentId: tournament.id,
-        code: 'B',
-        name: 'Group B',
-        sortOrder: 2,
-      },
-    }),
-  ]);
+function mapKnockoutStageToMatchStage(stage: (typeof fifa2026KnockoutMatches)[number]['stage']): MatchStage {
+  if (stage === 'ROUND_OF_32') return MatchStage.ROUND_OF_32;
+  if (stage === 'ROUND_OF_16') return MatchStage.ROUND_OF_16;
+  if (stage === 'QUARTER_FINAL') return MatchStage.QUARTER_FINAL;
+  if (stage === 'SEMI_FINAL') return MatchStage.SEMI_FINAL;
+  if (stage === 'THIRD_PLACE') return MatchStage.THIRD_PLACE;
+  return MatchStage.FINAL;
+}
 
-  const demoTeams = [
-    { slug: 'argentina', name: 'Argentina', code: 'ARG', countryCode: 'AR', groupId: groupA.id, seed: 1 },
-    { slug: 'japan', name: 'Japan', code: 'JPN', countryCode: 'JP', groupId: groupA.id, seed: 2 },
-    { slug: 'france', name: 'France', code: 'FRA', countryCode: 'FR', groupId: groupB.id, seed: 1 },
-    { slug: 'usa', name: 'United States', code: 'USA', countryCode: 'US', groupId: groupB.id, seed: 2 },
-  ] as const;
-
-  const teamRecords = await Promise.all(
-    demoTeams.map((team) =>
-      prisma.team.upsert({
-        where: { code: team.code },
-        update: {
-          slug: team.slug,
-          name: team.name,
-          countryCode: team.countryCode,
-        },
-        create: {
-          slug: team.slug,
-          name: team.name,
-          code: team.code,
-          countryCode: team.countryCode,
-        },
-      }),
-    ),
-  );
-
-  const tournamentTeams = await Promise.all(
-    teamRecords.map((team) => {
-      const teamInput = demoTeams.find((candidate) => candidate.code === team.code);
-      if (!teamInput) {
-        throw new Error(`Missing demo team config for code ${team.code}`);
-      }
-
-      return prisma.tournamentTeam.upsert({
-        where: {
-          tournamentId_teamId: {
-            tournamentId: tournament.id,
-            teamId: team.id,
-          },
-        },
-        update: {
-          groupId: teamInput.groupId,
-          seed: teamInput.seed,
-        },
-        create: {
-          tournamentId: tournament.id,
-          teamId: team.id,
-          groupId: teamInput.groupId,
-          seed: teamInput.seed,
-        },
-      });
-    }),
-  );
-
-  const tournamentTeamByCode = new Map(
-    tournamentTeams.map((item) => {
-      const team = teamRecords.find((candidate) => candidate.id === item.teamId);
-      return [team?.code, item] as const;
-    }),
-  );
-
-  const venue = await prisma.venue.upsert({
-    where: {
-      name_city: {
-        name: 'MetLife Stadium',
-        city: 'New York',
-      },
-    },
-    update: {
-      countryCode: 'US',
-      timezone: 'America/New_York',
-    },
-    create: {
-      name: 'MetLife Stadium',
-      city: 'New York',
-      countryCode: 'US',
-      timezone: 'America/New_York',
-    },
-  });
-
-  const match1 = await prisma.match.upsert({
-    where: {
-      tournamentId_matchNumber: {
-        tournamentId: tournament.id,
-        matchNumber: 1,
-      },
-    },
-    update: {
-      groupId: groupA.id,
-      homeTournamentTeamId: tournamentTeamByCode.get('ARG')!.id,
-      awayTournamentTeamId: tournamentTeamByCode.get('JPN')!.id,
-      venueId: venue.id,
-      stage: 'GROUP',
-      roundLabel: 'Matchday 1',
-      kickoffAt: new Date('2026-06-11T18:00:00.000Z'),
-      status: 'SCHEDULED',
-    },
-    create: {
-      tournamentId: tournament.id,
-      groupId: groupA.id,
-      homeTournamentTeamId: tournamentTeamByCode.get('ARG')!.id,
-      awayTournamentTeamId: tournamentTeamByCode.get('JPN')!.id,
-      venueId: venue.id,
-      stage: 'GROUP',
-      roundLabel: 'Matchday 1',
-      matchNumber: 1,
-      kickoffAt: new Date('2026-06-11T18:00:00.000Z'),
-      status: 'SCHEDULED',
-    },
-  });
-
-  const match2 = await prisma.match.upsert({
-    where: {
-      tournamentId_matchNumber: {
-        tournamentId: tournament.id,
-        matchNumber: 2,
-      },
-    },
-    update: {
-      groupId: groupB.id,
-      homeTournamentTeamId: tournamentTeamByCode.get('FRA')!.id,
-      awayTournamentTeamId: tournamentTeamByCode.get('USA')!.id,
-      venueId: venue.id,
-      stage: 'GROUP',
-      roundLabel: 'Matchday 1',
-      kickoffAt: new Date('2026-06-12T18:00:00.000Z'),
-      status: 'SCHEDULED',
-    },
-    create: {
-      tournamentId: tournament.id,
-      groupId: groupB.id,
-      homeTournamentTeamId: tournamentTeamByCode.get('FRA')!.id,
-      awayTournamentTeamId: tournamentTeamByCode.get('USA')!.id,
-      venueId: venue.id,
-      stage: 'GROUP',
-      roundLabel: 'Matchday 1',
-      matchNumber: 2,
-      kickoffAt: new Date('2026-06-12T18:00:00.000Z'),
-      status: 'SCHEDULED',
-    },
-  });
-
-  const match3 = await prisma.match.upsert({
-    where: {
-      tournamentId_matchNumber: {
-        tournamentId: tournament.id,
-        matchNumber: 3,
-      },
-    },
-    update: {
-      groupId: groupA.id,
-      homeTournamentTeamId: tournamentTeamByCode.get('ARG')!.id,
-      awayTournamentTeamId: tournamentTeamByCode.get('USA')!.id,
-      venueId: venue.id,
-      stage: 'GROUP',
-      roundLabel: 'Matchday 2',
-      kickoffAt: new Date('2026-06-16T18:00:00.000Z'),
-      status: 'SCHEDULED',
-    },
-    create: {
-      tournamentId: tournament.id,
-      groupId: groupA.id,
-      homeTournamentTeamId: tournamentTeamByCode.get('ARG')!.id,
-      awayTournamentTeamId: tournamentTeamByCode.get('USA')!.id,
-      venueId: venue.id,
-      stage: 'GROUP',
-      roundLabel: 'Matchday 2',
-      matchNumber: 3,
-      kickoffAt: new Date('2026-06-16T18:00:00.000Z'),
-      status: 'SCHEDULED',
-    },
-  });
-
+async function seedQuinelaDemoPool(tournamentId: string) {
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@quinela.demo' },
     update: {
       displayName: 'Admin User',
       systemRole: SystemRole.ADMIN,
       isActive: true,
-      lastLoginAt: new Date('2026-03-01T00:00:00.000Z'),
     },
     create: {
       email: 'admin@quinela.demo',
@@ -251,7 +36,6 @@ async function seed() {
       passwordHash: '$2b$10$demo.placeholder.hash.for.mvp.only',
       systemRole: SystemRole.ADMIN,
       isActive: true,
-      lastLoginAt: new Date('2026-03-01T00:00:00.000Z'),
     },
   });
 
@@ -287,12 +71,13 @@ async function seed() {
     },
   });
 
-  const pool = await prisma.pool.upsert({
+  const demoPool = await prisma.pool.upsert({
     where: { slug: 'quinela-demo-2026' },
     update: {
-      tournamentId: tournament.id,
+      tournamentId,
       ownerUserId: adminUser.id,
       name: 'Quinela Demo 2026',
+      description: 'Pool demo para predecir todo el calendario del Mundial 2026',
       visibility: 'PRIVATE',
       status: 'ACTIVE',
       joinCode: 'DEMO2026',
@@ -308,21 +93,15 @@ async function seed() {
         },
         bonus: {
           default: 2,
-          byAnswerType: {
-            BOOLEAN: 1,
-            SINGLE_CHOICE: 2,
-            TEAM_PICK: 2,
-            TIME_RANGE: 3,
-          },
         },
       },
     },
     create: {
-      tournamentId: tournament.id,
+      tournamentId,
       ownerUserId: adminUser.id,
       slug: 'quinela-demo-2026',
       name: 'Quinela Demo 2026',
-      description: 'Pool demo para validar flujo MVP',
+      description: 'Pool demo para predecir todo el calendario del Mundial 2026',
       visibility: 'PRIVATE',
       status: 'ACTIVE',
       joinCode: 'DEMO2026',
@@ -338,662 +117,403 @@ async function seed() {
         },
         bonus: {
           default: 2,
-          byAnswerType: {
-            BOOLEAN: 1,
-            SINGLE_CHOICE: 2,
-            TEAM_PICK: 2,
-            TIME_RANGE: 3,
-          },
         },
       },
     },
   });
 
-  const members = await Promise.all([
-    prisma.poolMember.upsert({
-      where: {
-        poolId_userId: {
-          poolId: pool.id,
-          userId: adminUser.id,
-        },
-      },
-      update: { role: 'OWNER', status: 'ACTIVE', leftAt: null },
-      create: {
-        poolId: pool.id,
-        userId: adminUser.id,
-        role: 'OWNER',
-        status: 'ACTIVE',
-      },
-    }),
-    prisma.poolMember.upsert({
-      where: {
-        poolId_userId: {
-          poolId: pool.id,
-          userId: userAna.id,
-        },
-      },
-      update: { role: 'MEMBER', status: 'ACTIVE', leftAt: null },
-      create: {
-        poolId: pool.id,
-        userId: userAna.id,
-        role: 'MEMBER',
-        status: 'ACTIVE',
-      },
-    }),
-    prisma.poolMember.upsert({
-      where: {
-        poolId_userId: {
-          poolId: pool.id,
-          userId: userLeo.id,
-        },
-      },
-      update: { role: 'MEMBER', status: 'ACTIVE', leftAt: null },
-      create: {
-        poolId: pool.id,
-        userId: userLeo.id,
-        role: 'MEMBER',
-        status: 'ACTIVE',
-      },
-    }),
-  ]);
-
-  const entryAdmin = await prisma.poolEntry.upsert({
+  await prisma.poolMember.upsert({
     where: {
       poolId_userId: {
-        poolId: pool.id,
+        poolId: demoPool.id,
         userId: adminUser.id,
       },
     },
-    update: { entryName: 'Admin Entry', status: 'ACTIVE' },
+    update: {
+      role: 'OWNER',
+      status: 'ACTIVE',
+      leftAt: null,
+    },
     create: {
-      poolId: pool.id,
+      poolId: demoPool.id,
       userId: adminUser.id,
-      entryNumber: 1,
-      entryName: 'Admin Entry',
+      role: 'OWNER',
       status: 'ACTIVE',
     },
   });
 
-  const entryAna = await prisma.poolEntry.upsert({
-    where: {
-      poolId_userId: {
-        poolId: pool.id,
-        userId: userAna.id,
-      },
-    },
-    update: { entryName: 'Ana Picks', status: 'ACTIVE' },
-    create: {
-      poolId: pool.id,
-      userId: userAna.id,
-      entryNumber: 1,
-      entryName: 'Ana Picks',
-      status: 'ACTIVE',
-    },
-  });
-
-  const entryLeo = await prisma.poolEntry.upsert({
-    where: {
-      poolId_userId: {
-        poolId: pool.id,
-        userId: userLeo.id,
-      },
-    },
-    update: { entryName: 'Leo Picks', status: 'ACTIVE' },
-    create: {
-      poolId: pool.id,
-      userId: userLeo.id,
-      entryNumber: 1,
-      entryName: 'Leo Picks',
-      status: 'ACTIVE',
-    },
-  });
-
-  const [tplFirstTeamToScore, tplGoalInFirstHalf, tplLastGoalTimeRange] = await Promise.all([
-    prisma.questionTemplate.upsert({
-      where: { code: 'first_team_to_score' },
-      update: {
-        title: 'First team to score',
-        answerType: QuestionAnswerType.TEAM_PICK,
-        defaultPoints: 2,
-        defaultScoringConfig: { mode: 'correct-option', points: 2 },
-      },
-      create: {
-        code: 'first_team_to_score',
-        title: 'First team to score',
-        description: 'Predict which team scores the first goal in the match.',
-        answerType: QuestionAnswerType.TEAM_PICK,
-        defaultPoints: 2,
-        defaultScoringConfig: { mode: 'correct-option', points: 2 },
-      },
-    }),
-    prisma.questionTemplate.upsert({
-      where: { code: 'goal_in_first_half' },
-      update: {
-        title: 'Goal in first half',
-        answerType: QuestionAnswerType.BOOLEAN,
-        defaultPoints: 1,
-        defaultScoringConfig: { mode: 'boolean', points: 1 },
-      },
-      create: {
-        code: 'goal_in_first_half',
-        title: 'Goal in first half',
-        description: 'Will there be at least one goal in the first half?',
-        answerType: QuestionAnswerType.BOOLEAN,
-        defaultPoints: 1,
-        defaultScoringConfig: { mode: 'boolean', points: 1 },
-        defaultAnswerConfig: { trueLabel: 'Yes', falseLabel: 'No' },
-      },
-    }),
-    prisma.questionTemplate.upsert({
-      where: { code: 'last_goal_time_range' },
-      update: {
-        title: 'Last goal time range',
-        answerType: QuestionAnswerType.TIME_RANGE,
-        defaultPoints: 3,
-        defaultScoringConfig: { mode: 'time-range', points: 3 },
-        defaultOptionsConfig: {
-          ranges: ['00-30', '31-60', '61-75', '76-90+'],
+  for (const member of [userAna, userLeo]) {
+    await prisma.poolMember.upsert({
+      where: {
+        poolId_userId: {
+          poolId: demoPool.id,
+          userId: member.id,
         },
       },
+      update: {
+        role: 'MEMBER',
+        status: 'ACTIVE',
+        leftAt: null,
+      },
       create: {
-        code: 'last_goal_time_range',
-        title: 'Last goal time range',
-        description: 'Predict the minute range of the last goal.',
-        answerType: QuestionAnswerType.TIME_RANGE,
-        defaultPoints: 3,
-        defaultScoringConfig: { mode: 'time-range', points: 3 },
-        defaultOptionsConfig: {
-          ranges: ['00-30', '31-60', '61-75', '76-90+'],
+        poolId: demoPool.id,
+        userId: member.id,
+        role: 'MEMBER',
+        status: 'ACTIVE',
+      },
+    });
+  }
+
+  for (const entry of [
+    { userId: adminUser.id, entryName: 'Admin Entry' },
+    { userId: userAna.id, entryName: 'Ana Picks' },
+    { userId: userLeo.id, entryName: 'Leo Picks' },
+  ]) {
+    await prisma.poolEntry.upsert({
+      where: {
+        poolId_userId: {
+          poolId: demoPool.id,
+          userId: entry.userId,
+        },
+      },
+      update: {
+        entryName: entry.entryName,
+        entryNumber: 1,
+        status: 'ACTIVE',
+      },
+      create: {
+        poolId: demoPool.id,
+        userId: entry.userId,
+        entryNumber: 1,
+        entryName: entry.entryName,
+        status: 'ACTIVE',
+      },
+    });
+  }
+
+  return demoPool;
+}
+
+async function seedFifa2026Calendar() {
+  const kickoffValues = [...fifa2026GroupMatches, ...fifa2026KnockoutMatches].map((m) => new Date(m.kickoffEt).getTime());
+  const tournament = await prisma.tournament.upsert({
+    where: { slug: TOURNAMENT_SLUG },
+    update: {
+      name: 'FIFA World Cup 2026',
+      shortName: 'WC 2026',
+      status: 'PUBLISHED',
+      startDate: new Date(Math.min(...kickoffValues)),
+      endDate: new Date(Math.max(...kickoffValues)),
+      timezone: 'UTC',
+    },
+    create: {
+      slug: TOURNAMENT_SLUG,
+      name: 'FIFA World Cup 2026',
+      shortName: 'WC 2026',
+      sport: 'FOOTBALL',
+      status: 'PUBLISHED',
+      startDate: new Date(Math.min(...kickoffValues)),
+      endDate: new Date(Math.max(...kickoffValues)),
+      timezone: 'UTC',
+    },
+    select: { id: true, slug: true },
+  });
+
+  for (const code of ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as const) {
+    await prisma.tournamentGroup.upsert({
+      where: {
+        tournamentId_code: {
+          tournamentId: tournament.id,
+          code,
+        },
+      },
+      update: {
+        name: `Group ${code}`,
+      },
+      create: {
+        tournamentId: tournament.id,
+        code,
+        name: `Group ${code}`,
+        sortOrder: code.charCodeAt(0) - 64,
+      },
+    });
+  }
+
+  const venueByName = new Map<string, { id: string; name: string }>();
+  for (const venueSeed of fifa2026Venues) {
+    const venue = await prisma.venue.upsert({
+      where: {
+        slug: venueSeed.slug,
+      },
+      update: {
+        slug: venueSeed.slug,
+        name: venueSeed.name,
+        city: venueSeed.city,
+        countryCode: countryToIsoCode[venueSeed.country] ?? null,
+        timezone: 'America/New_York',
+      },
+      create: {
+        slug: venueSeed.slug,
+        name: venueSeed.name,
+        city: venueSeed.city,
+        countryCode: countryToIsoCode[venueSeed.country] ?? null,
+        timezone: 'America/New_York',
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    venueByName.set(venue.name, venue);
+  }
+
+  const groupRows = await prisma.tournamentGroup.findMany({
+    where: {
+      tournamentId: tournament.id,
+      code: { in: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] },
+    },
+    select: {
+      id: true,
+      code: true,
+    },
+  });
+
+  const groupByCode = new Map(groupRows.map((group) => [group.code, group]));
+
+  const groupByTeamCode = new Map<string, string>();
+  for (const match of fifa2026GroupMatches) {
+    if (!groupByTeamCode.has(match.homeCode)) {
+      groupByTeamCode.set(match.homeCode, match.groupCode);
+    }
+    if (!groupByTeamCode.has(match.awayCode)) {
+      groupByTeamCode.set(match.awayCode, match.groupCode);
+    }
+  }
+
+  const allTeamCodes = Array.from(
+    new Set(fifa2026GroupMatches.flatMap((m) => [m.homeCode, m.awayCode])),
+  );
+
+  for (const code of allTeamCodes) {
+    const team = await prisma.team.upsert({
+      where: { code },
+      update: {},
+      create: {
+        code,
+        slug: code.toLowerCase(),
+        name: code,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const groupCode = groupByTeamCode.get(code);
+    if (!groupCode) {
+      continue;
+    }
+
+    const group = groupByCode.get(groupCode);
+    if (!group) {
+      continue;
+    }
+
+    await prisma.tournamentTeam.upsert({
+      where: {
+        tournamentId_teamId: {
+          tournamentId: tournament.id,
+          teamId: team.id,
+        },
+      },
+      update: {
+        groupId: group.id,
+      },
+      create: {
+        tournamentId: tournament.id,
+        teamId: team.id,
+        groupId: group.id,
+      },
+    });
+  }
+
+  const teamRows = await prisma.tournamentTeam.findMany({
+    where: { tournamentId: tournament.id },
+    select: {
+      id: true,
+      team: {
+        select: {
+          code: true,
+        },
+      },
+    },
+  });
+
+  const tournamentTeamByCode = new Map(teamRows.map((row) => [row.team.code, row]));
+
+  for (const groupMatch of fifa2026GroupMatches) {
+    const group = groupByCode.get(groupMatch.groupCode);
+    if (!group) {
+      throw new Error(`Missing TournamentGroup code ${groupMatch.groupCode} for tournament ${TOURNAMENT_SLUG}.`);
+    }
+
+    const homeTeam = tournamentTeamByCode.get(groupMatch.homeCode);
+    const awayTeam = tournamentTeamByCode.get(groupMatch.awayCode);
+    if (!homeTeam || !awayTeam) {
+      throw new Error(
+        `Missing TournamentTeam mapping for group match ${groupMatch.matchNumber}: ${groupMatch.homeCode} vs ${groupMatch.awayCode}.`,
+      );
+    }
+
+    const venue = venueByName.get(groupMatch.venueName);
+    if (!venue) {
+      throw new Error(`Missing venue mapping for group match ${groupMatch.matchNumber}: ${groupMatch.venueName}.`);
+    }
+
+    await prisma.match.upsert({
+      where: {
+        tournamentId_matchNumber: {
+          tournamentId: tournament.id,
+          matchNumber: groupMatch.matchNumber,
+        },
+      },
+      update: {
+        groupId: group.id,
+        homeTournamentTeamId: homeTeam.id,
+        awayTournamentTeamId: awayTeam.id,
+        homeSlotLabel: null,
+        awaySlotLabel: null,
+        venueId: venue.id,
+        stage: MatchStage.GROUP,
+        roundLabel: groupMatch.roundLabel,
+        kickoffAt: new Date(groupMatch.kickoffEt),
+        status: 'SCHEDULED',
+      },
+      create: {
+        tournamentId: tournament.id,
+        groupId: group.id,
+        homeTournamentTeamId: homeTeam.id,
+        awayTournamentTeamId: awayTeam.id,
+        homeSlotLabel: null,
+        awaySlotLabel: null,
+        venueId: venue.id,
+        stage: MatchStage.GROUP,
+        roundLabel: groupMatch.roundLabel,
+        matchNumber: groupMatch.matchNumber,
+        kickoffAt: new Date(groupMatch.kickoffEt),
+        status: 'SCHEDULED',
+      },
+    });
+  }
+
+  for (const knockoutMatch of fifa2026KnockoutMatches) {
+    const venue = venueByName.get(knockoutMatch.venueName);
+    if (!venue) {
+      throw new Error(`Missing venue mapping for knockout match ${knockoutMatch.matchNumber}: ${knockoutMatch.venueName}.`);
+    }
+
+    await prisma.match.upsert({
+      where: {
+        tournamentId_matchNumber: {
+          tournamentId: tournament.id,
+          matchNumber: knockoutMatch.matchNumber,
+        },
+      },
+      update: {
+        groupId: null,
+        homeTournamentTeamId: null,
+        awayTournamentTeamId: null,
+        homeSlotLabel: knockoutMatch.homeSlotLabel,
+        awaySlotLabel: knockoutMatch.awaySlotLabel,
+        venueId: venue.id,
+        stage: mapKnockoutStageToMatchStage(knockoutMatch.stage),
+        roundLabel: knockoutMatch.roundLabel,
+        kickoffAt: new Date(knockoutMatch.kickoffEt),
+        status: 'SCHEDULED',
+      },
+      create: {
+        tournamentId: tournament.id,
+        groupId: null,
+        homeTournamentTeamId: null,
+        awayTournamentTeamId: null,
+        homeSlotLabel: knockoutMatch.homeSlotLabel,
+        awaySlotLabel: knockoutMatch.awaySlotLabel,
+        venueId: venue.id,
+        stage: mapKnockoutStageToMatchStage(knockoutMatch.stage),
+        roundLabel: knockoutMatch.roundLabel,
+        matchNumber: knockoutMatch.matchNumber,
+        kickoffAt: new Date(knockoutMatch.kickoffEt),
+        status: 'SCHEDULED',
+      },
+    });
+  }
+
+  const [totalMatches, groupMatches, knockoutMatches] = await Promise.all([
+    prisma.match.count({ where: { tournamentId: tournament.id } }),
+    prisma.match.count({ where: { tournamentId: tournament.id, stage: MatchStage.GROUP } }),
+    prisma.match.count({
+      where: {
+        tournamentId: tournament.id,
+        stage: {
+          in: [
+            MatchStage.ROUND_OF_32,
+            MatchStage.ROUND_OF_16,
+            MatchStage.QUARTER_FINAL,
+            MatchStage.SEMI_FINAL,
+            MatchStage.THIRD_PLACE,
+            MatchStage.FINAL,
+          ],
         },
       },
     }),
   ]);
 
-  const qFirstTeam = await prisma.matchQuestion.upsert({
-    where: {
-      matchId_key: {
-        matchId: match1.id,
-        key: 'first_team_to_score',
-      },
-    },
-    update: {
-      templateId: tplFirstTeamToScore.id,
-      questionText: 'Which team will score first?',
-      answerType: QuestionAnswerType.TEAM_PICK,
-      pointsOverride: 2,
-      resolutionMode: QuestionResolutionMode.MATCH_RESULT_DERIVED,
-      isPublished: true,
-      isResolved: false,
-      lockAt: new Date('2026-06-11T17:45:00.000Z'),
-      resolvedAt: null,
-      correctOptionId: null,
-    },
-    create: {
-      matchId: match1.id,
-      templateId: tplFirstTeamToScore.id,
-      key: 'first_team_to_score',
-      questionText: 'Which team will score first?',
-      answerType: QuestionAnswerType.TEAM_PICK,
-      pointsOverride: 2,
-      resolutionMode: QuestionResolutionMode.MATCH_RESULT_DERIVED,
-      isPublished: true,
-      isResolved: false,
-      lockAt: new Date('2026-06-11T17:45:00.000Z'),
-    },
-  });
+  if (groupByCode.size !== 12) {
+    throw new Error(`Validation failed: expected 12 groups, found ${groupByCode.size}.`);
+  }
 
-  const qGoalFirstHalf = await prisma.matchQuestion.upsert({
-    where: {
-      matchId_key: {
-        matchId: match1.id,
-        key: 'goal_in_first_half',
-      },
-    },
-    update: {
-      templateId: tplGoalInFirstHalf.id,
-      questionText: 'Will there be a goal in the first half?',
-      answerType: QuestionAnswerType.BOOLEAN,
-      pointsOverride: 1,
-      answerConfig: { trueLabel: 'Yes', falseLabel: 'No' },
-      resolutionMode: QuestionResolutionMode.MATCH_RESULT_DERIVED,
-      isPublished: true,
-      isResolved: false,
-      lockAt: new Date('2026-06-11T17:45:00.000Z'),
-      resolvedAt: null,
-      correctOptionId: null,
-    },
-    create: {
-      matchId: match1.id,
-      templateId: tplGoalInFirstHalf.id,
-      key: 'goal_in_first_half',
-      questionText: 'Will there be a goal in the first half?',
-      answerType: QuestionAnswerType.BOOLEAN,
-      pointsOverride: 1,
-      answerConfig: { trueLabel: 'Yes', falseLabel: 'No' },
-      resolutionMode: QuestionResolutionMode.MATCH_RESULT_DERIVED,
-      isPublished: true,
-      isResolved: false,
-      lockAt: new Date('2026-06-11T17:45:00.000Z'),
-    },
-  });
+  if (fifa2026GroupMatches.length !== 72) {
+    throw new Error(`Validation failed in dataset: expected 72 group matches, found ${fifa2026GroupMatches.length}.`);
+  }
 
-  const qLastGoalRange = await prisma.matchQuestion.upsert({
-    where: {
-      matchId_key: {
-        matchId: match1.id,
-        key: 'last_goal_time_range',
-      },
-    },
-    update: {
-      templateId: tplLastGoalTimeRange.id,
-      questionText: 'In what time range will the last goal be scored?',
-      answerType: QuestionAnswerType.TIME_RANGE,
-      pointsOverride: 3,
-      answerConfig: {
-        ranges: ['00-30', '31-60', '61-75', '76-90+'],
-      },
-      resolutionMode: QuestionResolutionMode.MANUAL,
-      isPublished: true,
-      isResolved: false,
-      lockAt: new Date('2026-06-11T17:45:00.000Z'),
-      resolvedAt: null,
-      correctOptionId: null,
-    },
-    create: {
-      matchId: match1.id,
-      templateId: tplLastGoalTimeRange.id,
-      key: 'last_goal_time_range',
-      questionText: 'In what time range will the last goal be scored?',
-      answerType: QuestionAnswerType.TIME_RANGE,
-      pointsOverride: 3,
-      answerConfig: {
-        ranges: ['00-30', '31-60', '61-75', '76-90+'],
-      },
-      resolutionMode: QuestionResolutionMode.MANUAL,
-      isPublished: true,
-      isResolved: false,
-      lockAt: new Date('2026-06-11T17:45:00.000Z'),
-    },
-  });
+  if (fifa2026KnockoutMatches.length !== 32) {
+    throw new Error(`Validation failed in dataset: expected 32 knockout matches, found ${fifa2026KnockoutMatches.length}.`);
+  }
 
-  const firstTeamOptionArg = await prisma.matchQuestionOption.upsert({
-    where: {
-      matchQuestionId_key: {
-        matchQuestionId: qFirstTeam.id,
-        key: 'ARG',
-      },
-    },
-    update: {
-      label: 'Argentina',
-      teamId: teamRecords.find((team) => team.code === 'ARG')!.id,
-      sortOrder: 1,
-      isActive: true,
-    },
-    create: {
-      matchQuestionId: qFirstTeam.id,
-      key: 'ARG',
-      label: 'Argentina',
-      teamId: teamRecords.find((team) => team.code === 'ARG')!.id,
-      sortOrder: 1,
-      isActive: true,
-    },
-  });
+  if (totalMatches !== 104 || groupMatches !== 72 || knockoutMatches !== 32) {
+    throw new Error(
+      `Validation failed after seeding: total=${totalMatches}, group=${groupMatches}, knockout=${knockoutMatches}.`,
+    );
+  }
 
-  const firstTeamOptionJpn = await prisma.matchQuestionOption.upsert({
-    where: {
-      matchQuestionId_key: {
-        matchQuestionId: qFirstTeam.id,
-        key: 'JPN',
-      },
-    },
-    update: {
-      label: 'Japan',
-      teamId: teamRecords.find((team) => team.code === 'JPN')!.id,
-      sortOrder: 2,
-      isActive: true,
-    },
-    create: {
-      matchQuestionId: qFirstTeam.id,
-      key: 'JPN',
-      label: 'Japan',
-      teamId: teamRecords.find((team) => team.code === 'JPN')!.id,
-      sortOrder: 2,
-      isActive: true,
-    },
-  });
+  const demoPool = await seedQuinelaDemoPool(tournament.id);
+  const demoPoolMatches = await prisma.match.count({ where: { tournamentId: demoPool.tournamentId } });
 
-  const goalFirstHalfYes = await prisma.matchQuestionOption.upsert({
-    where: {
-      matchQuestionId_key: {
-        matchQuestionId: qGoalFirstHalf.id,
-        key: 'YES',
-      },
-    },
-    update: {
-      label: 'Yes',
-      sortOrder: 1,
-      isActive: true,
-      optionConfig: { booleanValue: true },
-    },
-    create: {
-      matchQuestionId: qGoalFirstHalf.id,
-      key: 'YES',
-      label: 'Yes',
-      sortOrder: 1,
-      isActive: true,
-      optionConfig: { booleanValue: true },
-    },
-  });
-
-  const goalFirstHalfNo = await prisma.matchQuestionOption.upsert({
-    where: {
-      matchQuestionId_key: {
-        matchQuestionId: qGoalFirstHalf.id,
-        key: 'NO',
-      },
-    },
-    update: {
-      label: 'No',
-      sortOrder: 2,
-      isActive: true,
-      optionConfig: { booleanValue: false },
-    },
-    create: {
-      matchQuestionId: qGoalFirstHalf.id,
-      key: 'NO',
-      label: 'No',
-      sortOrder: 2,
-      isActive: true,
-      optionConfig: { booleanValue: false },
-    },
-  });
-
-  const lastGoal00_30 = await prisma.matchQuestionOption.upsert({
-    where: {
-      matchQuestionId_key: {
-        matchQuestionId: qLastGoalRange.id,
-        key: '00_30',
-      },
-    },
-    update: {
-      label: '00-30',
-      sortOrder: 1,
-      isActive: true,
-      optionConfig: { fromMinute: 0, toMinute: 30 },
-    },
-    create: {
-      matchQuestionId: qLastGoalRange.id,
-      key: '00_30',
-      label: '00-30',
-      sortOrder: 1,
-      isActive: true,
-      optionConfig: { fromMinute: 0, toMinute: 30 },
-    },
-  });
-
-  const lastGoal31_60 = await prisma.matchQuestionOption.upsert({
-    where: {
-      matchQuestionId_key: {
-        matchQuestionId: qLastGoalRange.id,
-        key: '31_60',
-      },
-    },
-    update: {
-      label: '31-60',
-      sortOrder: 2,
-      isActive: true,
-      optionConfig: { fromMinute: 31, toMinute: 60 },
-    },
-    create: {
-      matchQuestionId: qLastGoalRange.id,
-      key: '31_60',
-      label: '31-60',
-      sortOrder: 2,
-      isActive: true,
-      optionConfig: { fromMinute: 31, toMinute: 60 },
-    },
-  });
-
-  const lastGoal61_75 = await prisma.matchQuestionOption.upsert({
-    where: {
-      matchQuestionId_key: {
-        matchQuestionId: qLastGoalRange.id,
-        key: '61_75',
-      },
-    },
-    update: {
-      label: '61-75',
-      sortOrder: 3,
-      isActive: true,
-      optionConfig: { fromMinute: 61, toMinute: 75 },
-    },
-    create: {
-      matchQuestionId: qLastGoalRange.id,
-      key: '61_75',
-      label: '61-75',
-      sortOrder: 3,
-      isActive: true,
-      optionConfig: { fromMinute: 61, toMinute: 75 },
-    },
-  });
-
-  const lastGoal76_90 = await prisma.matchQuestionOption.upsert({
-    where: {
-      matchQuestionId_key: {
-        matchQuestionId: qLastGoalRange.id,
-        key: '76_90P',
-      },
-    },
-    update: {
-      label: '76-90+',
-      sortOrder: 4,
-      isActive: true,
-      optionConfig: { fromMinute: 76, toMinute: 130 },
-    },
-    create: {
-      matchQuestionId: qLastGoalRange.id,
-      key: '76_90P',
-      label: '76-90+',
-      sortOrder: 4,
-      isActive: true,
-      optionConfig: { fromMinute: 76, toMinute: 130 },
-    },
-  });
-
-  await prisma.matchPrediction.upsert({
-    where: {
-      poolEntryId_matchId: {
-        poolEntryId: entryAna.id,
-        matchId: match1.id,
-      },
-    },
-    update: {
-      predictedHomeScore: 2,
-      predictedAwayScore: 1,
-      pointsAwarded: 0,
-      isScored: false,
-      scoredAt: null,
-    },
-    create: {
-      poolEntryId: entryAna.id,
-      matchId: match1.id,
-      predictedHomeScore: 2,
-      predictedAwayScore: 1,
-    },
-  });
-
-  await prisma.matchPrediction.upsert({
-    where: {
-      poolEntryId_matchId: {
-        poolEntryId: entryLeo.id,
-        matchId: match1.id,
-      },
-    },
-    update: {
-      predictedHomeScore: 1,
-      predictedAwayScore: 1,
-      pointsAwarded: 0,
-      isScored: false,
-      scoredAt: null,
-    },
-    create: {
-      poolEntryId: entryLeo.id,
-      matchId: match1.id,
-      predictedHomeScore: 1,
-      predictedAwayScore: 1,
-    },
-  });
-
-  await prisma.matchQuestionPrediction.upsert({
-    where: {
-      poolEntryId_matchQuestionId: {
-        poolEntryId: entryAna.id,
-        matchQuestionId: qFirstTeam.id,
-      },
-    },
-    update: {
-      selectedOptionId: firstTeamOptionArg.id,
-      selectedTeamId: teamRecords.find((team) => team.code === 'ARG')!.id,
-      selectedBoolean: null,
-      selectedTimeRangeKey: null,
-      pointsAwarded: 0,
-      isScored: false,
-      scoredAt: null,
-    },
-    create: {
-      poolEntryId: entryAna.id,
-      matchQuestionId: qFirstTeam.id,
-      selectedOptionId: firstTeamOptionArg.id,
-      selectedTeamId: teamRecords.find((team) => team.code === 'ARG')!.id,
-    },
-  });
-
-  await prisma.matchQuestionPrediction.upsert({
-    where: {
-      poolEntryId_matchQuestionId: {
-        poolEntryId: entryAna.id,
-        matchQuestionId: qGoalFirstHalf.id,
-      },
-    },
-    update: {
-      selectedOptionId: goalFirstHalfYes.id,
-      selectedBoolean: true,
-      selectedTeamId: null,
-      selectedTimeRangeKey: null,
-      pointsAwarded: 0,
-      isScored: false,
-      scoredAt: null,
-    },
-    create: {
-      poolEntryId: entryAna.id,
-      matchQuestionId: qGoalFirstHalf.id,
-      selectedOptionId: goalFirstHalfYes.id,
-      selectedBoolean: true,
-    },
-  });
-
-  await prisma.matchQuestionPrediction.upsert({
-    where: {
-      poolEntryId_matchQuestionId: {
-        poolEntryId: entryAna.id,
-        matchQuestionId: qLastGoalRange.id,
-      },
-    },
-    update: {
-      selectedOptionId: lastGoal61_75.id,
-      selectedBoolean: null,
-      selectedTeamId: null,
-      selectedTimeRangeKey: '61_75',
-      pointsAwarded: 0,
-      isScored: false,
-      scoredAt: null,
-    },
-    create: {
-      poolEntryId: entryAna.id,
-      matchQuestionId: qLastGoalRange.id,
-      selectedOptionId: lastGoal61_75.id,
-      selectedTimeRangeKey: '61_75',
-    },
-  });
-
-  await prisma.matchQuestionPrediction.upsert({
-    where: {
-      poolEntryId_matchQuestionId: {
-        poolEntryId: entryLeo.id,
-        matchQuestionId: qGoalFirstHalf.id,
-      },
-    },
-    update: {
-      selectedOptionId: goalFirstHalfNo.id,
-      selectedBoolean: false,
-      selectedTeamId: null,
-      selectedTimeRangeKey: null,
-      pointsAwarded: 0,
-      isScored: false,
-      scoredAt: null,
-    },
-    create: {
-      poolEntryId: entryLeo.id,
-      matchQuestionId: qGoalFirstHalf.id,
-      selectedOptionId: goalFirstHalfNo.id,
-      selectedBoolean: false,
-    },
-  });
-
-  await prisma.auditLog.deleteMany({
-    where: {
-      entityType: 'POOL',
-      entityId: pool.id,
-      metadata: {
-        path: ['source'],
-        equals: 'seed',
-      },
-    },
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      actorUserId: adminUser.id,
-      action: 'CREATE',
-      entityType: 'POOL',
-      entityId: pool.id,
-      tournamentId: tournament.id,
-      poolId: pool.id,
-      metadata: {
-        source: 'seed',
-        note: 'Demo pool bootstrapped with sample users and entries',
-      },
-    },
-  });
-
-  console.info('Seed MVP ejecutado correctamente.');
+  console.info('FIFA World Cup 2026 calendar seeded successfully.');
   console.info(
     JSON.stringify(
       {
-        tournament: tournament.slug,
-        groups: [groupA.code, groupB.code],
-        teams: teamRecords.length,
-        matches: [match1.matchNumber, match2.matchNumber, match3.matchNumber],
-        users: [adminUser.email, userAna.email, userLeo.email],
-        pool: pool.slug,
-        members: members.length,
-        entries: [entryAdmin.id, entryAna.id, entryLeo.id],
+        tournamentSlug: tournament.slug,
+        groups: groupByCode.size,
+        venues: fifa2026Venues.length,
+        groupMatches: fifa2026GroupMatches.length,
+        knockoutMatches: fifa2026KnockoutMatches.length,
+        totalMatches,
+        demoPoolSlug: demoPool.slug,
+        demoPoolTournamentMatches: demoPoolMatches,
       },
       null,
       2,
     ),
   );
+  console.info('kickoffEt values are ET offsets and are persisted as UTC DateTime via new Date(kickoffEt).');
 }
 
-seed()
-  .then(() => {
-    return prisma.$disconnect();
-  })
-  .then(() => {
-    process.exit(0);
-  })
+seedFifa2026Calendar()
   .catch((error) => {
     console.error(error);
-    void prisma.$disconnect();
     process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
   });

@@ -13,6 +13,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmActionButton } from '@/components/ui/confirm-action-button';
 import { StatePanel } from '@/components/ui/state-panel';
 
+function getSideLabel(match: AdminMatch, side: 'home' | 'away') {
+  if (side === 'home') {
+    return match.homeTournamentTeam?.team.name ?? match.homeSlotLabel ?? 'TBD';
+  }
+  return match.awayTournamentTeam?.team.name ?? match.awaySlotLabel ?? 'TBD';
+}
+
 export default function PoolMatchesPage() {
   const params = useParams<{ poolId: string }>();
   const poolId = params?.poolId ?? '';
@@ -107,7 +114,7 @@ export default function PoolMatchesPage() {
         {matches.map((match) => (
           <article key={match.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/70 p-3 text-sm">
             <div>
-              <p className="font-semibold">{match.homeTournamentTeam.team.name} vs {match.awayTournamentTeam.team.name}</p>
+              <p className="font-semibold">{getSideLabel(match, 'home')} vs {getSideLabel(match, 'away')}</p>
               <p className="text-xs text-muted-foreground">{formatDateTime(match.kickoffAt)}</p>
             </div>
             <div className="flex items-center gap-3">
