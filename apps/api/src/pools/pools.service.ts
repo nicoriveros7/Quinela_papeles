@@ -185,6 +185,13 @@ export class PoolsService {
         stage: true,
         roundLabel: true,
         matchNumber: true,
+        group: {
+          select: {
+            code: true,
+          },
+        },
+        homeSlotLabel: true,
+        awaySlotLabel: true,
         kickoffAt: true,
         status: true,
         homeScore: true,

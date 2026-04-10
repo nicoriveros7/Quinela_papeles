@@ -78,12 +78,15 @@ export type PoolMatch = {
   stage: string;
   roundLabel: string | null;
   matchNumber: number | null;
+  group: { code: string } | null;
+  homeSlotLabel: string | null;
+  awaySlotLabel: string | null;
   kickoffAt: string;
   status: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'POSTPONED' | 'CANCELLED';
   homeScore: number | null;
   awayScore: number | null;
-  homeTournamentTeam: { team: { id: string; name: string; code: string } };
-  awayTournamentTeam: { team: { id: string; name: string; code: string } };
+  homeTournamentTeam: { team: { id: string; name: string; code: string } } | null;
+  awayTournamentTeam: { team: { id: string; name: string; code: string } } | null;
   questions: PoolMatchQuestion[];
 };
 
@@ -191,12 +194,14 @@ export type AdminMatch = {
   stage: string;
   roundLabel: string | null;
   matchNumber: number | null;
+  homeSlotLabel: string | null;
+  awaySlotLabel: string | null;
   kickoffAt: string;
   status: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'POSTPONED' | 'CANCELLED';
   homeScore: number | null;
   awayScore: number | null;
-  homeTournamentTeam: { team: { id: string; name: string; code: string } };
-  awayTournamentTeam: { team: { id: string; name: string; code: string } };
+  homeTournamentTeam: { team: { id: string; name: string; code: string } } | null;
+  awayTournamentTeam: { team: { id: string; name: string; code: string } } | null;
   _count: {
     questions: number;
     predictions: number;
