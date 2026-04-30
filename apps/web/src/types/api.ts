@@ -61,12 +61,13 @@ export type MatchQuestionOption = {
   key: string;
   label: string;
   teamId: string | null;
+  playerId: string | null;
 };
 
 export type PoolMatchQuestion = {
   id: string;
   questionText: string;
-  answerType: 'BOOLEAN' | 'SINGLE_CHOICE' | 'TEAM_PICK' | 'TIME_RANGE';
+  answerType: 'BOOLEAN' | 'SINGLE_CHOICE' | 'TEAM_PICK' | 'PLAYER_PICK' | 'TIME_RANGE';
   isResolved: boolean;
   pointsOverride: number | null;
   lockAt: string | null;
@@ -106,6 +107,17 @@ export type MatchPrediction = {
   scoredAt: string | null;
 };
 
+export type MatchPredictionBreakdown = {
+  exactScore: number;
+  goalDifference: number;
+  winner: number;
+  loser: number;
+  homeGoals: number;
+  awayGoals: number;
+  totalGoals: number;
+  totalPoints: number;
+};
+
 export type MatchQuestionPrediction = {
   id: string;
   poolEntryId: string;
@@ -113,6 +125,7 @@ export type MatchQuestionPrediction = {
   selectedOptionId: string | null;
   selectedBoolean: boolean | null;
   selectedTeamId: string | null;
+  selectedPlayerId: string | null;
   selectedTimeRangeKey: string | null;
   pointsAwarded: number;
   isScored: boolean;
@@ -122,12 +135,18 @@ export type MatchQuestionPrediction = {
 export type MatchPredictionsBundle = {
   poolId: string;
   entryId: string;
+  viewer?: {
+    isOwner: boolean;
+  };
   match: {
     id: string;
     kickoffAt: string;
     status: string;
+    homeScore: number | null;
+    awayScore: number | null;
   };
   matchPrediction: MatchPrediction | null;
+  matchPredictionBreakdown: MatchPredictionBreakdown | null;
   questions: PoolMatchQuestion[];
   questionPredictions: MatchQuestionPrediction[];
 };
@@ -233,7 +252,7 @@ export type AdminMatchQuestion = {
   id: string;
   key: string;
   questionText: string;
-  answerType: 'BOOLEAN' | 'SINGLE_CHOICE' | 'TEAM_PICK' | 'TIME_RANGE';
+  answerType: 'BOOLEAN' | 'SINGLE_CHOICE' | 'TEAM_PICK' | 'PLAYER_PICK' | 'TIME_RANGE';
   pointsOverride: number | null;
   isPublished: boolean;
   isResolved: boolean;
@@ -245,6 +264,7 @@ export type AdminMatchQuestion = {
     key: string;
     label: string;
     teamId: string | null;
+    playerId: string | null;
   }>;
 };
 
@@ -259,10 +279,33 @@ export type AdminMatchQuestionsResponse = {
   questions: AdminMatchQuestion[];
 };
 
+export type AdminMatchPlayerPoolResponse = {
+  matchId: string;
+  tournamentId: string;
+  teams: Array<{
+    tournamentTeamId: string;
+    teamId: string;
+    teamCode: string;
+    teamName: string;
+    isMatchParticipant: boolean;
+    matchSide: 'HOME' | 'AWAY' | null;
+    players: Array<{
+      playerId: string;
+      fullName: string;
+      shortName: string | null;
+      shirtNumber: number | null;
+      position: string | null;
+      preferredPosition: string | null;
+      squadStatus: 'PROVISIONAL' | 'FINAL' | 'WITHDRAWN' | 'REPLACED';
+      isGoalkeeper: boolean;
+    }>;
+  }>;
+};
+
 export type CreateAdminQuestionPayload = {
   key?: string;
   questionText: string;
-  answerType: 'BOOLEAN' | 'SINGLE_CHOICE' | 'TEAM_PICK' | 'TIME_RANGE';
+  answerType: 'BOOLEAN' | 'SINGLE_CHOICE' | 'TEAM_PICK' | 'PLAYER_PICK' | 'TIME_RANGE';
   pointsOverride?: number;
   lockAt?: string;
   isPublished?: boolean;
@@ -270,5 +313,6 @@ export type CreateAdminQuestionPayload = {
     key: string;
     label: string;
     teamId?: string;
+    playerId?: string;
   }>;
 };

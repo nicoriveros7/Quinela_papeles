@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
+
 import { Button } from './button';
 
 type ConfirmActionButtonProps = {
@@ -14,6 +16,8 @@ type ConfirmActionButtonProps = {
   disabled?: boolean;
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg';
+  buttonClassName?: string;
+  panelClassName?: string;
 };
 
 export function ConfirmActionButton({
@@ -25,6 +29,8 @@ export function ConfirmActionButton({
   disabled,
   variant = 'default',
   size = 'sm',
+  buttonClassName,
+  panelClassName,
 }: ConfirmActionButtonProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -41,14 +47,25 @@ export function ConfirmActionButton({
 
   if (!open) {
     return (
-      <Button size={size} variant={variant} onClick={() => setOpen(true)} disabled={disabled}>
+      <Button
+        size={size}
+        variant={variant}
+        onClick={() => setOpen(true)}
+        disabled={disabled}
+        className={buttonClassName}
+      >
         {label}
       </Button>
     );
   }
 
   return (
-    <div className="grid gap-2 rounded-xl border border-amber-300/50 bg-amber-50 p-3 text-sm text-amber-900">
+    <div
+      className={cn(
+        'grid gap-2 rounded-xl border border-amber-200/70 bg-amber-50/80 p-3 text-sm text-amber-900 shadow-sm',
+        panelClassName,
+      )}
+    >
       <div className="inline-flex items-center gap-2 font-semibold">
         <AlertTriangle className="h-4 w-4" />
         {title}

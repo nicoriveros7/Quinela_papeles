@@ -20,6 +20,7 @@ type QuestionDraft = {
   selectedOptionId?: string;
   selectedBoolean?: boolean;
   selectedTeamId?: string;
+  selectedPlayerId?: string;
   selectedTimeRangeKey?: string;
 };
 
@@ -84,6 +85,7 @@ export default function EntryPredictionsPage() {
 
   const [pool, setPool] = useState<PoolDetail | null>(null);
   const [matches, setMatches] = useState<PoolMatch[]>([]);
+  const [isOwner, setIsOwner] = useState(true);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [bundle, setBundle] = useState<MatchPredictionsBundle | null>(null);
   const [homeScore, setHomeScore] = useState('');
@@ -107,6 +109,11 @@ export default function EntryPredictionsPage() {
     [matches, selectedMatchId],
   );
 
+  const questionPredictionById = useMemo(() => {
+    const rows = bundle?.questionPredictions ?? [];
+    return new Map(rows.map((row) => [row.matchQuestionId, row]));
+  }, [bundle?.questionPredictions]);
+
   useEffect(() => {
     if (!token) {
       return;
@@ -116,15 +123,17 @@ export default function EntryPredictionsPage() {
       setLoading(true);
       setError(null);
       try {
-        const [poolData, matchesData] = await Promise.all([
+        const [poolData, matchesData, myEntries] = await Promise.all([
           api.getPool(poolId, token),
           api.listPoolMatches(poolId, token),
+          api.listMyEntries(poolId, token),
         ]);
 
         setPool(poolData);
         const list = (matchesData as PoolMatchesResponse).matches;
         setMatches(list);
         setSelectedMatchId(list[0]?.id ?? null);
+        setIsOwner(myEntries.some((entry) => entry.id === entryId));
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'No se pudo cargar la pantalla de predicciones.');
       } finally {
@@ -135,8 +144,16 @@ export default function EntryPredictionsPage() {
     void load();
   }, [poolId, token]);
 
+  const visibleMatches = useMemo(() => {
+    if (isOwner) {
+      return matches;
+    }
+
+    return matches.filter((match) => match.status === 'FINISHED');
+  }, [isOwner, matches]);
+
   useEffect(() => {
-    if (!token || matches.length === 0) {
+    if (!token || visibleMatches.length === 0) {
       setPredictionSummaryByMatch({});
       return;
     }
@@ -147,7 +164,7 @@ export default function EntryPredictionsPage() {
       const nextSummary: Record<string, PredictionSummary> = {};
 
       const results = await Promise.allSettled(
-        matches.map(async (match) => {
+        visibleMatches.map(async (match) => {
           const data = await api.getEntryMatchPredictions(poolId, entryId, match.id, token);
           const predictedQuestionIds = new Set(data.questionPredictions.map((prediction) => prediction.matchQuestionId));
           const questionsTotal = data.questions.length;
@@ -182,7 +199,7 @@ export default function EntryPredictionsPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, matches, poolId, entryId]);
+  }, [token, visibleMatches, poolId, entryId]);
 
   useEffect(() => {
     if (!token || !selectedMatchId) {
@@ -204,6 +221,7 @@ export default function EntryPredictionsPage() {
             selectedOptionId: prediction.selectedOptionId ?? undefined,
             selectedBoolean: prediction.selectedBoolean ?? undefined,
             selectedTeamId: prediction.selectedTeamId ?? undefined,
+            selectedPlayerId: prediction.selectedPlayerId ?? undefined,
             selectedTimeRangeKey: prediction.selectedTimeRangeKey ?? undefined,
           };
         }
@@ -218,7 +236,7 @@ export default function EntryPredictionsPage() {
   }, [entryId, poolId, selectedMatchId, token]);
 
   const filteredMatches = useMemo(() => {
-    return matches.filter((match) => {
+    return visibleMatches.filter((match) => {
       const isGroup = match.stage === 'GROUP';
       if (phaseFilter === 'GROUP' && !isGroup) {
         return false;
@@ -235,7 +253,7 @@ export default function EntryPredictionsPage() {
         return false;
       }
 
-      if (pendingOnly) {
+      if (pendingOnly && isOwner) {
         const summary = predictionSummaryByMatch[match.id];
         if (summary?.isComplete) {
           return false;
@@ -244,7 +262,7 @@ export default function EntryPredictionsPage() {
 
       return true;
     });
-  }, [matches, phaseFilter, groupFilter, knockoutRoundFilter, pendingOnly, predictionSummaryByMatch]);
+  }, [visibleMatches, phaseFilter, groupFilter, knockoutRoundFilter, pendingOnly, predictionSummaryByMatch, isOwner]);
 
   useEffect(() => {
     if (filteredMatches.length === 0) {
@@ -290,47 +308,64 @@ export default function EntryPredictionsPage() {
     }
   };
 
-  const saveMatchPrediction = async () => {
-    if (!token || !selectedMatchId) {
-      return;
+  const updateSummaryForMatch = (updated: MatchPredictionsBundle) => {
+    const predictedQuestionIds = new Set(updated.questionPredictions.map((prediction) => prediction.matchQuestionId));
+    const questionsTotal = updated.questions.length;
+    const questionsDone = updated.questions.filter((question) => predictedQuestionIds.has(question.id)).length;
+    setBundle(updated);
+    setPredictionSummaryByMatch((prev) => ({
+      ...prev,
+      [updated.match.id]: {
+        hasMatchPrediction: Boolean(updated.matchPrediction),
+        questionsTotal,
+        questionsDone,
+        isComplete: Boolean(updated.matchPrediction) && (questionsTotal === 0 || questionsDone === questionsTotal),
+      },
+    }));
+  };
+
+  const buildQuestionPayload = (
+    question: MatchPredictionsBundle['questions'][number],
+    draft?: QuestionDraft,
+  ) => {
+    if (!draft) {
+      return null;
     }
 
-    setSaving(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      await api.upsertMatchPrediction(
-        poolId,
-        entryId,
-        selectedMatchId,
-        Number(homeScore),
-        Number(awayScore),
-        token,
-      );
-      setSuccess('Prediccion de marcador guardada.');
-      const updated = await api.getEntryMatchPredictions(poolId, entryId, selectedMatchId, token);
-      setBundle(updated);
-      const predictedQuestionIds = new Set(updated.questionPredictions.map((prediction) => prediction.matchQuestionId));
-      const questionsTotal = updated.questions.length;
-      const questionsDone = updated.questions.filter((question) => predictedQuestionIds.has(question.id)).length;
-      setPredictionSummaryByMatch((prev) => ({
-        ...prev,
-        [selectedMatchId]: {
-          hasMatchPrediction: Boolean(updated.matchPrediction),
-          questionsTotal,
-          questionsDone,
-          isComplete: Boolean(updated.matchPrediction) && (questionsTotal === 0 || questionsDone === questionsTotal),
-        },
-      }));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo guardar la prediccion de marcador.');
-    } finally {
-      setSaving(false);
+    switch (question.answerType) {
+      case 'BOOLEAN':
+        return typeof draft.selectedBoolean === 'boolean'
+          ? { selectedBoolean: draft.selectedBoolean }
+          : null;
+      case 'TIME_RANGE':
+        return draft.selectedTimeRangeKey
+          ? { selectedTimeRangeKey: draft.selectedTimeRangeKey }
+          : null;
+      case 'TEAM_PICK':
+        if (draft.selectedTeamId) {
+          return { selectedTeamId: draft.selectedTeamId };
+        }
+        if (draft.selectedOptionId) {
+          return { selectedOptionId: draft.selectedOptionId };
+        }
+        return null;
+      case 'PLAYER_PICK':
+        if (draft.selectedPlayerId) {
+          return { selectedPlayerId: draft.selectedPlayerId };
+        }
+        if (draft.selectedOptionId) {
+          return { selectedOptionId: draft.selectedOptionId };
+        }
+        return null;
+      case 'SINGLE_CHOICE':
+      default:
+        return draft.selectedOptionId
+          ? { selectedOptionId: draft.selectedOptionId }
+          : null;
     }
   };
 
-  const saveQuestionPrediction = async (questionId: string) => {
+  const saveAllPredictions = async () => {
     if (!token || !selectedMatchId) {
       return;
     }
@@ -339,25 +374,66 @@ export default function EntryPredictionsPage() {
     setError(null);
     setSuccess(null);
 
+    const hasPartialScore = (homeScore === '') !== (awayScore === '');
+    if (hasPartialScore) {
+      setError('Debes completar el marcador local y visita para guardar el partido.');
+      setSaving(false);
+      return;
+    }
+
+    const shouldSaveMatch = homeScore !== '' && awayScore !== '';
+    const questionPayloads = (bundle?.questions ?? [])
+      .filter((question) => !question.isResolved)
+      .map((question) => ({
+        questionId: question.id,
+        payload: buildQuestionPayload(question, questionDrafts[question.id]),
+      }))
+      .filter((entry) => entry.payload !== null) as Array<{ questionId: string; payload: QuestionDraft }>;
+
+    const questionsToSave = questionPayloads.map((entry) => entry.questionId);
+
+    if (!shouldSaveMatch && questionsToSave.length === 0) {
+      setError('No hay cambios para guardar en este partido.');
+      setSaving(false);
+      return;
+    }
+
     try {
-      await api.upsertQuestionPrediction(poolId, entryId, questionId, questionDrafts[questionId] ?? {}, token);
-      setSuccess('Prediccion bonus guardada.');
+      const tasks: Promise<unknown>[] = [];
+
+      if (shouldSaveMatch) {
+        tasks.push(
+          api.upsertMatchPrediction(
+            poolId,
+            entryId,
+            selectedMatchId,
+            Number(homeScore),
+            Number(awayScore),
+            token,
+          ),
+        );
+      }
+
+      for (const entry of questionPayloads) {
+        tasks.push(
+          api.upsertQuestionPrediction(poolId, entryId, entry.questionId, entry.payload, token),
+        );
+      }
+
+      await Promise.all(tasks);
+
       const updated = await api.getEntryMatchPredictions(poolId, entryId, selectedMatchId, token);
-      setBundle(updated);
-      const predictedQuestionIds = new Set(updated.questionPredictions.map((prediction) => prediction.matchQuestionId));
-      const questionsTotal = updated.questions.length;
-      const questionsDone = updated.questions.filter((question) => predictedQuestionIds.has(question.id)).length;
-      setPredictionSummaryByMatch((prev) => ({
-        ...prev,
-        [selectedMatchId]: {
-          hasMatchPrediction: Boolean(updated.matchPrediction),
-          questionsTotal,
-          questionsDone,
-          isComplete: Boolean(updated.matchPrediction) && (questionsTotal === 0 || questionsDone === questionsTotal),
-        },
-      }));
+      updateSummaryForMatch(updated);
+
+      if (shouldSaveMatch && questionsToSave.length > 0) {
+        setSuccess(`Predicciones guardadas: marcador y ${questionsToSave.length} bonus.`);
+      } else if (shouldSaveMatch) {
+        setSuccess('Marcador guardado correctamente.');
+      } else {
+        setSuccess(`Bonus guardados: ${questionsToSave.length}.`);
+      }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo guardar la prediccion bonus.');
+      setError(err instanceof ApiError ? err.message : 'No se pudieron guardar las predicciones.');
     } finally {
       setSaving(false);
     }
@@ -379,20 +455,22 @@ export default function EntryPredictionsPage() {
               Pool: {pool?.name ?? '-'} · Entry: {entryId.slice(-6)}
             </p>
           </div>
-          <SaveFeedback saving={saving} message={success} />
+          {!isOwner ? <Badge variant="muted">Solo lectura</Badge> : null}
         </div>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            Progreso editable: {progress.completeCount}/{progress.totalEditable} ({progress.percent}%)
-          </p>
-          <Button size="sm" variant="outline" onClick={jumpToNextPending} disabled={filteredMatches.length === 0}>
-            Ir al siguiente pendiente
-          </Button>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-muted sm:col-span-2">
-            <div className="h-full bg-primary transition-all" style={{ width: `${progress.percent}%` }} />
+        {isOwner ? (
+          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Progreso editable: {progress.completeCount}/{progress.totalEditable} ({progress.percent}%)
+            </p>
+            <Button size="sm" variant="outline" onClick={jumpToNextPending} disabled={filteredMatches.length === 0}>
+              Ir al siguiente pendiente
+            </Button>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted sm:col-span-2">
+              <div className="h-full bg-primary transition-all" style={{ width: `${progress.percent}%` }} />
+            </div>
           </div>
-        </div>
+        ) : null}
       </header>
 
       <section className="grid gap-3 rounded-2xl border border-border/70 bg-surface p-3">
@@ -403,9 +481,11 @@ export default function EntryPredictionsPage() {
           <Button size="sm" variant={phaseFilter === 'KNOCKOUT' ? 'default' : 'outline'} onClick={() => setPhaseFilter('KNOCKOUT')}>
             Eliminatoria
           </Button>
-          <Button size="sm" variant={pendingOnly ? 'default' : 'outline'} onClick={() => setPendingOnly((prev) => !prev)}>
-            Solo pendientes
-          </Button>
+          {isOwner ? (
+            <Button size="sm" variant={pendingOnly ? 'default' : 'outline'} onClick={() => setPendingOnly((prev) => !prev)}>
+              Solo pendientes
+            </Button>
+          ) : null}
         </div>
 
         {phaseFilter === 'GROUP' ? (
@@ -499,31 +579,105 @@ export default function EntryPredictionsPage() {
           <CardContent className="grid gap-4">
             <p className="text-sm text-muted-foreground">Kickoff: {formatDateTime(selectedMatch.kickoffAt)}</p>
 
-            <div className="grid gap-2 sm:max-w-sm sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-              <Input
-                type="number"
-                min={0}
-                value={homeScore}
-                onChange={(e) => setHomeScore(e.target.value)}
-                placeholder="Local"
-              />
-              <span className="text-center text-sm font-bold text-muted-foreground">-</span>
-              <Input
-                type="number"
-                min={0}
-                value={awayScore}
-                onChange={(e) => setAwayScore(e.target.value)}
-                placeholder="Visita"
-              />
-              <Button
-                className="sm:col-span-3"
-                onClick={saveMatchPrediction}
-                disabled={saving || homeScore === '' || awayScore === ''}
-              >
-                <Save className="mr-2 h-4 w-4" />
-                Guardar marcador
-              </Button>
-            </div>
+            <section className="grid gap-3 rounded-2xl border border-border/70 bg-white/70 p-3 sm:p-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  Resultado del partido
+                </p>
+                <p className="text-sm text-muted-foreground">Ingresa el marcador final para este partido.</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+                <div className="grid gap-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Local</p>
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-semibold">{getMatchNameLabel(selectedMatch, 'home')}</span>
+                    <span className="text-xs text-muted-foreground">{getMatchCodeLabel(selectedMatch, 'home')}</span>
+                  </div>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={homeScore}
+                    onChange={(e) => setHomeScore(e.target.value)}
+                    placeholder="0"
+                    className="h-12 text-center text-2xl font-semibold"
+                    disabled={!isOwner || selectedMatch.status !== 'SCHEDULED'}
+                  />
+                </div>
+
+                <span className="text-center text-2xl font-bold text-muted-foreground">-</span>
+
+                <div className="grid gap-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Visita</p>
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-semibold">{getMatchNameLabel(selectedMatch, 'away')}</span>
+                    <span className="text-xs text-muted-foreground">{getMatchCodeLabel(selectedMatch, 'away')}</span>
+                  </div>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={awayScore}
+                    onChange={(e) => setAwayScore(e.target.value)}
+                    placeholder="0"
+                    className="h-12 text-center text-2xl font-semibold"
+                    disabled={!isOwner || selectedMatch.status !== 'SCHEDULED'}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>Marcador:</span>
+                {bundle?.matchPrediction ? (
+                  bundle.matchPrediction.isScored ? (
+                    <Badge variant="success">{bundle.matchPrediction.pointsAwarded} pts</Badge>
+                  ) : (
+                    <Badge variant="muted">Sin puntuar</Badge>
+                  )
+                ) : (
+                  <Badge variant="muted">Sin respuesta</Badge>
+                )}
+              </div>
+
+              {bundle?.matchPredictionBreakdown && bundle.matchPrediction?.isScored ? (
+                <div className="mt-2 grid gap-1 rounded-xl border border-border/60 bg-white/70 p-3 text-xs">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                    Desglose de puntos
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <span>Marcador exacto</span>
+                    <span>+{bundle.matchPredictionBreakdown.exactScore}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Diferencia de gol</span>
+                    <span>+{bundle.matchPredictionBreakdown.goalDifference}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Ganador</span>
+                    <span>+{bundle.matchPredictionBreakdown.winner}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Perdedor</span>
+                    <span>+{bundle.matchPredictionBreakdown.loser}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Goles local</span>
+                    <span>+{bundle.matchPredictionBreakdown.homeGoals}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Goles visita</span>
+                    <span>+{bundle.matchPredictionBreakdown.awayGoals}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Total de goles</span>
+                    <span>+{bundle.matchPredictionBreakdown.totalGoals}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between font-semibold">
+                    <span>Total</span>
+                    <span>{bundle.matchPredictionBreakdown.totalPoints} pts</span>
+                  </div>
+                </div>
+              ) : null}
+            </section>
 
             <div className="grid gap-3">
               {bundle?.questions.length === 0 ? (
@@ -539,9 +693,25 @@ export default function EntryPredictionsPage() {
                       {question.isResolved ? <Badge variant="warning">Resuelta</Badge> : null}
                     </div>
 
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>Puntos:</span>
+                      {questionPredictionById.get(question.id) ? (
+                        questionPredictionById.get(question.id)?.isScored ? (
+                          <Badge variant="success">
+                            {questionPredictionById.get(question.id)?.pointsAwarded ?? 0} pts
+                          </Badge>
+                        ) : (
+                          <Badge variant="muted">Sin puntuar</Badge>
+                        )
+                      ) : (
+                        <Badge variant="muted">Sin respuesta</Badge>
+                      )}
+                    </div>
+
                     <QuestionInput
                       question={question}
                       value={questionDrafts[question.id]}
+                      readOnly={!isOwner || selectedMatch.status !== 'SCHEDULED'}
                       onChange={(next) =>
                         setQuestionDrafts((prev) => ({
                           ...prev,
@@ -549,22 +719,31 @@ export default function EntryPredictionsPage() {
                         }))
                       }
                     />
-
-                    <div>
-                      <Button
-                        size="sm"
-                        onClick={() => saveQuestionPrediction(question.id)}
-                        disabled={saving || question.isResolved || !questionDrafts[question.id]}
-                      >
-                        Guardar bonus
-                      </Button>
-                    </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
 
             {error ? <StatePanel variant="error" description={error} /> : null}
+
+            {isOwner ? (
+              <div className="grid gap-2 pt-2">
+                <Button
+                  className="w-full"
+                  onClick={saveAllPredictions}
+                  disabled={saving}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  Guardar todo
+                </Button>
+                <div className="flex justify-center">
+                  <SaveFeedback saving={saving} message={success} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Guarda marcador y bonus en una sola accion.
+                </p>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       ) : (
@@ -577,10 +756,12 @@ export default function EntryPredictionsPage() {
 function QuestionInput({
   question,
   value,
+  readOnly = false,
   onChange,
 }: {
   question: MatchPredictionsBundle['questions'][number];
   value: QuestionDraft | undefined;
+  readOnly?: boolean;
   onChange: (value: QuestionDraft) => void;
 }) {
   if (question.answerType === 'BOOLEAN') {
@@ -590,7 +771,8 @@ function QuestionInput({
           type="button"
           variant={value?.selectedBoolean === true ? 'default' : 'outline'}
           size="sm"
-          onClick={() => onChange({ selectedBoolean: true })}
+          onClick={() => (readOnly ? null : onChange({ selectedBoolean: true }))}
+          disabled={readOnly}
         >
           Si
         </Button>
@@ -598,7 +780,8 @@ function QuestionInput({
           type="button"
           variant={value?.selectedBoolean === false ? 'default' : 'outline'}
           size="sm"
-          onClick={() => onChange({ selectedBoolean: false })}
+          onClick={() => (readOnly ? null : onChange({ selectedBoolean: false }))}
+          disabled={readOnly}
         >
           No
         </Button>
@@ -615,7 +798,8 @@ function QuestionInput({
               type="radio"
               name={question.id}
               checked={value?.selectedTimeRangeKey === option.key}
-              onChange={() => onChange({ selectedTimeRangeKey: option.key })}
+              onChange={() => (readOnly ? null : onChange({ selectedTimeRangeKey: option.key }))}
+              disabled={readOnly}
             />
             {option.label}
           </label>
@@ -633,7 +817,35 @@ function QuestionInput({
               type="radio"
               name={question.id}
               checked={value?.selectedOptionId === option.id}
-              onChange={() => onChange({ selectedOptionId: option.id })}
+              onChange={() => (readOnly ? null : onChange({ selectedOptionId: option.id }))}
+              disabled={readOnly}
+            />
+            {option.label}
+          </label>
+        ))}
+      </div>
+    );
+  }
+
+  if (question.answerType === 'PLAYER_PICK') {
+    return (
+      <div className="grid gap-1">
+        {question.options.map((option) => (
+          <label key={option.id} className="inline-flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name={question.id}
+              checked={value?.selectedOptionId === option.id || value?.selectedPlayerId === option.playerId}
+              onChange={() =>
+                readOnly
+                  ? null
+                  : onChange(
+                      option.playerId
+                        ? { selectedPlayerId: option.playerId }
+                        : { selectedOptionId: option.id },
+                    )
+              }
+              disabled={readOnly}
             />
             {option.label}
           </label>
@@ -650,7 +862,8 @@ function QuestionInput({
             type="radio"
             name={question.id}
             checked={value?.selectedOptionId === option.id}
-            onChange={() => onChange({ selectedOptionId: option.id })}
+            onChange={() => (readOnly ? null : onChange({ selectedOptionId: option.id }))}
+            disabled={readOnly}
           />
           {option.label}
         </label>

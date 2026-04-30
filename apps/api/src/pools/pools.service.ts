@@ -39,9 +39,9 @@ export class PoolsService {
             joinCode,
             maxEntriesPerMember: 1,
             lockMinutesBeforeKickoff: dto.lockMinutesBeforeKickoff ?? 0,
-            pointsExactScore: dto.pointsExactScore ?? 3,
+            pointsExactScore: dto.pointsExactScore ?? 5,
             pointsMatchOutcome: dto.pointsMatchOutcome ?? 1,
-            pointsBonusCorrect: dto.pointsBonusCorrect ?? 2,
+            pointsBonusCorrect: dto.pointsBonusCorrect ?? 5,
             pointsConfig: this.buildDefaultPointsConfig(dto),
           },
         });
@@ -237,6 +237,7 @@ export class PoolsService {
                 key: true,
                 label: true,
                 teamId: true,
+                playerId: true,
               },
             },
           },
@@ -438,11 +439,16 @@ export class PoolsService {
   private buildDefaultPointsConfig(dto: CreatePoolDto): Prisma.InputJsonObject {
     return {
       match: {
-        exactScore: dto.pointsExactScore ?? 3,
-        outcome: dto.pointsMatchOutcome ?? 1,
+        exactScore: dto.pointsExactScore ?? 5,
+        goalDifference: 3,
+        winner: dto.pointsMatchOutcome ?? 1,
+        loser: 1,
+        homeGoals: 2,
+        awayGoals: 2,
+        totalGoals: 1,
       },
       bonus: {
-        default: dto.pointsBonusCorrect ?? 2,
+        default: dto.pointsBonusCorrect ?? 5,
       },
     };
   }

@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { MatchStatus, Prisma, QuestionAnswerType } from '@prisma/client';
+import { MatchStatus, Prisma, QuestionAnswerType, TournamentPlayerStatus } from '@prisma/client';
 
 import { JwtUserPayload } from '../auth/types/jwt-user-payload.type';
 import { PrismaService } from '../prisma/prisma.service';
@@ -185,6 +185,92 @@ export class AdminService {
     };
   }
 
+  async listMatchPlayerPool(matchId: string) {
+    const match = await this.prisma.match.findUnique({
+      where: { id: matchId },
+      select: {
+        id: true,
+        tournamentId: true,
+        homeTournamentTeamId: true,
+        awayTournamentTeamId: true,
+      },
+    });
+
+    if (!match) {
+      throw new NotFoundException('Match not found');
+    }
+
+    const teams = await this.prisma.tournamentTeam.findMany({
+      where: { tournamentId: match.tournamentId },
+      select: {
+        id: true,
+        teamId: true,
+        team: {
+          select: {
+            code: true,
+            name: true,
+          },
+        },
+        players: {
+          where: {
+            squadStatus: {
+              in: [TournamentPlayerStatus.PROVISIONAL, TournamentPlayerStatus.FINAL],
+            },
+          },
+          orderBy: [{ player: { fullName: 'asc' } }],
+          select: {
+            playerId: true,
+            shirtNumber: true,
+            position: true,
+            squadStatus: true,
+            isGoalkeeper: true,
+            player: {
+              select: {
+                fullName: true,
+                shortName: true,
+                preferredPosition: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        team: {
+          code: 'asc',
+        },
+      },
+    });
+
+    return {
+      matchId: match.id,
+      tournamentId: match.tournamentId,
+      teams: teams.map((team) => ({
+        tournamentTeamId: team.id,
+        teamId: team.teamId,
+        teamCode: team.team.code,
+        teamName: team.team.name,
+        isMatchParticipant:
+          team.id === match.homeTournamentTeamId || team.id === match.awayTournamentTeamId,
+        matchSide:
+          team.id === match.homeTournamentTeamId
+            ? 'HOME'
+            : team.id === match.awayTournamentTeamId
+              ? 'AWAY'
+              : null,
+        players: team.players.map((playerRow) => ({
+          playerId: playerRow.playerId,
+          fullName: playerRow.player.fullName,
+          shortName: playerRow.player.shortName,
+          shirtNumber: playerRow.shirtNumber,
+          position: playerRow.position,
+          preferredPosition: playerRow.player.preferredPosition,
+          squadStatus: playerRow.squadStatus,
+          isGoalkeeper: playerRow.isGoalkeeper,
+        })),
+      })),
+    };
+  }
+
   async createMatchQuestion(matchId: string, dto: CreateMatchQuestionDto) {
     const match = await this.prisma.match.findUnique({
       where: { id: matchId },
@@ -221,6 +307,7 @@ export class AdminService {
             key: option.key,
             label: option.label,
             teamId: option.teamId,
+            playerId: option.playerId,
             sortOrder: index,
             optionConfig: option.optionConfig ?? Prisma.JsonNull,
           })),
@@ -361,8 +448,8 @@ export class AdminService {
   private buildQuestionOptions(dto: CreateMatchQuestionDto) {
     if (dto.answerType === QuestionAnswerType.BOOLEAN) {
       return [
-        { key: 'YES', label: 'Si', teamId: null, optionConfig: { booleanValue: true } },
-        { key: 'NO', label: 'No', teamId: null, optionConfig: { booleanValue: false } },
+        { key: 'YES', label: 'Si', teamId: null, playerId: null, optionConfig: { booleanValue: true } },
+        { key: 'NO', label: 'No', teamId: null, playerId: null, optionConfig: { booleanValue: false } },
       ];
     }
 
@@ -370,10 +457,23 @@ export class AdminService {
       throw new BadRequestException('At least two options are required for non-BOOLEAN questions');
     }
 
+    if (dto.answerType === QuestionAnswerType.PLAYER_PICK) {
+      const missingPlayer = dto.options.some((option) => !option.playerId);
+      if (missingPlayer) {
+        throw new BadRequestException('PLAYER_PICK options must include playerId');
+      }
+
+      const uniquePlayerIds = new Set(dto.options.map((option) => option.playerId));
+      if (uniquePlayerIds.size !== dto.options.length) {
+        throw new BadRequestException('PLAYER_PICK options cannot repeat playerId');
+      }
+    }
+
     return dto.options.map((option) => ({
       key: this.normalizeQuestionKey(option.key).toUpperCase(),
       label: option.label,
       teamId: option.teamId ?? null,
+      playerId: option.playerId ?? null,
       optionConfig: null,
     }));
   }

@@ -32,6 +32,8 @@ export function questionTypeLabel(type: string) {
       return 'Opcion unica';
     case 'TEAM_PICK':
       return 'Equipo';
+    case 'PLAYER_PICK':
+      return 'Jugador';
     case 'TIME_RANGE':
       return 'Rango de tiempo';
     default:

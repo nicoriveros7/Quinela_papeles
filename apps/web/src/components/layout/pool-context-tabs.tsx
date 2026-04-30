@@ -27,7 +27,7 @@ export function PoolContextTabs({ poolId, entryId }: PoolContextTabsProps) {
     {
       href: entryId ? `/pools/${poolId}/entries/${entryId}` : '',
       label: 'Predicciones',
-      active: entryId ? pathname.startsWith(`/pools/${poolId}/entries/${entryId}`) : false,
+      active: pathname.startsWith(`/pools/${poolId}/entries/`),
       disabled: !entryId,
     },
   ];

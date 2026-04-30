@@ -11,6 +11,7 @@ import { JwtUserPayload } from '../auth/types/jwt-user-payload.type';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpsertMatchPredictionDto } from './dto/upsert-match-prediction.dto';
 import { UpsertMatchQuestionPredictionDto } from './dto/upsert-match-question-prediction.dto';
+import { calculateMatchPredictionBreakdown, resolveMatchScoringConfig } from '../scoring/scoring.rules';
 
 @Injectable()
 export class PredictionsService {
@@ -77,6 +78,7 @@ export class PredictionsService {
             id: true,
             key: true,
             teamId: true,
+            playerId: true,
             optionConfig: true,
           },
         },
@@ -119,6 +121,7 @@ export class PredictionsService {
         selectedOptionId: normalized.selectedOptionId,
         selectedBoolean: normalized.selectedBoolean,
         selectedTeamId: normalized.selectedTeamId,
+        selectedPlayerId: normalized.selectedPlayerId,
         selectedTimeRangeKey: normalized.selectedTimeRangeKey,
         isScored: false,
         pointsAwarded: 0,
@@ -130,6 +133,7 @@ export class PredictionsService {
         selectedOptionId: normalized.selectedOptionId,
         selectedBoolean: normalized.selectedBoolean,
         selectedTeamId: normalized.selectedTeamId,
+        selectedPlayerId: normalized.selectedPlayerId,
         selectedTimeRangeKey: normalized.selectedTimeRangeKey,
       },
     });
@@ -141,8 +145,13 @@ export class PredictionsService {
     matchId: string,
     user: JwtUserPayload,
   ) {
-    const entryContext = await this.getEntryContext(poolId, entryId, user.sub);
+    const entryContext = await this.getEntryReadContext(poolId, entryId, user.sub);
     const match = await this.getMatchInPoolTournament(entryContext.pool.tournamentId, matchId);
+
+    const isOwner = entryContext.userId === user.sub;
+    if (!isOwner && match.status !== MatchStatus.FINISHED) {
+      throw new ForbiddenException('Predictions are available after the match is finished');
+    }
 
     const [matchPrediction, questionPredictions, questions] = await Promise.all([
       this.prisma.matchPrediction.findUnique({
@@ -176,18 +185,86 @@ export class PredictionsService {
       }),
     ]);
 
+    let matchPredictionBreakdown = null;
+    if (
+      matchPrediction &&
+      match.status === MatchStatus.FINISHED &&
+      match.homeScore !== null &&
+      match.awayScore !== null
+    ) {
+      const scoringConfig = resolveMatchScoringConfig(
+        entryContext.pool.pointsExactScore,
+        entryContext.pool.pointsMatchOutcome,
+        entryContext.pool.pointsConfig,
+      );
+
+      matchPredictionBreakdown = calculateMatchPredictionBreakdown(
+        matchPrediction.predictedHomeScore,
+        matchPrediction.predictedAwayScore,
+        match.homeScore,
+        match.awayScore,
+        scoringConfig,
+      ).breakdown;
+    }
+
     return {
       poolId,
       entryId,
+      viewer: {
+        isOwner,
+      },
       match: {
         id: match.id,
         kickoffAt: match.kickoffAt,
         status: match.status,
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
       },
       matchPrediction,
+      matchPredictionBreakdown,
       questions,
       questionPredictions,
     };
+  }
+
+  private async getEntryReadContext(poolId: string, entryId: string, userId: string) {
+    const entry = await this.prisma.poolEntry.findUnique({
+      where: { id: entryId },
+      include: {
+        pool: {
+          select: {
+            id: true,
+            tournamentId: true,
+            lockMinutesBeforeKickoff: true,
+            pointsExactScore: true,
+            pointsMatchOutcome: true,
+            pointsConfig: true,
+          },
+        },
+      },
+    });
+
+    if (!entry || entry.poolId !== poolId) {
+      throw new NotFoundException('Pool entry not found in provided pool');
+    }
+
+    const membership = await this.prisma.poolMember.findUnique({
+      where: {
+        poolId_userId: {
+          poolId,
+          userId,
+        },
+      },
+      select: {
+        status: true,
+      },
+    });
+
+    if (!membership || membership.status !== PoolMemberStatus.ACTIVE) {
+      throw new ForbiddenException('Active pool membership is required');
+    }
+
+    return entry;
   }
 
   private async getEntryContext(poolId: string, entryId: string, userId: string) {
@@ -239,6 +316,8 @@ export class PredictionsService {
         tournamentId: true,
         kickoffAt: true,
         status: true,
+        homeScore: true,
+        awayScore: true,
       },
     });
 
@@ -275,7 +354,7 @@ export class PredictionsService {
   private normalizeQuestionAnswer(
     answerType: QuestionAnswerType,
     dto: UpsertMatchQuestionPredictionDto,
-    options: Array<{ id: string; key: string; teamId: string | null; optionConfig: unknown }>,
+    options: Array<{ id: string; key: string; teamId: string | null; playerId: string | null; optionConfig: unknown }>,
   ) {
     const providedFields = this.getProvidedAnswerFields(dto);
     const byId = new Map(options.map((option) => [option.id, option]));
@@ -297,6 +376,7 @@ export class PredictionsService {
         selectedOptionId: option.id,
         selectedBoolean: null,
         selectedTeamId: null,
+        selectedPlayerId: null,
         selectedTimeRangeKey: null,
       };
     }
@@ -317,6 +397,7 @@ export class PredictionsService {
         selectedOptionId: option.id,
         selectedBoolean: null,
         selectedTeamId: null,
+        selectedPlayerId: null,
         selectedTimeRangeKey: option.key,
       };
     }
@@ -340,6 +421,31 @@ export class PredictionsService {
         selectedOptionId: option.id,
         selectedBoolean: null,
         selectedTeamId: option.teamId,
+        selectedPlayerId: null,
+        selectedTimeRangeKey: null,
+      };
+    }
+
+    if (answerType === QuestionAnswerType.PLAYER_PICK) {
+      this.assertAnyAnswerFieldSet(providedFields, ['selectedPlayerId', 'selectedOptionId']);
+
+      const optionByPlayer = dto.selectedPlayerId
+        ? options.find((option) => option.playerId === dto.selectedPlayerId)
+        : undefined;
+      const optionBySelectedId = dto.selectedOptionId
+        ? byId.get(dto.selectedOptionId)
+        : undefined;
+
+      const option = optionBySelectedId ?? optionByPlayer;
+      if (!option || !option.playerId) {
+        throw new BadRequestException('A valid selectedPlayerId or selectedOptionId is required for PLAYER_PICK');
+      }
+
+      return {
+        selectedOptionId: option.id,
+        selectedBoolean: null,
+        selectedTeamId: null,
+        selectedPlayerId: option.playerId,
         selectedTimeRangeKey: null,
       };
     }
@@ -371,6 +477,7 @@ export class PredictionsService {
         selectedOptionId: option.id,
         selectedBoolean: dto.selectedBoolean,
         selectedTeamId: null,
+        selectedPlayerId: null,
         selectedTimeRangeKey: null,
       };
     }
@@ -389,6 +496,9 @@ export class PredictionsService {
     }
     if (dto.selectedTeamId !== undefined) {
       provided.push('selectedTeamId');
+    }
+    if (dto.selectedPlayerId !== undefined) {
+      provided.push('selectedPlayerId');
     }
     if (dto.selectedTimeRangeKey !== undefined) {
       provided.push('selectedTimeRangeKey');

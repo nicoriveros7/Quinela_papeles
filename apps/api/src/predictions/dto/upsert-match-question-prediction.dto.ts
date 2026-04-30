@@ -15,5 +15,9 @@ export class UpsertMatchQuestionPredictionDto {
 
   @IsOptional()
   @IsString()
+  selectedPlayerId?: string;
+
+  @IsOptional()
+  @IsString()
   selectedTimeRangeKey?: string;
 }

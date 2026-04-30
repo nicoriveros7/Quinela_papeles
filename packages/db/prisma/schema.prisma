@@ -82,7 +82,15 @@ enum QuestionAnswerType {
   BOOLEAN
   SINGLE_CHOICE
   TEAM_PICK
+  PLAYER_PICK
   TIME_RANGE
+}
+
+enum TournamentPlayerStatus {
+  PROVISIONAL
+  FINAL
+  WITHDRAWN
+  REPLACED
 }
 
 enum QuestionResolutionMode {
@@ -149,6 +157,7 @@ model Tournament {
 
   groups    TournamentGroup[]
   teams     TournamentTeam[]
+  players   TournamentPlayer[]
   matches   Match[]
   pools     Pool[]
   auditLogs AuditLog[]
@@ -168,6 +177,24 @@ model Team {
   tournaments              TournamentTeam[]
   matchQuestionOptions     MatchQuestionOption[]
   matchQuestionPredictions MatchQuestionPrediction[]
+}
+
+model Player {
+  id                String   @id @default(cuid())
+  fullName          String
+  shortName         String?
+  externalRef       String?  @unique
+  birthDate         DateTime?
+  nationalityCode   String?
+  preferredPosition String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tournaments              TournamentPlayer[]
+  matchQuestionOptions     MatchQuestionOption[]
+  matchQuestionPredictions MatchQuestionPrediction[]
+
+  @@index([fullName])
 }
 
 model TournamentGroup {
@@ -199,11 +226,34 @@ model TournamentTeam {
   tournament  Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   team        Team             @relation(fields: [teamId], references: [id], onDelete: Restrict)
   group       TournamentGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  players     TournamentPlayer[]
   homeMatches Match[]          @relation("HomeTournamentTeam")
   awayMatches Match[]          @relation("AwayTournamentTeam")
 
   @@unique([tournamentId, teamId])
   @@index([tournamentId, groupId])
+}
+
+model TournamentPlayer {
+  id               String                @id @default(cuid())
+  tournamentId     String
+  tournamentTeamId String
+  playerId         String
+  shirtNumber      Int?
+  position         String?
+  squadStatus      TournamentPlayerStatus @default(PROVISIONAL)
+  isCaptain        Boolean               @default(false)
+  isGoalkeeper     Boolean               @default(false)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  tournament     Tournament     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournamentTeam TournamentTeam @relation(fields: [tournamentTeamId], references: [id], onDelete: Cascade)
+  player         Player         @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, tournamentTeamId, playerId])
+  @@index([tournamentTeamId])
+  @@index([playerId])
 }
 
 model Venue {
@@ -405,6 +455,7 @@ model MatchQuestionOption {
   key             String
   label           String
   teamId          String?
+  playerId        String?
   sortOrder       Int      @default(0)
   isActive        Boolean  @default(true)
   optionConfig    Json?
@@ -413,12 +464,14 @@ model MatchQuestionOption {
 
   matchQuestion       MatchQuestion             @relation("MatchQuestionOptions", fields: [matchQuestionId], references: [id], onDelete: Cascade)
   team                Team?                     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  player              Player?                   @relation(fields: [playerId], references: [id], onDelete: SetNull)
   correctForQuestions MatchQuestion[]           @relation("MatchQuestionCorrectOption")
   predictions         MatchQuestionPrediction[]
 
   @@unique([matchQuestionId, key])
   @@index([matchQuestionId, sortOrder])
   @@index([teamId])
+  @@index([playerId])
 }
 
 model MatchQuestionPrediction {
@@ -428,6 +481,7 @@ model MatchQuestionPrediction {
   selectedOptionId     String?
   selectedBoolean      Boolean?
   selectedTeamId       String?
+  selectedPlayerId     String?
   selectedTimeRangeKey String?
   pointsAwarded        Int       @default(0)
   isScored             Boolean   @default(false)
@@ -439,11 +493,13 @@ model MatchQuestionPrediction {
   matchQuestion  MatchQuestion        @relation(fields: [matchQuestionId], references: [id], onDelete: Cascade)
   selectedOption MatchQuestionOption? @relation(fields: [selectedOptionId], references: [id], onDelete: SetNull)
   selectedTeam   Team?                @relation(fields: [selectedTeamId], references: [id], onDelete: SetNull)
+  selectedPlayer Player?              @relation(fields: [selectedPlayerId], references: [id], onDelete: SetNull)
 
   @@unique([poolEntryId, matchQuestionId])
   @@index([matchQuestionId])
   @@index([selectedOptionId])
   @@index([selectedTeamId])
+  @@index([selectedPlayerId])
 }
 
 model AuditLog {

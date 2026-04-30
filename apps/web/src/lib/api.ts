@@ -2,6 +2,7 @@ import {
   AdminMatch,
   AdminMatchQuestion,
   AdminMatchQuestionsResponse,
+  AdminMatchPlayerPoolResponse,
   AdminPool,
   AdminPoolMatchesResponse,
   AdminTournament,
@@ -174,6 +175,7 @@ export const api = {
       selectedOptionId?: string;
       selectedBoolean?: boolean;
       selectedTeamId?: string;
+      selectedPlayerId?: string;
       selectedTimeRangeKey?: string;
     },
     token: string,
@@ -218,6 +220,9 @@ export const api = {
 
   adminListMatchQuestions: (matchId: string, token: string) =>
     request<AdminMatchQuestionsResponse>(`/admin/matches/${matchId}/questions`, { method: 'GET' }, token),
+
+  adminListMatchPlayerPool: (matchId: string, token: string) =>
+    request<AdminMatchPlayerPoolResponse>(`/admin/matches/${matchId}/player-pool`, { method: 'GET' }, token),
 
   adminCreateQuestion: (matchId: string, payload: CreateAdminQuestionPayload, token: string) =>
     request<AdminMatchQuestion>(`/admin/matches/${matchId}/questions`, {

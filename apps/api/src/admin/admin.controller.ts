@@ -69,6 +69,11 @@ export class AdminController {
     return this.adminService.listMatchQuestions(matchId);
   }
 
+  @Get('matches/:matchId/player-pool')
+  async listMatchPlayerPool(@Param('matchId') matchId: string) {
+    return this.adminService.listMatchPlayerPool(matchId);
+  }
+
   @Post('matches/:matchId/questions')
   async createMatchQuestion(@Param('matchId') matchId: string, @Body() dto: CreateMatchQuestionDto) {
     return this.adminService.createMatchQuestion(matchId, dto);

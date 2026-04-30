@@ -64,10 +64,26 @@ export class ScoringService {
       await this.recalculateMatchPredictions(poolId, match.id, user, true);
     }
 
+    await this.prisma.matchQuestionPrediction.updateMany({
+      where: {
+        poolEntry: { poolId },
+        matchQuestion: {
+          match: { tournamentId: pool.tournamentId },
+          OR: [{ isResolved: false }, { isPublished: false }],
+        },
+      },
+      data: {
+        pointsAwarded: 0,
+        isScored: false,
+        scoredAt: null,
+      },
+    });
+
     const resolvedQuestions = await this.prisma.matchQuestion.findMany({
       where: {
         match: { tournamentId: pool.tournamentId },
         isResolved: true,
+        isPublished: true,
       },
       select: { id: true },
     });

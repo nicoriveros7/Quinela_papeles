@@ -139,31 +139,37 @@ export default function TournamentMatchesPage() {
               <p className="font-semibold">{getSideLabel(match, 'home')} vs {getSideLabel(match, 'away')}</p>
               <p className="text-xs text-muted-foreground">{formatDateTime(match.kickoffAt)}</p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr_auto] sm:items-end">
-              <Input
-                type="number"
-                min={0}
-                value={drafts[match.id]?.homeScore ?? ''}
-                onChange={(event) => updateDraft(match.id, 'homeScore', event.target.value)}
-                placeholder="Home"
-              />
-              <span className="text-center text-sm font-semibold text-muted-foreground">-</span>
-              <Input
-                type="number"
-                min={0}
-                value={drafts[match.id]?.awayScore ?? ''}
-                onChange={(event) => updateDraft(match.id, 'awayScore', event.target.value)}
-                placeholder="Away"
-              />
-              <ConfirmActionButton
-                size="sm"
-                disabled={savingId === match.id}
-                label={savingId === match.id ? 'Guardando...' : 'Guardar'}
-                confirmLabel="Si, marcar FINISHED"
-                title="Confirmar cierre del match"
-                description={`Se guardara ${drafts[match.id]?.homeScore || '-'}:${drafts[match.id]?.awayScore || '-'} y el estado pasara a FINISHED.`}
-                onConfirm={() => saveResult(match.id)}
-              />
+            <div className="grid gap-3">
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
+                <Input
+                  type="number"
+                  min={0}
+                  value={drafts[match.id]?.homeScore ?? ''}
+                  onChange={(event) => updateDraft(match.id, 'homeScore', event.target.value)}
+                  placeholder="Home"
+                />
+                <span className="text-center text-sm font-semibold text-muted-foreground">-</span>
+                <Input
+                  type="number"
+                  min={0}
+                  value={drafts[match.id]?.awayScore ?? ''}
+                  onChange={(event) => updateDraft(match.id, 'awayScore', event.target.value)}
+                  placeholder="Away"
+                />
+              </div>
+              <div className="flex justify-end">
+                <ConfirmActionButton
+                  size="sm"
+                  disabled={savingId === match.id}
+                  label={savingId === match.id ? 'Guardando...' : 'Guardar y cerrar'}
+                  confirmLabel="Si, marcar FINISHED"
+                  title="Confirmar cierre del match"
+                  description={`Se guardara ${drafts[match.id]?.homeScore || '-'}-${drafts[match.id]?.awayScore || '-'} y el estado pasara a FINISHED.`}
+                  onConfirm={() => saveResult(match.id)}
+                  buttonClassName="w-full sm:w-auto"
+                  panelClassName="w-full sm:max-w-[360px]"
+                />
+              </div>
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
               <Link href={`/admin/matches/${match.id}/questions`} className="font-semibold text-primary">

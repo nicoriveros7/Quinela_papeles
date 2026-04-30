@@ -1,8 +1,10 @@
-import { MatchStage, PrismaClient, SystemRole } from '@prisma/client';
+import { MatchStage, PrismaClient, SystemRole, TournamentPlayerStatus } from '@prisma/client';
 
 import { fifa2026Venues } from './data/fifa-2026-venues.data';
 import { fifa2026GroupMatches } from './data/fifa-2026-group-matches.data';
 import { fifa2026KnockoutMatches } from './data/fifa-2026-knockout-matches.data';
+import { fifa2026PlayersLot1 } from './data/fifa-2026-players-lot-1.data';
+import { TeamPlayersSeed } from './data/fifa-2026-players.types';
 
 const prisma = new PrismaClient();
 const TOURNAMENT_SLUG = 'world-cup-2026';
@@ -20,6 +22,202 @@ function mapKnockoutStageToMatchStage(stage: (typeof fifa2026KnockoutMatches)[nu
   if (stage === 'SEMI_FINAL') return MatchStage.SEMI_FINAL;
   if (stage === 'THIRD_PLACE') return MatchStage.THIRD_PLACE;
   return MatchStage.FINAL;
+}
+
+async function seedTournamentPlayers(
+  tournamentId: string,
+  teamsSeed: TeamPlayersSeed[],
+) {
+  const tournamentTeams = await prisma.tournamentTeam.findMany({
+    where: { tournamentId },
+    select: {
+      id: true,
+      team: {
+        select: {
+          code: true,
+        },
+      },
+    },
+  });
+
+  const tournamentTeamByCode = new Map(
+    tournamentTeams.map((row) => [row.team.code, row.id]),
+  );
+
+  let processedTeams = 0;
+  let playersUpserted = 0;
+  let tournamentPlayersUpserted = 0;
+
+  for (const teamSeed of teamsSeed) {
+    const tournamentTeamId = tournamentTeamByCode.get(teamSeed.teamCode);
+    if (!tournamentTeamId) {
+      throw new Error(
+        `Missing TournamentTeam for ${teamSeed.teamCode} while seeding players. Source: ${teamSeed.sourceNote}`,
+      );
+    }
+
+    processedTeams += 1;
+
+    for (const playerSeed of teamSeed.players) {
+      const isGoalkeeper = playerSeed.isGoalkeeper ?? playerSeed.preferredPosition === 'GK';
+      const position = playerSeed.position ?? playerSeed.preferredPosition;
+
+      const player = await prisma.player.upsert({
+        where: { externalRef: playerSeed.externalRef },
+        update: {
+          fullName: playerSeed.fullName,
+          shortName: playerSeed.shortName ?? null,
+          nationalityCode: playerSeed.nationalityCode,
+          preferredPosition: playerSeed.preferredPosition,
+        },
+        create: {
+          fullName: playerSeed.fullName,
+          shortName: playerSeed.shortName ?? null,
+          externalRef: playerSeed.externalRef,
+          nationalityCode: playerSeed.nationalityCode,
+          preferredPosition: playerSeed.preferredPosition,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      playersUpserted += 1;
+
+      await prisma.tournamentPlayer.upsert({
+        where: {
+          tournamentId_tournamentTeamId_playerId: {
+            tournamentId,
+            tournamentTeamId,
+            playerId: player.id,
+          },
+        },
+        update: {
+          shirtNumber: playerSeed.shirtNumber ?? null,
+          position,
+          squadStatus: TournamentPlayerStatus.PROVISIONAL,
+          isCaptain: playerSeed.isCaptain ?? false,
+          isGoalkeeper,
+        },
+        create: {
+          tournamentId,
+          tournamentTeamId,
+          playerId: player.id,
+          shirtNumber: playerSeed.shirtNumber ?? null,
+          position,
+          squadStatus: TournamentPlayerStatus.PROVISIONAL,
+          isCaptain: playerSeed.isCaptain ?? false,
+          isGoalkeeper,
+        },
+      });
+
+      tournamentPlayersUpserted += 1;
+    }
+  }
+
+  return {
+    processedTeams,
+    playersUpserted,
+    tournamentPlayersUpserted,
+  };
+}
+
+async function seedFallbackPlayerForMissingTeams(tournamentId: string) {
+  const tournamentTeams = await prisma.tournamentTeam.findMany({
+    where: { tournamentId },
+    select: {
+      id: true,
+      team: {
+        select: {
+          code: true,
+          name: true,
+          countryCode: true,
+        },
+      },
+      _count: {
+        select: {
+          players: true,
+        },
+      },
+    },
+  });
+
+  let createdFallbackPlayers = 0;
+  let updatedFallbackPlayers = 0;
+
+  for (const tournamentTeam of tournamentTeams) {
+    const fallbackExternalRef = `wc2026-${tournamentTeam.team.code.toLowerCase()}-fallback-1`;
+    const fallbackFullName = `${tournamentTeam.team.name} Player 1`;
+    const fallbackNationality = tournamentTeam.team.countryCode ?? tournamentTeam.team.code;
+
+    const existingFallback = await prisma.player.findUnique({
+      where: { externalRef: fallbackExternalRef },
+      select: { id: true },
+    });
+
+    if (!existingFallback && tournamentTeam._count.players > 0) {
+      continue;
+    }
+
+    const player = await prisma.player.upsert({
+      where: { externalRef: fallbackExternalRef },
+      update: {
+        fullName: fallbackFullName,
+        shortName: `${tournamentTeam.team.code} P1`,
+        nationalityCode: fallbackNationality,
+        preferredPosition: 'FW',
+      },
+      create: {
+        fullName: fallbackFullName,
+        shortName: `${tournamentTeam.team.code} P1`,
+        externalRef: fallbackExternalRef,
+        nationalityCode: fallbackNationality,
+        preferredPosition: 'FW',
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    await prisma.tournamentPlayer.upsert({
+      where: {
+        tournamentId_tournamentTeamId_playerId: {
+          tournamentId,
+          tournamentTeamId: tournamentTeam.id,
+          playerId: player.id,
+        },
+      },
+      update: {
+        shirtNumber: null,
+        position: 'FW',
+        squadStatus: TournamentPlayerStatus.PROVISIONAL,
+        isCaptain: false,
+        isGoalkeeper: false,
+      },
+      create: {
+        tournamentId,
+        tournamentTeamId: tournamentTeam.id,
+        playerId: player.id,
+        shirtNumber: null,
+        position: 'FW',
+        squadStatus: TournamentPlayerStatus.PROVISIONAL,
+        isCaptain: false,
+        isGoalkeeper: false,
+      },
+    });
+
+    if (existingFallback) {
+      updatedFallbackPlayers += 1;
+    } else {
+      createdFallbackPlayers += 1;
+    }
+  }
+
+  return {
+    createdFallbackPlayers,
+    updatedFallbackPlayers,
+    totalTournamentTeams: tournamentTeams.length,
+  };
 }
 
 async function seedQuinelaDemoPool(tournamentId: string) {
@@ -83,16 +281,21 @@ async function seedQuinelaDemoPool(tournamentId: string) {
       joinCode: 'DEMO2026',
       maxEntriesPerMember: 1,
       lockMinutesBeforeKickoff: 15,
-      pointsExactScore: 3,
+      pointsExactScore: 5,
       pointsMatchOutcome: 1,
-      pointsBonusCorrect: 2,
+      pointsBonusCorrect: 5,
       pointsConfig: {
         match: {
-          exactScore: 3,
-          outcome: 1,
+          exactScore: 5,
+          goalDifference: 3,
+          winner: 1,
+          loser: 1,
+          homeGoals: 2,
+          awayGoals: 2,
+          totalGoals: 1,
         },
         bonus: {
-          default: 2,
+          default: 5,
         },
       },
     },
@@ -107,16 +310,21 @@ async function seedQuinelaDemoPool(tournamentId: string) {
       joinCode: 'DEMO2026',
       maxEntriesPerMember: 1,
       lockMinutesBeforeKickoff: 15,
-      pointsExactScore: 3,
+      pointsExactScore: 5,
       pointsMatchOutcome: 1,
-      pointsBonusCorrect: 2,
+      pointsBonusCorrect: 5,
       pointsConfig: {
         match: {
-          exactScore: 3,
-          outcome: 1,
+          exactScore: 5,
+          goalDifference: 3,
+          winner: 1,
+          loser: 1,
+          homeGoals: 2,
+          awayGoals: 2,
+          totalGoals: 1,
         },
         bonus: {
-          default: 2,
+          default: 5,
         },
       },
     },
@@ -351,6 +559,9 @@ async function seedFifa2026Calendar() {
 
   const tournamentTeamByCode = new Map(teamRows.map((row) => [row.team.code, row]));
 
+  const playersLot1Stats = await seedTournamentPlayers(tournament.id, fifa2026PlayersLot1);
+  const fallbackPlayersStats = await seedFallbackPlayerForMissingTeams(tournament.id);
+
   for (const groupMatch of fifa2026GroupMatches) {
     const group = groupByCode.get(groupMatch.groupCode);
     if (!group) {
@@ -496,6 +707,12 @@ async function seedFifa2026Calendar() {
         tournamentSlug: tournament.slug,
         groups: groupByCode.size,
         venues: fifa2026Venues.length,
+        seededPlayersTeamsLot1: playersLot1Stats.processedTeams,
+        seededPlayersRecordsLot1: playersLot1Stats.playersUpserted,
+        seededTournamentPlayersLot1: playersLot1Stats.tournamentPlayersUpserted,
+        seededFallbackPlayers: fallbackPlayersStats.createdFallbackPlayers,
+        updatedFallbackPlayers: fallbackPlayersStats.updatedFallbackPlayers,
+        totalTournamentTeams: fallbackPlayersStats.totalTournamentTeams,
         groupMatches: fifa2026GroupMatches.length,
         knockoutMatches: fifa2026KnockoutMatches.length,
         totalMatches,

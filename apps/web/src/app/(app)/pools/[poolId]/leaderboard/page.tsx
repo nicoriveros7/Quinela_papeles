@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -17,6 +18,7 @@ export default function LeaderboardPage() {
   const { token } = useAuth();
 
   const [data, setData] = useState<LeaderboardResponse | null>(null);
+  const [entryId, setEntryId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,8 +31,12 @@ export default function LeaderboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const leaderboard = await api.getLeaderboard(poolId, token);
+        const [leaderboard, entries] = await Promise.all([
+          api.getLeaderboard(poolId, token),
+          api.listMyEntries(poolId, token),
+        ]);
         setData(leaderboard);
+        setEntryId(entries[0]?.id);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'No se pudo cargar el leaderboard.');
       } finally {
@@ -55,7 +61,7 @@ export default function LeaderboardPage() {
 
   return (
     <div className="grid gap-4">
-      <PoolContextTabs poolId={poolId} />
+      <PoolContextTabs poolId={poolId} entryId={entryId} />
 
       <header className="rounded-2xl border border-border/70 bg-surface p-4">
         <h1 className="text-2xl font-extrabold">Leaderboard</h1>
@@ -82,7 +88,14 @@ export default function LeaderboardPage() {
               {data.leaderboard.map((row) => (
                 <tr key={row.entryId} className="border-t border-border/70">
                   <td className="py-2 font-bold">#{row.rank}</td>
-                  <td className="py-2">{row.entryName ?? row.entryId.slice(-6)}</td>
+                  <td className="py-2">
+                    <Link
+                      href={`/pools/${poolId}/entries/${row.entryId}`}
+                      className="font-semibold text-primary hover:underline"
+                    >
+                      {row.entryName ?? row.entryId.slice(-6)}
+                    </Link>
+                  </td>
                   <td className="py-2">{row.userDisplayName}</td>
                   <td className="py-2">
                     <Badge variant="success">{row.totalPoints} pts</Badge>

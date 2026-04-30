@@ -1,6 +1,22 @@
 export type MatchScoreConfig = {
   pointsExactScore: number;
-  pointsMatchOutcome: number;
+  pointsGoalDifference: number;
+  pointsWinner: number;
+  pointsLoser: number;
+  pointsHomeGoals: number;
+  pointsAwayGoals: number;
+  pointsTotalGoals: number;
+};
+
+export type MatchPredictionBreakdown = {
+  exactScore: number;
+  goalDifference: number;
+  winner: number;
+  loser: number;
+  homeGoals: number;
+  awayGoals: number;
+  totalGoals: number;
+  totalPoints: number;
 };
 
 export type ResolvedQuestionPointsInput = {
@@ -29,26 +45,71 @@ export function calculateMatchPredictionPoints(
   actualAwayScore: number,
   config: MatchScoreConfig,
 ) {
+  const { breakdown, isExact, isOutcomeCorrect } = calculateMatchPredictionBreakdown(
+    predictedHomeScore,
+    predictedAwayScore,
+    actualHomeScore,
+    actualAwayScore,
+    config,
+  );
+
+  return {
+    pointsAwarded: breakdown.totalPoints,
+    isExact,
+    isOutcomeCorrect,
+  };
+}
+
+export function calculateMatchPredictionBreakdown(
+  predictedHomeScore: number,
+  predictedAwayScore: number,
+  actualHomeScore: number,
+  actualAwayScore: number,
+  config: MatchScoreConfig,
+): { breakdown: MatchPredictionBreakdown; isExact: boolean; isOutcomeCorrect: boolean } {
   const isExact =
     predictedHomeScore === actualHomeScore && predictedAwayScore === actualAwayScore;
 
-  if (isExact) {
-    return {
-      pointsAwarded: config.pointsExactScore,
-      isExact,
-      isOutcomeCorrect: true,
-    };
-  }
+  const predictedGoalDifference = predictedHomeScore - predictedAwayScore;
+  const actualGoalDifference = actualHomeScore - actualAwayScore;
+  const isGoalDifferenceCorrect = predictedGoalDifference === actualGoalDifference;
+
+  const isHomeGoalsCorrect = predictedHomeScore === actualHomeScore;
+  const isAwayGoalsCorrect = predictedAwayScore === actualAwayScore;
+
+  const predictedTotalGoals = predictedHomeScore + predictedAwayScore;
+  const actualTotalGoals = actualHomeScore + actualAwayScore;
+  const isTotalGoalsCorrect = predictedTotalGoals === actualTotalGoals;
 
   const predictedOutcome = getMatchOutcome(predictedHomeScore, predictedAwayScore);
   const actualOutcome = getMatchOutcome(actualHomeScore, actualAwayScore);
   const isOutcomeCorrect = predictedOutcome === actualOutcome;
 
-  return {
-    pointsAwarded: isOutcomeCorrect ? config.pointsMatchOutcome : 0,
-    isExact,
-    isOutcomeCorrect,
+  const hasWinner = actualOutcome !== 'DRAW';
+  const isWinnerCorrect = hasWinner && isOutcomeCorrect;
+  const isLoserCorrect = hasWinner && isOutcomeCorrect;
+
+  const breakdown: MatchPredictionBreakdown = {
+    exactScore: isExact ? config.pointsExactScore : 0,
+    goalDifference: isGoalDifferenceCorrect ? config.pointsGoalDifference : 0,
+    winner: isWinnerCorrect ? config.pointsWinner : 0,
+    loser: isLoserCorrect ? config.pointsLoser : 0,
+    homeGoals: isHomeGoalsCorrect ? config.pointsHomeGoals : 0,
+    awayGoals: isAwayGoalsCorrect ? config.pointsAwayGoals : 0,
+    totalGoals: isTotalGoalsCorrect ? config.pointsTotalGoals : 0,
+    totalPoints: 0,
   };
+
+  breakdown.totalPoints =
+    breakdown.exactScore +
+    breakdown.goalDifference +
+    breakdown.winner +
+    breakdown.loser +
+    breakdown.homeGoals +
+    breakdown.awayGoals +
+    breakdown.totalGoals;
+
+  return { breakdown, isExact, isOutcomeCorrect };
 }
 
 export function resolveQuestionPoints(input: ResolvedQuestionPointsInput) {
@@ -73,14 +134,32 @@ export function resolveMatchScoringConfig(
   poolPointsMatchOutcome: number,
   poolPointsConfig: unknown,
 ): MatchScoreConfig {
+  const legacyExact = sanitizeNonNegativeInt(poolPointsExactScore);
+  const legacyOutcome = sanitizeNonNegativeInt(poolPointsMatchOutcome);
+
   return {
     pointsExactScore:
-      sanitizeNonNegativeInt(poolPointsExactScore) ??
       extractNumericConfigValue(poolPointsConfig, ['match', 'exactScore']) ??
+      legacyExact ??
+      5,
+    pointsGoalDifference:
+      extractNumericConfigValue(poolPointsConfig, ['match', 'goalDifference']) ??
       3,
-    pointsMatchOutcome:
-      sanitizeNonNegativeInt(poolPointsMatchOutcome) ??
-      extractNumericConfigValue(poolPointsConfig, ['match', 'outcome']) ??
+    pointsWinner:
+      extractNumericConfigValue(poolPointsConfig, ['match', 'winner']) ??
+      legacyOutcome ??
+      1,
+    pointsLoser:
+      extractNumericConfigValue(poolPointsConfig, ['match', 'loser']) ??
+      1,
+    pointsHomeGoals:
+      extractNumericConfigValue(poolPointsConfig, ['match', 'homeGoals']) ??
+      2,
+    pointsAwayGoals:
+      extractNumericConfigValue(poolPointsConfig, ['match', 'awayGoals']) ??
+      2,
+    pointsTotalGoals:
+      extractNumericConfigValue(poolPointsConfig, ['match', 'totalGoals']) ??
       1,
   };
 }

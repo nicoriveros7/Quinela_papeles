@@ -29,6 +29,10 @@ class MatchQuestionOptionInputDto {
   @IsOptional()
   @IsString()
   teamId?: string;
+
+  @IsOptional()
+  @IsString()
+  playerId?: string;
 }
 
 export class CreateMatchQuestionDto {

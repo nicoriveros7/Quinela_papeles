@@ -7,7 +7,7 @@ import { ArrowLeft, Plus, Save } from 'lucide-react';
 
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
-import { AdminMatchQuestion, CreateAdminQuestionPayload } from '@/types/api';
+import { AdminMatchPlayerPoolResponse, AdminMatchQuestion, CreateAdminQuestionPayload } from '@/types/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmActionButton } from '@/components/ui/confirm-action-button';
@@ -16,17 +16,34 @@ import { StatePanel } from '@/components/ui/state-panel';
 
 type NewQuestionForm = {
   questionText: string;
-  answerType: 'BOOLEAN' | 'SINGLE_CHOICE' | 'TEAM_PICK' | 'TIME_RANGE';
+  answerType: 'BOOLEAN' | 'SINGLE_CHOICE' | 'TEAM_PICK' | 'PLAYER_PICK' | 'TIME_RANGE';
   points: string;
   lockAt: string;
   optionLabels: string;
 };
+
+function formatTeamLabel(team: AdminMatchPlayerPoolResponse['teams'][number]) {
+  const baseName = team.teamName && team.teamName !== team.teamCode
+    ? `${team.teamName} (${team.teamCode})`
+    : team.teamCode;
+
+  if (team.matchSide === 'HOME') {
+    return `Local: ${baseName}`;
+  }
+
+  if (team.matchSide === 'AWAY') {
+    return `Visita: ${baseName}`;
+  }
+
+  return baseName;
+}
 
 export default function MatchQuestionsPage() {
   const params = useParams<{ matchId: string }>();
   const matchId = params?.matchId ?? '';
   const { token } = useAuth();
   const [questions, setQuestions] = useState<AdminMatchQuestion[]>([]);
+  const [playerPool, setPlayerPool] = useState<AdminMatchPlayerPoolResponse | null>(null);
   const [newQuestion, setNewQuestion] = useState<NewQuestionForm>({
     questionText: '',
     answerType: 'BOOLEAN',
@@ -42,6 +59,34 @@ export default function MatchQuestionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedOption, setSelectedOption] = useState<Record<string, string>>({});
+  const [selectedPlayerTeamCode, setSelectedPlayerTeamCode] = useState<string>('');
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+  const [playerScope, setPlayerScope] = useState<'TEAM' | 'MATCH'>('TEAM');
+
+  const selectableTeams = playerPool
+    ? playerPool.teams.filter((team) => team.matchSide)
+    : [];
+  const fallbackTeams = playerPool?.teams ?? [];
+  const teamOptions = selectableTeams.length > 0 ? selectableTeams : fallbackTeams;
+  const matchTeams = selectableTeams.length > 0 ? selectableTeams : [];
+
+  const selectedTeam = playerPool?.teams.find((team) => team.teamCode === selectedPlayerTeamCode) ?? null;
+  const teamPlayers = selectedTeam?.players ?? [];
+  const matchPlayers = matchTeams.flatMap((team) =>
+    team.players.map((player) => ({ ...player, teamCode: team.teamCode })),
+  );
+  const playerOptions = playerScope === 'MATCH'
+    ? matchPlayers
+    : teamPlayers.map((player) => ({ ...player, teamCode: selectedTeam?.teamCode ?? '' }));
+
+  const selectAllTeamPlayers = () => {
+    setSelectedPlayerIds(teamPlayers.map((player) => player.playerId));
+  };
+
+  const selectAllMatchPlayers = () => {
+    const ids = new Set(matchPlayers.map((player) => player.playerId));
+    setSelectedPlayerIds(Array.from(ids));
+  };
 
   const loadQuestions = useCallback(async () => {
     if (!token) {
@@ -51,11 +96,22 @@ export default function MatchQuestionsPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.adminListMatchQuestions(matchId, token);
-      setQuestions(data.questions);
-      setEditingPrompt(Object.fromEntries(data.questions.map((q) => [q.id, q.questionText])));
-      setResolutionDraft(Object.fromEntries(data.questions.map((q) => [q.id, q.correctOptionId ?? ''])));
-      setSelectedOption(Object.fromEntries(data.questions.map((q) => [q.id, q.correctOptionId ?? q.options[0]?.id ?? ''])));
+      const [questionData, playerPoolData] = await Promise.all([
+        api.adminListMatchQuestions(matchId, token),
+        api.adminListMatchPlayerPool(matchId, token),
+      ]);
+
+      setQuestions(questionData.questions);
+      setEditingPrompt(Object.fromEntries(questionData.questions.map((q) => [q.id, q.questionText])));
+      setResolutionDraft(Object.fromEntries(questionData.questions.map((q) => [q.id, q.correctOptionId ?? ''])));
+      setSelectedOption(Object.fromEntries(questionData.questions.map((q) => [q.id, q.correctOptionId ?? q.options[0]?.id ?? ''])));
+
+      setPlayerPool(playerPoolData);
+      const preferredTeam = playerPoolData.teams.find((team) => team.matchSide)?.teamCode;
+      const defaultTeamCode = preferredTeam ?? playerPoolData.teams[0]?.teamCode ?? '';
+      setSelectedPlayerTeamCode(defaultTeamCode);
+      setSelectedPlayerIds([]);
+      setPlayerScope('TEAM');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudieron cargar las preguntas.');
     } finally {
@@ -92,7 +148,38 @@ export default function MatchQuestionsPage() {
       payload.lockAt = new Date(newQuestion.lockAt).toISOString();
     }
 
-    if (newQuestion.answerType !== 'BOOLEAN') {
+    if (newQuestion.answerType === 'PLAYER_PICK') {
+      if (!playerPool) {
+        setError('No se pudo cargar el pool de jugadores para este partido.');
+        return;
+      }
+
+      const candidatePlayers = playerScope === 'MATCH'
+        ? matchPlayers
+        : teamPlayers.map((player) => ({ ...player, teamCode: selectedTeam?.teamCode ?? '' }));
+
+      if (playerScope === 'TEAM' && !selectedTeam) {
+        setError('Debes seleccionar un pais/equipo para PLAYER_PICK.');
+        return;
+      }
+
+      if (playerScope === 'MATCH' && matchPlayers.length === 0) {
+        setError('Este partido no tiene equipos asignados todavía.');
+        return;
+      }
+
+      const pickedPlayers = candidatePlayers.filter((player) => selectedPlayerIds.includes(player.playerId));
+      if (pickedPlayers.length < 2) {
+        setError('Para PLAYER_PICK debes seleccionar al menos 2 jugadores del equipo elegido.');
+        return;
+      }
+
+      payload.options = pickedPlayers.map((player, index) => ({
+        key: `PLAYER_${index + 1}`,
+        label: player.shortName ?? player.fullName,
+        playerId: player.playerId,
+      }));
+    } else if (newQuestion.answerType !== 'BOOLEAN') {
       const labels = newQuestion.optionLabels
         .split(',')
         .map((value) => value.trim())
@@ -209,6 +296,7 @@ export default function MatchQuestionsPage() {
               <option value="BOOLEAN">BOOLEAN</option>
               <option value="SINGLE_CHOICE">SINGLE_CHOICE</option>
               <option value="TEAM_PICK">TEAM_PICK</option>
+              <option value="PLAYER_PICK">PLAYER_PICK</option>
               <option value="TIME_RANGE">TIME_RANGE</option>
             </select>
             <Input
@@ -228,13 +316,107 @@ export default function MatchQuestionsPage() {
               {creating ? 'Creando...' : 'Crear'}
             </Button>
           </div>
-          {newQuestion.answerType !== 'BOOLEAN' && (
+          {newQuestion.answerType === 'PLAYER_PICK' ? (
+            <div className="grid gap-2 rounded-xl border border-border/70 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant={playerScope === 'TEAM' ? 'default' : 'outline'}
+                  onClick={() => {
+                    setPlayerScope('TEAM');
+                    setSelectedPlayerIds([]);
+                  }}
+                >
+                  Solo equipo
+                </Button>
+                <Button
+                  size="sm"
+                  variant={playerScope === 'MATCH' ? 'default' : 'outline'}
+                  onClick={() => {
+                    setPlayerScope('MATCH');
+                    setSelectedPlayerIds([]);
+                  }}
+                  disabled={matchPlayers.length === 0}
+                >
+                  Ambos equipos
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSelectedPlayerIds([])}
+                >
+                  Limpiar
+                </Button>
+                {playerScope === 'TEAM' ? (
+                  <Button size="sm" variant="ghost" onClick={selectAllTeamPlayers}>
+                    Seleccionar todo equipo
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="ghost" onClick={selectAllMatchPlayers}>
+                    Seleccionar ambos equipos
+                  </Button>
+                )}
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-[220px_1fr] sm:items-start">
+                <select
+                  value={selectedPlayerTeamCode}
+                  onChange={(event) => {
+                    setSelectedPlayerTeamCode(event.target.value);
+                    setSelectedPlayerIds([]);
+                  }}
+                  className="h-10 rounded-md border border-border/70 bg-background px-3 text-sm"
+                  disabled={playerScope === 'MATCH'}
+                >
+                  <option value="">Selecciona pais/equipo</option>
+                  {teamOptions.map((team) => (
+                    <option key={team.teamCode} value={team.teamCode}>
+                      {formatTeamLabel(team)}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="max-h-48 overflow-auto rounded-md border border-border/70 p-2">
+                  {playerOptions.length > 0 ? (
+                    playerOptions.map((player) => {
+                      const checked = selectedPlayerIds.includes(player.playerId);
+                      return (
+                        <label key={player.playerId} className="flex items-center gap-2 py-1 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setSelectedPlayerIds((prev) =>
+                                checked
+                                  ? prev.filter((id) => id !== player.playerId)
+                                  : [...prev, player.playerId],
+                              );
+                            }}
+                          />
+                          <span>
+                            {player.shortName ?? player.fullName}
+                            {player.shirtNumber ? ` (#${player.shirtNumber})` : ''}
+                            {playerScope === 'MATCH' ? ` · ${player.teamCode}` : ''}
+                          </span>
+                        </label>
+                      );
+                    })
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Elige un pais/equipo para ver jugadores.</p>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Jugadores seleccionados: {selectedPlayerIds.length}. Para crear la pregunta se requieren al menos 2.
+              </p>
+            </div>
+          ) : newQuestion.answerType !== 'BOOLEAN' ? (
             <Input
               placeholder="Opciones separadas por coma (ej: Equipo A, Empate, Equipo B)"
               value={newQuestion.optionLabels}
               onChange={(event) => setNewQuestion((prev) => ({ ...prev, optionLabels: event.target.value }))}
             />
-          )}
+          ) : null}
         </CardContent>
       </Card>
 
@@ -276,7 +458,7 @@ export default function MatchQuestionsPage() {
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => void saveQuestion(question.id)} disabled={workingId === question.id}>
                     <Save className="mr-1.5 h-4 w-4" />
-                    Guardar
+                    Guardar texto
                   </Button>
                   <ConfirmActionButton
                     size="sm"
