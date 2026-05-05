@@ -213,6 +213,7 @@ export type AdminMatch = {
   stage: string;
   roundLabel: string | null;
   matchNumber: number | null;
+  group: { code: string } | null;
   homeSlotLabel: string | null;
   awaySlotLabel: string | null;
   kickoffAt: string;

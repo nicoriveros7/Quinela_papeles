@@ -70,6 +70,11 @@ export class AdminService {
       where: { tournamentId },
       orderBy: { kickoffAt: 'asc' },
       include: {
+        group: {
+          select: {
+            code: true,
+          },
+        },
         homeTournamentTeam: {
           select: {
             team: {

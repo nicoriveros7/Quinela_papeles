@@ -48,7 +48,10 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
 
           <nav className="grid gap-2">
             {links.map((link) => {
-              const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+              const active =
+                link.href === '/admin'
+                  ? pathname === link.href
+                  : pathname === link.href || pathname.startsWith(`${link.href}/`);
               const Icon = link.icon;
 
               return (

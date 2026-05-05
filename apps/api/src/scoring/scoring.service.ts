@@ -50,6 +50,34 @@ export class ScoringService {
       throw new NotFoundException('Pool not found');
     }
 
+    await this.prisma.matchPrediction.updateMany({
+      where: {
+        poolEntry: { poolId },
+        match: {
+          tournamentId: { not: pool.tournamentId },
+        },
+      },
+      data: {
+        pointsAwarded: 0,
+        isScored: false,
+        scoredAt: null,
+      },
+    });
+
+    await this.prisma.matchQuestionPrediction.updateMany({
+      where: {
+        poolEntry: { poolId },
+        matchQuestion: {
+          match: { tournamentId: { not: pool.tournamentId } },
+        },
+      },
+      data: {
+        pointsAwarded: 0,
+        isScored: false,
+        scoredAt: null,
+      },
+    });
+
     const finishedMatches = await this.prisma.match.findMany({
       where: {
         tournamentId: pool.tournamentId,
@@ -190,7 +218,7 @@ export class ScoringService {
       }),
     );
 
-    await this.recalculatePoolEntryTotals(poolId);
+    await this.recalculatePoolEntryTotals(poolId, pool.tournamentId);
 
     return {
       poolId,
@@ -297,7 +325,7 @@ export class ScoringService {
       }),
     );
 
-    await this.recalculatePoolEntryTotals(poolId);
+    await this.recalculatePoolEntryTotals(poolId, pool.tournamentId);
 
     return {
       poolId,
@@ -342,7 +370,7 @@ export class ScoringService {
     return membership;
   }
 
-  private async recalculatePoolEntryTotals(poolId: string) {
+  private async recalculatePoolEntryTotals(poolId: string, tournamentId: string) {
     const [entries, matchSums, questionSums] = await Promise.all([
       this.prisma.poolEntry.findMany({
         where: { poolId },
@@ -355,6 +383,7 @@ export class ScoringService {
         by: ['poolEntryId'],
         where: {
           poolEntry: { poolId },
+          match: { tournamentId },
         },
         _sum: {
           pointsAwarded: true,
@@ -364,6 +393,7 @@ export class ScoringService {
         by: ['poolEntryId'],
         where: {
           poolEntry: { poolId },
+          matchQuestion: { match: { tournamentId } },
         },
         _sum: {
           pointsAwarded: true,
