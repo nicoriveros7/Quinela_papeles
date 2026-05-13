@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -37,10 +38,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<PublicUser | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
 
+  // Track whether we've already ensured main pool membership this session.
+  // The boot effect reruns on every pathname change, so we use a ref to fire once.
+  const mainPoolEnsured = useRef(false);
+
+  const ensureMainPool = useCallback((activeToken: string) => {
+    api.getMyMainPool(activeToken).catch(() => {
+      // Non-fatal: log but never break the session
+      console.warn('[auth] ensureMainPool failed — will retry on dashboard load');
+    });
+  }, []);
+
   const handleLogout = useCallback(() => {
     clearStoredToken();
     setToken(null);
     setUser(null);
+    mainPoolEnsured.current = false;
     if (!AUTH_PAGES.includes(pathname)) {
       router.push('/login');
     }
@@ -57,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(activeToken);
   }, []);
 
+  // Runs on every pathname change but ensureMainPool fires only once per session via ref.
   useEffect(() => {
     const boot = async () => {
       const stored = getStoredToken();
@@ -74,6 +88,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(stored);
         setUser(profile);
 
+        if (!mainPoolEnsured.current) {
+          mainPoolEnsured.current = true;
+          ensureMainPool(stored);
+        }
+
         if (AUTH_PAGES.includes(pathname)) {
           router.replace('/dashboard');
         }
@@ -81,6 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearStoredToken();
         setToken(null);
         setUser(null);
+        mainPoolEnsured.current = false;
         if (!PUBLIC_PAGES.includes(pathname)) {
           router.replace('/login');
         }
@@ -90,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     void boot();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, router]);
 
   const login = useCallback(
@@ -98,9 +119,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setStoredToken(response.accessToken);
       setToken(response.accessToken);
       setUser(response.user);
+      mainPoolEnsured.current = true;
+      ensureMainPool(response.accessToken);
       router.push('/dashboard');
     },
-    [router],
+    [ensureMainPool, router],
   );
 
   const register = useCallback(
@@ -109,9 +132,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setStoredToken(response.accessToken);
       setToken(response.accessToken);
       setUser(response.user);
+      mainPoolEnsured.current = true;
+      ensureMainPool(response.accessToken);
       router.push('/dashboard');
     },
-    [router],
+    [ensureMainPool, router],
   );
 
   const value = useMemo<AuthContextValue>(

@@ -155,12 +155,13 @@ model Tournament {
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
-  groups    TournamentGroup[]
-  teams     TournamentTeam[]
-  players   TournamentPlayer[]
-  matches   Match[]
-  pools     Pool[]
-  auditLogs AuditLog[]
+  groups                TournamentGroup[]
+  teams                 TournamentTeam[]
+  players               TournamentPlayer[]
+  matches               Match[]
+  pools                 Pool[]
+  auditLogs             AuditLog[]
+  tournamentPredictions TournamentPrediction[]
 
   @@index([status, startDate])
 }
@@ -223,12 +224,14 @@ model TournamentTeam {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tournament  Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  team        Team             @relation(fields: [teamId], references: [id], onDelete: Restrict)
-  group       TournamentGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  players     TournamentPlayer[]
-  homeMatches Match[]          @relation("HomeTournamentTeam")
-  awayMatches Match[]          @relation("AwayTournamentTeam")
+  tournament                Tournament                @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  team                      Team                     @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  group                     TournamentGroup?          @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  players                   TournamentPlayer[]
+  homeMatches               Match[]                  @relation("HomeTournamentTeam")
+  awayMatches               Match[]                  @relation("AwayTournamentTeam")
+  championPredictions       TournamentPrediction[]   @relation("TournamentPredictionChampion")
+  runnerUpPredictions       TournamentPrediction[]   @relation("TournamentPredictionRunnerUp")
 
   @@unique([tournamentId, teamId])
   @@index([tournamentId, groupId])
@@ -247,9 +250,10 @@ model TournamentPlayer {
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 
-  tournament     Tournament     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  tournamentTeam TournamentTeam @relation(fields: [tournamentTeamId], references: [id], onDelete: Cascade)
-  player         Player         @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  tournament              Tournament             @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournamentTeam          TournamentTeam         @relation(fields: [tournamentTeamId], references: [id], onDelete: Cascade)
+  player                  Player                 @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  topScorerPredictions    TournamentPrediction[]
 
   @@unique([tournamentId, tournamentTeamId, playerId])
   @@index([tournamentTeamId])
@@ -323,6 +327,9 @@ model Pool {
   pointsExactScore         Int            @default(3)
   pointsMatchOutcome       Int            @default(1)
   pointsBonusCorrect       Int            @default(2)
+  pointsChampionCorrect    Int            @default(10)
+  pointsRunnerUpCorrect    Int            @default(5)
+  pointsTopScorerCorrect   Int            @default(3)
   pointsConfig             Json?
   createdAt                DateTime       @default(now())
   updatedAt                DateTime       @updatedAt
@@ -373,6 +380,7 @@ model PoolEntry {
   member              PoolMember                @relation(fields: [poolId, userId], references: [poolId, userId], onDelete: Restrict)
   matchPredictions    MatchPrediction[]
   questionPredictions MatchQuestionPrediction[]
+  tournamentPredictions TournamentPrediction[]
 
   @@unique([poolId, userId])
   @@unique([poolId, userId, entryNumber])
@@ -397,6 +405,34 @@ model MatchPrediction {
 
   @@unique([poolEntryId, matchId])
   @@index([matchId])
+}
+
+model TournamentPrediction {
+  id                          String    @id @default(cuid())
+  poolEntryId                 String
+  tournamentId                String
+  championTournamentTeamId    String?
+  runnerUpTournamentTeamId    String?
+  topScorerTournamentPlayerId String?
+  pointsAwarded               Int       @default(0)
+  isLocked                    Boolean   @default(false)
+  isScored                    Boolean   @default(false)
+  scoredAt                    DateTime?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+
+  poolEntry  PoolEntry         @relation(fields: [poolEntryId], references: [id], onDelete: Cascade)
+  tournament Tournament        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  champion   TournamentTeam?   @relation("TournamentPredictionChampion", fields: [championTournamentTeamId], references: [id], onDelete: SetNull)
+  runnerUp   TournamentTeam?   @relation("TournamentPredictionRunnerUp", fields: [runnerUpTournamentTeamId], references: [id], onDelete: SetNull)
+  topScorer  TournamentPlayer? @relation(fields: [topScorerTournamentPlayerId], references: [id], onDelete: SetNull)
+
+  @@unique([poolEntryId, tournamentId])
+  @@index([poolEntryId])
+  @@index([tournamentId])
+  @@index([championTournamentTeamId])
+  @@index([runnerUpTournamentTeamId])
+  @@index([topScorerTournamentPlayerId])
 }
 
 model QuestionTemplate {

@@ -2,16 +2,65 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, LogOut, Medal, ShieldCheck, ShieldUser, Target, Users } from 'lucide-react';
+import {
+  Globe,
+  ListChecks,
+  LogOut,
+  Medal,
+  ShieldCheck,
+  ShieldUser,
+  Star,
+  Swords,
+  Trophy,
+} from 'lucide-react';
 
 import { useAuth } from '@/providers/auth-provider';
 
 import { Button } from '../ui/button';
 
-const links = [
-  { href: '/dashboard', label: 'Dashboard', icon: Home },
-  { href: '/pools', label: 'Pools', icon: Users },
-  { href: '/pools/join', label: 'Unirme', icon: Target },
+type NavLink = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  activeWhen?: (pathname: string) => boolean;
+};
+
+const quinielaLinks: NavLink[] = [
+  {
+    href: '/dashboard',
+    label: 'Mi Quiniela',
+    icon: Globe,
+    // Active on dashboard, and on any /pools/* page (user navigates there from the quiniela)
+    activeWhen: (p) =>
+      p === '/dashboard' ||
+      (p.startsWith('/pools/') && !p.includes('/leaderboard') && !p.includes('/entries')),
+  },
+  {
+    href: '/quiniela/partidos',
+    label: 'Partidos',
+    icon: Swords,
+  },
+  {
+    href: '/quiniela/predicciones',
+    label: 'Mis predicciones',
+    icon: ListChecks,
+    // Also active when on the entry predictions page
+    activeWhen: (p) =>
+      (p.startsWith('/quiniela/predicciones') && !p.startsWith('/quiniela/predicciones-torneo')) ||
+      p.includes('/entries/'),
+  },
+  {
+    href: '/quiniela/leaderboard',
+    label: 'Leaderboard',
+    icon: Trophy,
+    // Also active when on a pool leaderboard page
+    activeWhen: (p) => p.startsWith('/quiniela/leaderboard') || p.includes('/leaderboard'),
+  },
+  {
+    href: '/quiniela/predicciones-torneo',
+    label: 'Pre-torneo',
+    icon: Star,
+  },
 ];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -30,6 +79,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return null;
   }
 
+  const isAdmin = user?.systemRole === 'ADMIN' || user?.systemRole === 'SUPER_ADMIN';
+  const links = quinielaLinks;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col lg:flex-row">
@@ -39,14 +91,18 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
               <Medal className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-sm font-bold uppercase tracking-[0.09em] text-primary">Quinela Pro</p>
-              <p className="text-xs text-muted-foreground">Fantasy Futbol MVP</p>
+              <p className="text-sm font-bold uppercase tracking-[0.09em] text-primary">Mundial 2026</p>
+              <p className="text-xs text-muted-foreground">
+                {isAdmin ? 'Panel de administración' : 'Quiniela oficial'}
+              </p>
             </div>
           </div>
 
-          <nav className="grid gap-2">
+          <nav className="grid gap-1">
             {links.map((link) => {
-              const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+              const active = link.activeWhen
+                ? link.activeWhen(pathname)
+                : pathname === link.href || pathname.startsWith(`${link.href}/`);
               const Icon = link.icon;
               return (
                 <Link
@@ -65,14 +121,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          {user?.systemRole === 'ADMIN' || user?.systemRole === 'SUPER_ADMIN' ? (
+          {isAdmin ? (
             <div className="mt-3">
               <Link
                 href="/admin"
                 className="inline-flex w-full items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.08em] text-primary"
               >
                 <ShieldUser className="h-4 w-4" />
-                Ir a Admin Console
+                Admin Console
               </Link>
             </div>
           ) : null}

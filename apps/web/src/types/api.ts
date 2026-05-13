@@ -168,6 +168,46 @@ export type LeaderboardResponse = {
   leaderboard: LeaderboardRow[];
 };
 
+export type TournamentTeamOption = {
+  id: string;
+  team: { id: string; name: string; code: string; countryCode: string | null };
+};
+
+export type TournamentPlayerOption = {
+  id: string;
+  player: { id: string; fullName: string; shortName: string | null };
+};
+
+export type TournamentPrediction = {
+  id: string;
+  poolEntryId: string;
+  tournamentId: string;
+  championTournamentTeamId: string | null;
+  runnerUpTournamentTeamId: string | null;
+  topScorerTournamentPlayerId: string | null;
+  pointsAwarded: number;
+  isLocked: boolean;
+  isScored: boolean;
+  scoredAt: string | null;
+  champion: TournamentTeamOption | null;
+  runnerUp: TournamentTeamOption | null;
+  topScorer: TournamentPlayerOption | null;
+};
+
+export type TournamentPredictionResponse = {
+  prediction: TournamentPrediction | null;
+  tournamentTeams: TournamentTeamOption[];
+  tournamentPlayers: TournamentPlayerOption[];
+};
+
+export type WorldCupMainPool = {
+  pool: PoolDetail & {
+    owner: { id: string; email: string; displayName: string };
+  };
+  mainEntry: PoolEntry;
+  entries: PoolEntry[];
+};
+
 export type ApiErrorShape = {
   message?: string | string[];
   error?: string;

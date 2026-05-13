@@ -220,6 +220,8 @@ async function seedFallbackPlayerForMissingTeams(tournamentId: string) {
   };
 }
 
+const MAIN_POOL_SLUG = 'world-cup-2026-main';
+
 async function seedQuinelaDemoPool(tournamentId: string) {
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@quinela.demo' },
@@ -398,6 +400,54 @@ async function seedQuinelaDemoPool(tournamentId: string) {
       },
     });
   }
+
+  // Pool principal del Mundial 2026 — todos los usuarios se unen automáticamente
+  const mainPool = await prisma.pool.upsert({
+    where: { slug: MAIN_POOL_SLUG },
+    update: {
+      tournamentId,
+      ownerUserId: adminUser.id,
+      name: 'Quiniela Mundial 2026',
+      description: 'La quiniela oficial del FIFA World Cup 2026. Predice todos los partidos y compite con todos.',
+      visibility: 'PUBLIC',
+      status: 'ACTIVE',
+      joinCode: null,
+      maxEntriesPerMember: 1,
+      lockMinutesBeforeKickoff: 15,
+      pointsExactScore: 5,
+      pointsMatchOutcome: 1,
+      pointsBonusCorrect: 5,
+      pointsConfig: {
+        match: { exactScore: 5, goalDifference: 3, winner: 1, loser: 1, homeGoals: 2, awayGoals: 2, totalGoals: 1 },
+        bonus: { default: 5 },
+      },
+    },
+    create: {
+      tournamentId,
+      ownerUserId: adminUser.id,
+      slug: MAIN_POOL_SLUG,
+      name: 'Quiniela Mundial 2026',
+      description: 'La quiniela oficial del FIFA World Cup 2026. Predice todos los partidos y compite con todos.',
+      visibility: 'PUBLIC',
+      status: 'ACTIVE',
+      joinCode: null,
+      maxEntriesPerMember: 1,
+      lockMinutesBeforeKickoff: 15,
+      pointsExactScore: 5,
+      pointsMatchOutcome: 1,
+      pointsBonusCorrect: 5,
+      pointsConfig: {
+        match: { exactScore: 5, goalDifference: 3, winner: 1, loser: 1, homeGoals: 2, awayGoals: 2, totalGoals: 1 },
+        bonus: { default: 5 },
+      },
+    },
+  });
+
+  await prisma.poolMember.upsert({
+    where: { poolId_userId: { poolId: mainPool.id, userId: adminUser.id } },
+    update: { role: 'OWNER', status: 'ACTIVE', leftAt: null },
+    create: { poolId: mainPool.id, userId: adminUser.id, role: 'OWNER', status: 'ACTIVE' },
+  });
 
   return demoPool;
 }

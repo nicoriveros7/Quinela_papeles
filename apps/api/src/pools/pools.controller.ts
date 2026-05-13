@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 
 import { JwtUserPayload } from '../auth/types/jwt-user-payload.type';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -7,6 +7,7 @@ import { CreatePoolDto } from './dto/create-pool.dto';
 import { JoinPoolDto } from './dto/join-pool.dto';
 import { ListPoolsDto } from './dto/list-pools.dto';
 import { UpdatePoolScoringDto } from './dto/update-pool-scoring.dto';
+import { UpsertTournamentPredictionDto } from './dto/upsert-tournament-prediction.dto';
 import { PoolsService } from './pools.service';
 
 @Controller('pools')
@@ -21,6 +22,24 @@ export class PoolsController {
   @Get()
   async listRelevantPools(@CurrentUser() user: JwtUserPayload, @Query() query: ListPoolsDto) {
     return this.poolsService.listRelevantPools(user, query);
+  }
+
+  @Get('me/main')
+  async getOrJoinMainPool(@CurrentUser() user: JwtUserPayload) {
+    return this.poolsService.getOrJoinMainPool(user);
+  }
+
+  @Get('me/main/tournament-prediction')
+  async getMainTournamentPrediction(@CurrentUser() user: JwtUserPayload) {
+    return this.poolsService.getMainTournamentPrediction(user);
+  }
+
+  @Put('me/main/tournament-prediction')
+  async upsertMainTournamentPrediction(
+    @CurrentUser() user: JwtUserPayload,
+    @Body() dto: UpsertTournamentPredictionDto,
+  ) {
+    return this.poolsService.upsertMainTournamentPrediction(user, dto);
   }
 
   @Get(':poolId')

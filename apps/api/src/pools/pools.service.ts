@@ -14,6 +14,7 @@ import { CreatePoolDto } from './dto/create-pool.dto';
 import { JoinPoolDto } from './dto/join-pool.dto';
 import { ListPoolsDto } from './dto/list-pools.dto';
 import { UpdatePoolScoringDto } from './dto/update-pool-scoring.dto';
+import { UpsertTournamentPredictionDto } from './dto/upsert-tournament-prediction.dto';
 
 type MembershipRole = 'OWNER' | 'ADMIN' | 'MEMBER';
 
@@ -353,6 +354,142 @@ export class PoolsService {
       },
       orderBy: { entryNumber: 'asc' },
     });
+  }
+
+  async getOrJoinMainPool(currentUser: JwtUserPayload) {
+    const MAIN_POOL_SLUG = 'world-cup-2026-main';
+
+    const pool = await this.prisma.pool.findUnique({
+      where: { slug: MAIN_POOL_SLUG },
+      include: {
+        tournament: {
+          select: { id: true, name: true, slug: true, status: true },
+        },
+        owner: {
+          select: { id: true, email: true, displayName: true },
+        },
+        _count: {
+          select: { members: true, entries: true },
+        },
+      },
+    });
+
+    if (!pool) {
+      throw new NotFoundException('Main pool not configured');
+    }
+
+    const existingMember = await this.prisma.poolMember.findUnique({
+      where: { poolId_userId: { poolId: pool.id, userId: currentUser.sub } },
+    });
+
+    if (!existingMember) {
+      await this.prisma.poolMember.create({
+        data: { poolId: pool.id, userId: currentUser.sub, role: 'MEMBER', status: 'ACTIVE' },
+      });
+    } else if (existingMember.status !== PoolMemberStatus.ACTIVE) {
+      await this.prisma.poolMember.update({
+        where: { id: existingMember.id },
+        data: { status: 'ACTIVE', leftAt: null },
+      });
+    }
+
+    const membership = await this.prisma.poolMember.findUnique({
+      where: { poolId_userId: { poolId: pool.id, userId: currentUser.sub } },
+      select: { id: true, poolId: true, userId: true, role: true, status: true, joinedAt: true },
+    });
+
+    // Auto-create the main entry if it doesn't exist yet (idempotent upsert).
+    const mainEntry = await this.prisma.poolEntry.upsert({
+      where: { poolId_userId: { poolId: pool.id, userId: currentUser.sub } },
+      update: {},
+      create: {
+        poolId: pool.id,
+        userId: currentUser.sub,
+        entryNumber: 1,
+        entryName: null,
+      },
+    });
+
+    return { pool: { ...pool, membership }, mainEntry, entries: [mainEntry] };
+  }
+
+  async getMainTournamentPrediction(currentUser: JwtUserPayload) {
+    const MAIN_POOL_SLUG = 'world-cup-2026-main';
+
+    const pool = await this.prisma.pool.findUnique({
+      where: { slug: MAIN_POOL_SLUG },
+      select: { id: true, tournamentId: true },
+    });
+    if (!pool) throw new NotFoundException('Main pool not configured');
+
+    const entry = await this.prisma.poolEntry.findUnique({
+      where: { poolId_userId: { poolId: pool.id, userId: currentUser.sub } },
+      select: { id: true },
+    });
+    if (!entry) throw new NotFoundException('Entry not found');
+
+    const prediction = await this.prisma.tournamentPrediction.findUnique({
+      where: { poolEntryId_tournamentId: { poolEntryId: entry.id, tournamentId: pool.tournamentId } },
+      include: {
+        champion: { include: { team: { select: { id: true, name: true, code: true, countryCode: true } } } },
+        runnerUp: { include: { team: { select: { id: true, name: true, code: true, countryCode: true } } } },
+        topScorer: { include: { player: { select: { id: true, fullName: true, shortName: true } } } },
+      },
+    });
+
+    const tournamentTeams = await this.prisma.tournamentTeam.findMany({
+      where: { tournamentId: pool.tournamentId },
+      include: { team: { select: { id: true, name: true, code: true, countryCode: true } } },
+      orderBy: { team: { name: 'asc' } },
+    });
+
+    const tournamentPlayers = await this.prisma.tournamentPlayer.findMany({
+      where: { tournamentId: pool.tournamentId },
+      include: { player: { select: { id: true, fullName: true, shortName: true } } },
+      orderBy: { player: { fullName: 'asc' } },
+    });
+
+    return { prediction, tournamentTeams, tournamentPlayers };
+  }
+
+  async upsertMainTournamentPrediction(currentUser: JwtUserPayload, dto: UpsertTournamentPredictionDto) {
+    const MAIN_POOL_SLUG = 'world-cup-2026-main';
+
+    const pool = await this.prisma.pool.findUnique({
+      where: { slug: MAIN_POOL_SLUG },
+      select: { id: true, tournamentId: true },
+    });
+    if (!pool) throw new NotFoundException('Main pool not configured');
+
+    const entry = await this.prisma.poolEntry.findUnique({
+      where: { poolId_userId: { poolId: pool.id, userId: currentUser.sub } },
+      select: { id: true },
+    });
+    if (!entry) throw new NotFoundException('Entry not found');
+
+    const existing = await this.prisma.tournamentPrediction.findUnique({
+      where: { poolEntryId_tournamentId: { poolEntryId: entry.id, tournamentId: pool.tournamentId } },
+      select: { id: true, isLocked: true },
+    });
+    if (existing?.isLocked) throw new BadRequestException('Tournament predictions are locked');
+
+    const prediction = await this.prisma.tournamentPrediction.upsert({
+      where: { poolEntryId_tournamentId: { poolEntryId: entry.id, tournamentId: pool.tournamentId } },
+      update: {
+        championTournamentTeamId: dto.championTournamentTeamId ?? null,
+        runnerUpTournamentTeamId: dto.runnerUpTournamentTeamId ?? null,
+        topScorerTournamentPlayerId: dto.topScorerTournamentPlayerId ?? null,
+      },
+      create: {
+        poolEntryId: entry.id,
+        tournamentId: pool.tournamentId,
+        championTournamentTeamId: dto.championTournamentTeamId ?? null,
+        runnerUpTournamentTeamId: dto.runnerUpTournamentTeamId ?? null,
+        topScorerTournamentPlayerId: dto.topScorerTournamentPlayerId ?? null,
+      },
+    });
+
+    return prediction;
   }
 
   async updatePoolScoring(poolId: string, currentUser: JwtUserPayload, dto: UpdatePoolScoringDto) {

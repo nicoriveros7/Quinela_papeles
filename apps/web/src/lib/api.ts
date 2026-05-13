@@ -16,6 +16,9 @@ import {
   PoolMatchesResponse,
   PoolSummary,
   PublicUser,
+  TournamentPredictionResponse,
+  TournamentPrediction,
+  WorldCupMainPool,
   ApiErrorShape,
 } from '@/types/api';
 
@@ -91,6 +94,25 @@ export const api = {
     }),
 
   me: (token: string) => request<PublicUser>('/users/me', { method: 'GET' }, token),
+
+  getMyMainPool: (token: string) =>
+    request<WorldCupMainPool>('/pools/me/main', { method: 'GET' }, token),
+
+  getMainTournamentPrediction: (token: string) =>
+    request<TournamentPredictionResponse>('/pools/me/main/tournament-prediction', { method: 'GET' }, token),
+
+  upsertMainTournamentPrediction: (
+    dto: {
+      championTournamentTeamId?: string | null;
+      runnerUpTournamentTeamId?: string | null;
+      topScorerTournamentPlayerId?: string | null;
+    },
+    token: string,
+  ) =>
+    request<TournamentPrediction>('/pools/me/main/tournament-prediction', {
+      method: 'PUT',
+      body: JSON.stringify(dto),
+    }, token),
 
   listPools: (token: string) => request<PoolSummary[]>('/pools', { method: 'GET' }, token),
 
