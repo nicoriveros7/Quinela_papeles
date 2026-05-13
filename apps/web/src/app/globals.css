@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens ──────────────────────────────────────────────────────── */
 :root {
   --background: 153 43% 96%;
   --foreground: 162 50% 11%;
@@ -20,14 +21,103 @@
   --radius: 0.9rem;
 }
 
-* {
-  @apply border-border;
+/* ── Keyframes ──────────────────────────────────────────────────────────── */
+
+/* Skeleton shimmer — sweeps a light band left-to-right over a muted base */
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
 }
 
-body {
-  @apply bg-background text-foreground antialiased;
+/* Live dot pulse */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.25; }
 }
 
-main {
-  min-height: 100vh;
+/* ── Base layer ─────────────────────────────────────────────────────────── */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  /* dvh avoids the iOS address-bar collapse jump */
+  main {
+    min-height: 100dvh;
+  }
+
+  /* Global focus ring — consistent across all interactive elements.
+     Tailwind's focus-visible:* classes on individual components take
+     precedence when present; this acts as a universal fallback. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Smooth page-level scrollbar (Chrome/Safari/Edge) */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  html::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  html::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  html::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 9999px;
+  }
+}
+
+/* ── Utility layer ──────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Skeleton block: place on any div/span to get a shimmer placeholder.
+     Usage: <div className="skeleton h-4 w-full rounded-md" />          */
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-muted;
+  }
+
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.48) 50%,
+      transparent 100%
+    );
+    animation: shimmer 1.5s ease-in-out infinite;
+    transform: translateX(-100%);
+  }
+
+  /* Thin scrollbar for inner scrollable regions (horizontal match picker, etc.) */
+  .scrollbar-sport {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  .scrollbar-sport::-webkit-scrollbar {
+    height: 4px;
+    width: 4px;
+  }
+
+  .scrollbar-sport::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 9999px;
+  }
+
+  .scrollbar-sport::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }

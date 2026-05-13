@@ -33,13 +33,13 @@ export function PoolContextTabs({ poolId, entryId }: PoolContextTabsProps) {
   ];
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border/70 bg-surface/90 p-2">
-      <nav className="flex min-w-max gap-2">
+    <div className="overflow-x-hidden rounded-2xl border border-border/70 bg-surface/90 p-2 sm:overflow-x-auto">
+      <nav className="grid grid-cols-3 gap-2 sm:flex sm:min-w-max sm:flex-nowrap">
         {links.map((link) =>
           link.disabled ? (
             <span
               key={link.label}
-              className="rounded-xl border border-dashed border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+              className="rounded-xl border border-dashed border-border px-2 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground sm:px-3 sm:py-1.5 sm:text-xs"
             >
               {link.label}
             </span>
@@ -48,7 +48,7 @@ export function PoolContextTabs({ poolId, entryId }: PoolContextTabsProps) {
               key={link.href}
               href={link.href}
               className={cn(
-                'rounded-xl px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition',
+                'rounded-xl px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.08em] transition sm:px-3 sm:py-1.5 sm:text-xs sm:text-left',
                 link.active
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary',

@@ -2,19 +2,22 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-type BadgeVariant = 'default' | 'success' | 'warning' | 'muted' | 'danger';
+export type BadgeVariant = 'default' | 'success' | 'warning' | 'muted' | 'danger' | 'live';
 
 const variantStyles: Record<BadgeVariant, string> = {
-  default: 'bg-primary/15 text-primary border-primary/30',
-  success: 'bg-emerald-500/15 text-emerald-700 border-emerald-400/30',
-  warning: 'bg-amber-500/15 text-amber-700 border-amber-400/30',
-  muted: 'bg-muted text-muted-foreground border-border',
-  danger: 'bg-rose-500/15 text-rose-700 border-rose-400/30',
+  default:  'bg-primary/15 text-primary border-primary/30',
+  success:  'bg-emerald-500/15 text-emerald-700 border-emerald-400/30',
+  warning:  'bg-amber-500/15 text-amber-700 border-amber-400/30',
+  muted:    'bg-muted text-muted-foreground border-border',
+  danger:   'bg-rose-500/15 text-rose-700 border-rose-400/30',
+  // Live match — red dot with pulse animation signals real-time activity
+  live:     'bg-rose-500/10 text-rose-600 border-rose-400/30',
 };
 
 export function Badge({
   className,
   variant = 'default',
+  children,
   ...props
 }: React.HTMLAttributes<HTMLSpanElement> & { variant?: BadgeVariant }) {
   return (
@@ -25,6 +28,15 @@ export function Badge({
         className,
       )}
       {...props}
-    />
+    >
+      {variant === 'live' && (
+        // Pulsing dot — aria-hidden so screen readers only read the text label
+        <span
+          className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse-dot"
+          aria-hidden="true"
+        />
+      )}
+      {children}
+    </span>
   );
 }

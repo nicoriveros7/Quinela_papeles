@@ -12,12 +12,13 @@ import {
   Swords,
 } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
 import { PoolMatch, WorldCupMainPool } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { StatePanel } from '@/components/ui/state-panel';
 
 export default function DashboardPage() {
@@ -31,7 +32,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!token) return;
-
     const load = async () => {
       setLoading(true);
       setError(null);
@@ -46,7 +46,6 @@ export default function DashboardPage() {
         setLoading(false);
       }
     };
-
     void load();
   }, [token]);
 
@@ -73,76 +72,78 @@ export default function DashboardPage() {
   const poolId = mainPool.pool.id;
 
   return (
-    <div className="grid gap-5">
-      {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <section className="rounded-3xl border border-white/20 bg-stadium p-5 shadow-card sm:p-6">
+    <div className="grid gap-5 animate-fade-in">
+
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      <section className="rounded-3xl border border-primary/10 bg-hero-deep p-5 shadow-card sm:p-6">
         <Badge variant="success" className="mb-3">FIFA World Cup 2026</Badge>
         <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
           Hola, {user?.displayName}
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Bienvenido a la Quiniela Mundial 2026. Predice todos los partidos, suma puntos y sube en el leaderboard.
+          Predice todos los partidos, suma puntos y sube en el leaderboard.
         </p>
-        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-surface/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-primary">
-          <Shield className="h-3.5 w-3.5" />
+        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-surface/80 px-3 py-1.5 text-xs font-semibold text-foreground shadow-card-sm">
+          <Shield className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
           {mainPool.pool._count?.members ?? 0} participantes · {mainPool.pool.tournament?.name ?? 'Mundial 2026'}
         </div>
       </section>
 
-      {/* ── Mis puntos + acciones ─────────────────────────────────────────── */}
+      {/* ── Stats + Acciones ─────────────────────────────────────────────── */}
       <section className="grid gap-3 sm:grid-cols-3">
-        <div className="grid gap-3 sm:col-span-1 sm:grid-rows-2">
-          <Card>
-            <CardHeader className="pb-1">
-              <CardTitle className="text-sm">Mis puntos</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <p className="text-3xl font-extrabold">{entry.totalPoints}</p>
-              <p className="text-xs text-muted-foreground">puntos acumulados</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-1">
-              <CardTitle className="text-sm">Mi posición</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <p className="text-3xl font-extrabold">
-                {entry.rank ? `#${entry.rank}` : '—'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {entry.rank ? 'en el leaderboard' : 'pendiente de calcular'}
-              </p>
-            </CardContent>
-          </Card>
+        {/* Stats: 2-col on mobile, 1-col stacked on desktop sidebar */}
+        <div className="grid grid-cols-2 gap-3 sm:col-span-1 sm:grid-cols-1 sm:grid-rows-2">
+          <StatCard
+            label="Mis puntos"
+            value={entry.totalPoints}
+            sub="puntos acumulados"
+            accent
+          />
+          <StatCard
+            label="Mi posición"
+            value={entry.rank ? `#${entry.rank}` : '—'}
+            sub={entry.rank ? 'en el leaderboard' : 'pendiente'}
+          />
         </div>
 
-        <div className="grid gap-3 sm:col-span-2 sm:grid-rows-3">
-          <Link href={`/pools/${poolId}/entries/${entry.id}`} className="inline-flex">
-            <Button className="w-full gap-2 h-full min-h-[44px]">
-              <ListChecks className="h-4 w-4" />
+        {/* CTAs: primary first, secondary 2-col */}
+        <div className="grid gap-2.5 sm:col-span-2">
+          <Link href={`/pools/${poolId}/entries/${entry.id}`} className="block">
+            <Button className="w-full gap-2">
+              <ListChecks className="h-4 w-4" aria-hidden="true" />
               Mis predicciones
             </Button>
           </Link>
-          <Link href="/quiniela/leaderboard" className="inline-flex">
-            <Button variant="outline" className="w-full gap-2 h-full min-h-[44px]">
-              <Medal className="h-4 w-4" />
-              Leaderboard
-            </Button>
-          </Link>
-          <Link href="/quiniela/partidos" className="inline-flex">
-            <Button variant="outline" className="w-full gap-2 h-full min-h-[44px]">
-              <Swords className="h-4 w-4" />
-              Ver todos los partidos
-            </Button>
-          </Link>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Link href="/quiniela/leaderboard" className="block">
+              <Button variant="outline" className="w-full gap-2">
+                <Medal className="h-4 w-4" aria-hidden="true" />
+                Leaderboard
+              </Button>
+            </Link>
+            <Link href="/quiniela/partidos" className="block">
+              <Button variant="outline" className="w-full gap-2">
+                <Swords className="h-4 w-4" aria-hidden="true" />
+                Partidos
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
 
       {/* ── Próximos partidos ─────────────────────────────────────────────── */}
       <section className="grid gap-3">
-        <h2 className="text-sm font-bold uppercase tracking-[0.1em] text-muted-foreground">
-          Próximos partidos
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+            Próximos partidos
+          </h2>
+          <Link href="/quiniela/partidos">
+            <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs text-muted-foreground">
+              Ver todos
+              <ArrowRight className="h-3 w-3" aria-hidden="true" />
+            </Button>
+          </Link>
+        </div>
 
         {upcomingMatches.length === 0 ? (
           <StatePanel variant="empty" description="No hay partidos próximos disponibles." compact />
@@ -158,21 +159,14 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
-
-        <Link href="/quiniela/partidos" className="inline-flex">
-          <Button variant="outline" size="sm" className="gap-1">
-            Ver todos los partidos
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        </Link>
       </section>
 
-      {/* ── Predicciones del torneo ───────────────────────────────────────── */}
+      {/* ── Pre-torneo ───────────────────────────────────────────────────── */}
       <section className="grid gap-3">
-        <h2 className="text-sm font-bold uppercase tracking-[0.1em] text-muted-foreground">
+        <h2 className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
           Predicciones del torneo
         </h2>
-        <AdminQuickLink
+        <UserFeatureCard
           href="/quiniela/predicciones-torneo"
           icon={Star}
           title="Pre-torneo"
@@ -180,10 +174,10 @@ export default function DashboardPage() {
         />
       </section>
 
-      {/* ── Sección admin ────────────────────────────────────────────────── */}
+      {/* ── Admin ────────────────────────────────────────────────────────── */}
       {isAdmin ? (
         <section className="grid gap-3">
-          <h2 className="text-sm font-bold uppercase tracking-[0.1em] text-muted-foreground">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
             Administración
           </h2>
           <AdminQuickLink
@@ -200,6 +194,37 @@ export default function DashboardPage() {
 
 // ── Componentes auxiliares ────────────────────────────────────────────────────
 
+/** Stat card: points or rank display */
+function StatCard({
+  label,
+  value,
+  sub,
+  accent = false,
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-surface/90 p-4 shadow-card-sm">
+      <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+        {label}
+      </p>
+      <p
+        className={cn(
+          'mt-1 text-4xl font-extrabold tabular-nums leading-none',
+          accent ? 'text-primary' : 'text-foreground',
+        )}
+      >
+        {value}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">{sub}</p>
+    </div>
+  );
+}
+
+/** Upcoming match row — sport-style: home code | vs + time | away code */
 function UpcomingMatchRow({
   match,
   poolId,
@@ -211,34 +236,100 @@ function UpcomingMatchRow({
 }) {
   const home = match.homeTournamentTeam?.team;
   const away = match.awayTournamentTeam?.team;
+  const homeCode = home?.code ?? match.homeSlotLabel ?? 'TBD';
+  const awayCode = away?.code ?? match.awaySlotLabel ?? 'TBD';
+  const homeName = home?.name ?? match.homeSlotLabel ?? 'Por definir';
+  const awayName = away?.name ?? match.awaySlotLabel ?? 'Por definir';
   const kickoff = new Date(match.kickoffAt);
+  const timeStr = kickoff.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
   const dateStr = kickoff.toLocaleDateString('es', {
     weekday: 'short',
-    month: 'short',
     day: 'numeric',
+    month: 'short',
   });
-  const timeStr = kickoff.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+  const stageStr =
+    match.stage === 'GROUP' && match.group
+      ? `Grupo ${match.group.code}`
+      : match.stage;
 
   return (
     <Link
       href={`/pools/${poolId}/entries/${entryId}`}
-      className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-surface/90 px-4 py-3 text-sm transition hover:border-primary/40"
+      className="group flex items-center gap-2 rounded-xl border border-border/60 bg-surface/90 px-4 py-3.5 shadow-card-sm transition-all duration-150 hover:border-primary/30 hover:shadow-card"
     >
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold text-foreground">
-          {home ? home.name : (match.homeSlotLabel ?? '?')} vs{' '}
-          {away ? away.name : (match.awaySlotLabel ?? '?')}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {match.stage === 'GROUP' && match.group ? `Grupo ${match.group.code} · ` : ''}
-          {dateStr} · {timeStr}
-        </p>
+      {/* Home */}
+      <div className="flex min-w-0 flex-1 flex-col items-end">
+        <span className="text-sm font-extrabold leading-none text-foreground">{homeCode}</span>
+        <span className="mt-0.5 max-w-[80px] truncate text-[11px] text-muted-foreground">
+          {homeName}
+        </span>
       </div>
-      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+
+      {/* Center: vs + time + date */}
+      <div className="flex flex-col items-center gap-0.5 px-2">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+          vs
+        </span>
+        <span className="text-xs font-semibold tabular-nums text-foreground">{timeStr}</span>
+        <span className="text-[10px] text-muted-foreground">{dateStr}</span>
+      </div>
+
+      {/* Away */}
+      <div className="flex min-w-0 flex-1 flex-col items-start">
+        <span className="text-sm font-extrabold leading-none text-foreground">{awayCode}</span>
+        <span className="mt-0.5 max-w-[80px] truncate text-[11px] text-muted-foreground">
+          {awayName}
+        </span>
+      </div>
+
+      {/* Stage + arrow */}
+      <div className="flex shrink-0 flex-col items-end gap-1 pl-1">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {stageStr}
+        </span>
+        <ArrowRight
+          className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
+      </div>
     </Link>
   );
 }
 
+/** User-facing feature card — uses Card interactive for tactile feedback */
+function UserFeatureCard({
+  href,
+  icon: Icon,
+  title,
+  description,
+}: {
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Link href={href} className="block">
+      <Card interactive className="p-4">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Icon className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-foreground">{title}</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+          </div>
+          <ArrowRight
+            className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
+        </div>
+      </Card>
+    </Link>
+  );
+}
+
+/** Admin-only link card — visually distinct from UserFeatureCard */
 function AdminQuickLink({
   href,
   icon: Icon,
@@ -253,16 +344,16 @@ function AdminQuickLink({
   return (
     <Link
       href={href}
-      className="group rounded-2xl border border-primary/20 bg-primary/5 p-4 transition hover:-translate-y-0.5 hover:border-primary/40"
+      className="block rounded-2xl border border-primary/20 bg-primary/5 p-4 transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-card-sm"
     >
       <div className="mb-2 inline-flex rounded-xl bg-primary/10 p-2 text-primary">
-        <Icon className="h-4 w-4" />
+        <Icon className="h-4 w-4" aria-hidden="true" />
       </div>
       <h3 className="text-sm font-bold uppercase tracking-[0.08em] text-foreground">{title}</h3>
       <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">
         Ir ahora
-        <ArrowRight className="h-3.5 w-3.5" />
+        <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
       </span>
     </Link>
   );

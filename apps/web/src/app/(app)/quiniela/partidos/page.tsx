@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { ArrowRight } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
-import { formatDateTime, matchStatusLabel } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
 import { PoolMatch, WorldCupMainPool } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
@@ -97,34 +98,45 @@ export default function PartidosPage() {
   const poolId = mainPool.pool.id;
 
   return (
-    <div className="grid gap-4">
-      <header className="rounded-2xl border border-border/70 bg-surface p-4">
-        <h1 className="text-2xl font-extrabold">Partidos</h1>
-        <p className="text-sm text-muted-foreground">
+    <div className="grid gap-4 animate-fade-in">
+
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <header className="rounded-2xl border border-border/70 bg-surface/90 p-4 shadow-card-sm">
+        <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Partidos</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">
           {mainPool.pool.tournament?.name ?? 'FIFA World Cup 2026'} · {matches.length} partidos en total
         </p>
       </header>
 
-      {/* Filtros */}
-      <div className="overflow-x-auto rounded-2xl border border-border/70 bg-surface/90 p-2">
-        <nav className="flex min-w-max gap-2">
-          {(Object.keys(FILTER_LABELS) as MatchFilter[]).map((key) => (
+      {/* ── Filtros ─────────────────────────────────────────────────────────── */}
+      <div
+        role="tablist"
+        aria-label="Filtrar partidos"
+        className="scrollbar-sport flex gap-1.5 overflow-x-auto rounded-2xl border border-border/70 bg-surface/90 p-1.5 shadow-card-sm"
+      >
+        {(Object.keys(FILTER_LABELS) as MatchFilter[]).map((key) => {
+          const active = filter === key;
+          return (
             <button
               key={key}
+              role="tab"
+              aria-selected={active}
               onClick={() => setFilter(key)}
-              className={`rounded-xl px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition ${
-                filter === key
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary'
-              }`}
+              className={cn(
+                'shrink-0 rounded-xl px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.08em]',
+                'transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                active
+                  ? 'bg-primary text-primary-foreground shadow-card-sm'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              )}
             >
               {FILTER_LABELS[key]}
             </button>
-          ))}
-        </nav>
+          );
+        })}
       </div>
 
-      {/* Lista de partidos */}
+      {/* ── Lista de partidos ────────────────────────────────────────────────── */}
       {filtered.length === 0 ? (
         <StatePanel variant="empty" description="No hay partidos en esta categoría." compact />
       ) : (
@@ -143,6 +155,8 @@ export default function PartidosPage() {
   );
 }
 
+// ── MatchRow ──────────────────────────────────────────────────────────────────
+
 function MatchRow({
   match,
   poolId,
@@ -154,56 +168,85 @@ function MatchRow({
 }) {
   const home = match.homeTournamentTeam?.team;
   const away = match.awayTournamentTeam?.team;
-  const homeLabel = home?.name ?? match.homeSlotLabel ?? 'TBD';
-  const awayLabel = away?.name ?? match.awaySlotLabel ?? 'TBD';
   const homeCode = home?.code ?? match.homeSlotLabel ?? 'TBD';
   const awayCode = away?.code ?? match.awaySlotLabel ?? 'TBD';
-  const isScheduled = match.status === 'SCHEDULED';
+  const homeName = home?.name ?? match.homeSlotLabel ?? 'Por definir';
+  const awayName = away?.name ?? match.awaySlotLabel ?? 'Por definir';
+
+  const isLive = match.status === 'LIVE';
   const isFinished = match.status === 'FINISHED';
+  const isScheduled = match.status === 'SCHEDULED';
+
+  const kickoff = new Date(match.kickoffAt);
+  const timeStr = kickoff.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = kickoff.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
+
+  const stageBadge = stageLabel(match.stage, match.group?.code);
+  const statusBadgeVariant = isLive ? 'live' : isFinished ? 'muted' : 'default';
+  const statusLabel = isLive ? 'LIVE' : isFinished ? 'Final' : 'Próximo';
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-surface/90 p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex-1">
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <span title={homeLabel}>{homeCode}</span>
-          {isFinished ? (
-            <span className="rounded bg-muted px-2 py-0.5 text-xs font-bold">
+    <div className="rounded-xl border border-border/60 bg-surface/90 px-4 py-3.5 shadow-card-sm transition-all duration-150 hover:border-primary/20 hover:shadow-card">
+
+      {/* ── Top row: stage + status badge ── */}
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+          {stageBadge}
+        </span>
+        <Badge variant={statusBadgeVariant}>{statusLabel}</Badge>
+      </div>
+
+      {/* ── Match: home | center | away ── */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+
+        {/* Home */}
+        <div className="flex flex-col items-end">
+          <span className="text-base font-extrabold leading-none text-foreground">{homeCode}</span>
+          <span className="mt-0.5 max-w-[100px] truncate text-[11px] text-muted-foreground text-right">
+            {homeName}
+          </span>
+        </div>
+
+        {/* Center: score or vs + time */}
+        <div className="flex flex-col items-center gap-0.5 px-3">
+          {isFinished || isLive ? (
+            <span className={cn(
+              'rounded-lg px-3 py-1 text-sm font-extrabold tabular-nums leading-none',
+              isLive ? 'bg-rose-500/10 text-rose-600' : 'bg-muted text-foreground',
+            )}>
               {match.homeScore ?? 0} – {match.awayScore ?? 0}
             </span>
           ) : (
-            <span className="text-muted-foreground">vs</span>
+            <>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                vs
+              </span>
+              <span className="text-xs font-semibold tabular-nums text-foreground">{timeStr}</span>
+            </>
           )}
-          <span title={awayLabel}>{awayCode}</span>
+          <span className="text-[10px] text-muted-foreground">{dateStr}</span>
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">{homeLabel} vs {awayLabel}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>{stageLabel(match.stage, match.group?.code)}</span>
-          <span>·</span>
-          <span>{formatDateTime(match.kickoffAt)}</span>
+
+        {/* Away */}
+        <div className="flex flex-col items-start">
+          <span className="text-base font-extrabold leading-none text-foreground">{awayCode}</span>
+          <span className="mt-0.5 max-w-[100px] truncate text-[11px] text-muted-foreground">
+            {awayName}
+          </span>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Badge
-          variant={
-            match.status === 'LIVE'
-              ? 'success'
-              : match.status === 'FINISHED'
-              ? 'muted'
-              : 'default'
-          }
-        >
-          {matchStatusLabel(match.status)}
-        </Badge>
-
-        {isScheduled ? (
+      {/* ── Bottom: Predecir CTA (scheduled only) ── */}
+      {isScheduled ? (
+        <div className="mt-3 flex justify-end">
           <Link href={`/pools/${poolId}/entries/${entryId}`}>
-            <Button size="sm" variant="outline">
+            <Button size="sm" className="gap-1.5">
               Predecir
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           </Link>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }
