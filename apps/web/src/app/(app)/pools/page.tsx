@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Plus, Trophy, Users } from 'lucide-react';
 
 import { api, ApiError } from '@/lib/api';
@@ -13,10 +14,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatePanel } from '@/components/ui/state-panel';
 
 export default function PoolsPage() {
-  const { token } = useAuth();
+  const router = useRouter();
+  const { token, user } = useAuth();
+  const isAdmin = user?.systemRole === 'ADMIN' || user?.systemRole === 'SUPER_ADMIN';
   const [pools, setPools] = useState<PoolSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      void router.replace('/dashboard');
+    }
+  }, [isAdmin, router]);
 
   useEffect(() => {
     if (!token) {
@@ -38,6 +47,10 @@ export default function PoolsPage() {
 
     void load();
   }, [token]);
+
+  if (!isAdmin) {
+    return <StatePanel variant="loading" description="Redirigiendo..." />;
+  }
 
   return (
     <div className="grid gap-4">

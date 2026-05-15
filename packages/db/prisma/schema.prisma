@@ -172,6 +172,7 @@ model Team {
   name        String
   code        String   @unique
   countryCode String?
+  flagEmoji   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

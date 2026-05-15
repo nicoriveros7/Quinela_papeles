@@ -16,6 +16,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { SaveFeedback } from '@/components/ui/save-feedback';
 import { ScoreInput } from '@/components/ui/score-input';
 import { SkeletonCard, StatePanel } from '@/components/ui/state-panel';
+import { TeamLabel } from '@/components/ui/team-label';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -76,6 +77,12 @@ function getMatchNameLabel(match: PoolMatch, side: 'home' | 'away') {
   return match.awayTournamentTeam?.team.name ?? match.awaySlotLabel ?? 'TBD';
 }
 
+function getMatchFlagEmoji(match: PoolMatch, side: 'home' | 'away'): string | null | undefined {
+  return side === 'home'
+    ? match.homeTournamentTeam?.team.flagEmoji
+    : match.awayTournamentTeam?.team.flagEmoji;
+}
+
 /** Returns the CSS classes for a match picker card based on its state. */
 function matchCardStateClass(
   match: PoolMatch,
@@ -107,7 +114,8 @@ export default function EntryPredictionsPage() {
   const poolId = params.poolId;
   const entryId = params.entryId;
 
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isAdmin = user?.systemRole === 'ADMIN' || user?.systemRole === 'SUPER_ADMIN';
 
   const [pool, setPool] = useState<PoolDetail | null>(null);
   const [matches, setMatches] = useState<PoolMatch[]>([]);
@@ -428,7 +436,7 @@ export default function EntryPredictionsPage() {
     // pb-20 on mobile gives extra clearance above the sticky save bar + bottom nav.
     // pb-24 from <main> in auth-guard + pb-20 here = 224px total, well above the bar.
     <div className="grid gap-4 animate-fade-in pb-20 lg:pb-0">
-      <PoolContextTabs poolId={poolId} entryId={entryId} />
+      {isAdmin && <PoolContextTabs poolId={poolId} entryId={entryId} />}
 
       {/* ── Header ────────────────────────────────────────────────────────────── */}
       <header className="rounded-2xl border border-border/70 bg-surface/90 p-4 shadow-card-sm">
@@ -565,9 +573,13 @@ export default function EntryPredictionsPage() {
                 >
                   {/* Team codes + score */}
                   <div className="flex items-center justify-between gap-1">
-                    <span className={cn('text-xs font-extrabold', isSelected ? 'text-primary' : 'text-foreground')}>
-                      {getMatchCodeLabel(match, 'home')}
-                    </span>
+                    <TeamLabel
+                      name={getMatchNameLabel(match, 'home')}
+                      code={getMatchCodeLabel(match, 'home')}
+                      flagEmoji={getMatchFlagEmoji(match, 'home')}
+                      format="compact"
+                      className={cn('text-xs font-extrabold', isSelected ? 'text-primary' : 'text-foreground')}
+                    />
                     {isLive || match.status === 'FINISHED' ? (
                       <span className="text-[10px] font-bold tabular-nums text-foreground">
                         {match.homeScore ?? 0}–{match.awayScore ?? 0}
@@ -575,9 +587,13 @@ export default function EntryPredictionsPage() {
                     ) : (
                       <span className="text-[10px] text-muted-foreground/60">vs</span>
                     )}
-                    <span className={cn('text-xs font-extrabold', isSelected ? 'text-primary' : 'text-foreground')}>
-                      {getMatchCodeLabel(match, 'away')}
-                    </span>
+                    <TeamLabel
+                      name={getMatchNameLabel(match, 'away')}
+                      code={getMatchCodeLabel(match, 'away')}
+                      flagEmoji={getMatchFlagEmoji(match, 'away')}
+                      format="compact"
+                      className={cn('text-xs font-extrabold', isSelected ? 'text-primary' : 'text-foreground')}
+                    />
                   </div>
 
                   {/* Date */}
@@ -694,11 +710,15 @@ export default function EntryPredictionsPage() {
             <div className="grid grid-cols-2 gap-4">
               {/* Home */}
               <div className="flex flex-col items-center gap-2">
-                <span className="text-base font-extrabold leading-none text-foreground">
-                  {getMatchCodeLabel(selectedMatch, 'home')}
-                </span>
+                <TeamLabel
+                  name={getMatchNameLabel(selectedMatch, 'home')}
+                  code={getMatchCodeLabel(selectedMatch, 'home')}
+                  flagEmoji={getMatchFlagEmoji(selectedMatch, 'home')}
+                  format="compact"
+                  className="text-base font-extrabold leading-none text-foreground"
+                />
                 <span className="max-w-[80px] truncate text-center text-[11px] text-muted-foreground">
-                  {getMatchNameLabel(selectedMatch, 'home')}
+                  {selectedMatch.homeTournamentTeam?.team.name ?? ''}
                 </span>
                 <ScoreInput
                   value={homeScore}
@@ -710,11 +730,15 @@ export default function EntryPredictionsPage() {
 
               {/* Away */}
               <div className="flex flex-col items-center gap-2">
-                <span className="text-base font-extrabold leading-none text-foreground">
-                  {getMatchCodeLabel(selectedMatch, 'away')}
-                </span>
+                <TeamLabel
+                  name={getMatchNameLabel(selectedMatch, 'away')}
+                  code={getMatchCodeLabel(selectedMatch, 'away')}
+                  flagEmoji={getMatchFlagEmoji(selectedMatch, 'away')}
+                  format="compact"
+                  className="text-base font-extrabold leading-none text-foreground"
+                />
                 <span className="max-w-[80px] truncate text-center text-[11px] text-muted-foreground">
-                  {getMatchNameLabel(selectedMatch, 'away')}
+                  {selectedMatch.awayTournamentTeam?.team.name ?? ''}
                 </span>
                 <ScoreInput
                   value={awayScore}

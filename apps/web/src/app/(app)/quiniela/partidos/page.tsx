@@ -11,6 +11,7 @@ import { PoolMatch, WorldCupMainPool } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { StatePanel } from '@/components/ui/state-panel';
+import { TeamLabel } from '@/components/ui/team-label';
 
 type MatchFilter = 'upcoming' | 'group' | 'knockout' | 'finished';
 
@@ -201,9 +202,15 @@ function MatchRow({
 
         {/* Home */}
         <div className="flex flex-col items-end">
-          <span className="text-base font-extrabold leading-none text-foreground">{homeCode}</span>
+          <TeamLabel
+            name={homeName}
+            code={homeCode}
+            flagEmoji={home?.flagEmoji}
+            format="compact"
+            className="text-base font-extrabold leading-none text-foreground"
+          />
           <span className="mt-0.5 max-w-[100px] truncate text-[11px] text-muted-foreground text-right">
-            {homeName}
+            {home?.name ?? ''}
           </span>
         </div>
 
@@ -229,9 +236,15 @@ function MatchRow({
 
         {/* Away */}
         <div className="flex flex-col items-start">
-          <span className="text-base font-extrabold leading-none text-foreground">{awayCode}</span>
+          <TeamLabel
+            name={awayName}
+            code={awayCode}
+            flagEmoji={away?.flagEmoji}
+            format="compact"
+            className="text-base font-extrabold leading-none text-foreground"
+          />
           <span className="mt-0.5 max-w-[100px] truncate text-[11px] text-muted-foreground">
-            {awayName}
+            {away?.name ?? ''}
           </span>
         </div>
       </div>

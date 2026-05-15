@@ -16,12 +16,12 @@ export function PoolContextTabs({ poolId, entryId }: PoolContextTabsProps) {
   const links = [
     {
       href: `/pools/${poolId}`,
-      label: 'Overview',
+      label: 'Resumen',
       active: pathname === `/pools/${poolId}`,
     },
     {
       href: `/pools/${poolId}/leaderboard`,
-      label: 'Leaderboard',
+      label: 'Ranking',
       active: pathname.startsWith(`/pools/${poolId}/leaderboard`),
     },
     {

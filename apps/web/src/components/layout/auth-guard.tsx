@@ -62,7 +62,7 @@ const quinielaLinks: NavLink[] = [
   },
   {
     href: '/quiniela/leaderboard',
-    label: 'Leaderboard',
+    label: 'Ranking',
     icon: Trophy,
     activeWhen: (p) => p.startsWith('/quiniela/leaderboard') || p.includes('/leaderboard'),
   },
@@ -267,11 +267,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 {user?.displayName}
               </p>
               <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
-              <div className="mt-3 flex items-center justify-between">
-                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                  <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden="true" />
-                  {user?.systemRole}
-                </span>
+              <div className="mt-3 flex items-center justify-end gap-2">
+                {isAdmin ? (
+                  <span className="mr-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    {user?.systemRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}
+                  </span>
+                ) : null}
                 <Button
                   size="sm"
                   variant="ghost"

@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SaveFeedback } from '@/components/ui/save-feedback';
 import { StatePanel } from '@/components/ui/state-panel';
+import { TeamLabel } from '@/components/ui/team-label';
 
 export default function PrediccionesTorneoPage() {
   const { token } = useAuth();
@@ -205,6 +206,9 @@ function TeamPicker({
           {selectedTeam ? (
             <Badge variant="success">
               <Check className="mr-1 h-2.5 w-2.5" aria-hidden="true" />
+              {selectedTeam.team.flagEmoji && (
+                <span aria-hidden="true" className="mr-0.5">{selectedTeam.team.flagEmoji}</span>
+              )}
               {selectedTeam.team.code} — {selectedTeam.team.name}
             </Badge>
           ) : (
@@ -255,14 +259,16 @@ function TeamPicker({
                     disabled && 'cursor-not-allowed opacity-60',
                   )}
                 >
-                  <span
+                  <TeamLabel
+                    name={t.team.name}
+                    code={t.team.code}
+                    flagEmoji={t.team.flagEmoji}
+                    format="compact"
                     className={cn(
-                      'w-8 shrink-0 text-xs font-extrabold',
+                      'shrink-0 text-xs font-extrabold',
                       isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground',
                     )}
-                  >
-                    {t.team.code}
-                  </span>
+                  />
                   <span className="flex-1 truncate text-sm font-medium">{t.team.name}</span>
                   {isSelected && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
                 </button>

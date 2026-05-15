@@ -204,6 +204,8 @@ export class PoolsService {
                 id: true,
                 name: true,
                 code: true,
+                countryCode: true,
+                flagEmoji: true,
               },
             },
           },
@@ -215,6 +217,8 @@ export class PoolsService {
                 id: true,
                 name: true,
                 code: true,
+                countryCode: true,
+                flagEmoji: true,
               },
             },
           },
@@ -431,15 +435,15 @@ export class PoolsService {
     const prediction = await this.prisma.tournamentPrediction.findUnique({
       where: { poolEntryId_tournamentId: { poolEntryId: entry.id, tournamentId: pool.tournamentId } },
       include: {
-        champion: { include: { team: { select: { id: true, name: true, code: true, countryCode: true } } } },
-        runnerUp: { include: { team: { select: { id: true, name: true, code: true, countryCode: true } } } },
+        champion: { include: { team: { select: { id: true, name: true, code: true, countryCode: true, flagEmoji: true } } } },
+        runnerUp: { include: { team: { select: { id: true, name: true, code: true, countryCode: true, flagEmoji: true } } } },
         topScorer: { include: { player: { select: { id: true, fullName: true, shortName: true } } } },
       },
     });
 
     const tournamentTeams = await this.prisma.tournamentTeam.findMany({
       where: { tournamentId: pool.tournamentId },
-      include: { team: { select: { id: true, name: true, code: true, countryCode: true } } },
+      include: { team: { select: { id: true, name: true, code: true, countryCode: true, flagEmoji: true } } },
       orderBy: { team: { name: 'asc' } },
     });
 

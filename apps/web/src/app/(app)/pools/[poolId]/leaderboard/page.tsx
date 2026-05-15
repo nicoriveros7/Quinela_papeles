@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { api, ApiError } from '@/lib/api';
@@ -15,7 +15,15 @@ import { StatePanel } from '@/components/ui/state-panel';
 export default function LeaderboardPage() {
   const params = useParams<{ poolId: string }>();
   const poolId = params.poolId;
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isAdmin = user?.systemRole === 'ADMIN' || user?.systemRole === 'SUPER_ADMIN';
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isAdmin) {
+      void router.replace('/quiniela/leaderboard');
+    }
+  }, [isAdmin, router]);
 
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [entryId, setEntryId] = useState<string | undefined>(undefined);
@@ -38,7 +46,7 @@ export default function LeaderboardPage() {
         setData(leaderboard);
         setEntryId(entries[0]?.id);
       } catch (err) {
-        setError(err instanceof ApiError ? err.message : 'No se pudo cargar el leaderboard.');
+        setError(err instanceof ApiError ? err.message : 'No se pudo cargar el ranking.');
       } finally {
         setLoading(false);
       }
@@ -47,8 +55,12 @@ export default function LeaderboardPage() {
     void load();
   }, [poolId, token]);
 
+  if (!isAdmin) {
+    return <StatePanel variant="loading" description="Redirigiendo..." />;
+  }
+
   if (loading) {
-    return <StatePanel variant="loading" description="Cargando leaderboard..." />;
+    return <StatePanel variant="loading" description="Cargando ranking..." />;
   }
 
   if (error) {
@@ -56,16 +68,16 @@ export default function LeaderboardPage() {
   }
 
   if (!data) {
-    return <StatePanel variant="empty" description="No hay datos de leaderboard en esta pool." />;
+    return <StatePanel variant="empty" description="No hay datos de ranking todavía." />;
   }
 
   return (
     <div className="grid gap-4">
-      <PoolContextTabs poolId={poolId} entryId={entryId} />
+      {isAdmin && <PoolContextTabs poolId={poolId} entryId={entryId} />}
 
       <header className="rounded-2xl border border-border/70 bg-surface p-4">
-        <h1 className="text-2xl font-extrabold">Leaderboard</h1>
-        <p className="text-sm text-muted-foreground">Ranking oficial de esta pool.</p>
+        <h1 className="text-2xl font-extrabold">Ranking</h1>
+        <p className="text-sm text-muted-foreground">Ranking oficial de la quiniela.</p>
       </header>
 
       <Card>
@@ -77,7 +89,7 @@ export default function LeaderboardPage() {
             <thead>
               <tr className="text-left text-xs uppercase tracking-[0.08em] text-muted-foreground">
                 <th className="pb-2">Rank</th>
-                <th className="pb-2">Entry</th>
+                <th className="pb-2">Participante</th>
                 <th className="pb-2">Jugador</th>
                 <th className="pb-2">Total</th>
                 <th className="pb-2">Match</th>

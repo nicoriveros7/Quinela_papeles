@@ -86,8 +86,8 @@ export type PoolMatch = {
   status: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'POSTPONED' | 'CANCELLED';
   homeScore: number | null;
   awayScore: number | null;
-  homeTournamentTeam: { team: { id: string; name: string; code: string } } | null;
-  awayTournamentTeam: { team: { id: string; name: string; code: string } } | null;
+  homeTournamentTeam: { team: { id: string; name: string; code: string; countryCode: string | null; flagEmoji: string | null } } | null;
+  awayTournamentTeam: { team: { id: string; name: string; code: string; countryCode: string | null; flagEmoji: string | null } } | null;
   questions: PoolMatchQuestion[];
 };
 
@@ -170,7 +170,7 @@ export type LeaderboardResponse = {
 
 export type TournamentTeamOption = {
   id: string;
-  team: { id: string; name: string; code: string; countryCode: string | null };
+  team: { id: string; name: string; code: string; countryCode: string | null; flagEmoji: string | null };
 };
 
 export type TournamentPlayerOption = {
@@ -260,8 +260,8 @@ export type AdminMatch = {
   status: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'POSTPONED' | 'CANCELLED';
   homeScore: number | null;
   awayScore: number | null;
-  homeTournamentTeam: { team: { id: string; name: string; code: string } } | null;
-  awayTournamentTeam: { team: { id: string; name: string; code: string } } | null;
+  homeTournamentTeam: { team: { id: string; name: string; code: string; flagEmoji: string | null } } | null;
+  awayTournamentTeam: { team: { id: string; name: string; code: string; flagEmoji: string | null } } | null;
   _count: {
     questions: number;
     predictions: number;
@@ -314,8 +314,8 @@ export type AdminMatchQuestionsResponse = {
     id: string;
     kickoffAt: string;
     status: string;
-    homeTournamentTeam: { team: { name: string; code: string } };
-    awayTournamentTeam: { team: { name: string; code: string } };
+    homeTournamentTeam: { team: { name: string; code: string; flagEmoji: string | null } };
+    awayTournamentTeam: { team: { name: string; code: string; flagEmoji: string | null } };
   };
   questions: AdminMatchQuestion[];
 };
@@ -341,6 +341,64 @@ export type AdminMatchPlayerPoolResponse = {
       isGoalkeeper: boolean;
     }>;
   }>;
+};
+
+export type MatchQuestionBreakdown = {
+  questionId: string;
+  questionText: string;
+  answerLabel: string | null;
+  correctAnswerLabel: string | null;
+  pointsAwarded: number;
+  isScored: boolean;
+  isCorrect: boolean | null;
+};
+
+export type MatchBreakdown = {
+  matchId: string;
+  kickoffAt: string;
+  status: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'POSTPONED' | 'CANCELLED';
+  homeTeamName: string | null;
+  homeTeamCode: string | null;
+  homeTeamFlagEmoji: string | null;
+  awayTeamName: string | null;
+  awayTeamCode: string | null;
+  awayTeamFlagEmoji: string | null;
+  homeSlotLabel: string | null;
+  awaySlotLabel: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+  predictedHomeScore: number | null;
+  predictedAwayScore: number | null;
+  pointsAwarded: number;
+  breakdown: MatchPredictionBreakdown | null;
+  questions: MatchQuestionBreakdown[];
+};
+
+export type TournamentPredictionBreakdown = {
+  champion: string | null;
+  championCode: string | null;
+  championFlagEmoji: string | null;
+  runnerUp: string | null;
+  runnerUpCode: string | null;
+  runnerUpFlagEmoji: string | null;
+  topScorer: string | null;
+  pointsAwarded: number;
+  isScored: boolean;
+};
+
+export type EntryBreakdownResponse = {
+  entryId: string;
+  participantName: string;
+  displayName: string;
+  rank: number | null;
+  totalPoints: number;
+  summary: {
+    matchPoints: number;
+    bonusPoints: number;
+    tournamentPoints: number;
+  };
+  matchPredictions: MatchBreakdown[];
+  tournamentPrediction: TournamentPredictionBreakdown | null;
 };
 
 export type CreateAdminQuestionPayload = {

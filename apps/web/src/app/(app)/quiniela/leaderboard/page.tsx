@@ -1,8 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowRight, Medal, Trophy } from 'lucide-react';
+import { ChevronRight, Medal, Trophy } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
@@ -10,6 +9,7 @@ import { useAuth } from '@/providers/auth-provider';
 import { LeaderboardResponse, WorldCupMainPool } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { StatePanel } from '@/components/ui/state-panel';
+import { ParticipantBreakdownSheet } from '@/components/features/leaderboard/participant-breakdown-sheet';
 
 export default function QuinielaLeaderboardPage() {
   const { token } = useAuth();
@@ -17,6 +17,7 @@ export default function QuinielaLeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -40,7 +41,7 @@ export default function QuinielaLeaderboardPage() {
   }, [token]);
 
   if (loading) {
-    return <StatePanel variant="loading" description="Cargando leaderboard..." />;
+    return <StatePanel variant="loading" description="Cargando ranking..." />;
   }
 
   if (error) {
@@ -48,51 +49,61 @@ export default function QuinielaLeaderboardPage() {
   }
 
   if (!leaderboard || !mainPool) {
-    return <StatePanel variant="empty" description="No hay datos de leaderboard todavía." />;
+    return <StatePanel variant="empty" description="No hay datos de ranking todavía." />;
   }
 
   const myEntryId = mainPool.entries[0]?.id;
-  const poolId = mainPool.pool.id;
 
   return (
-    <div className="grid gap-4 animate-fade-in">
+    <>
+      <div className="grid gap-4 animate-fade-in">
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <header className="rounded-2xl border border-border/70 bg-surface/90 p-4 shadow-card-sm">
-        <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Leaderboard</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {mainPool.pool.tournament?.name ?? 'FIFA World Cup 2026'} · {leaderboard.leaderboard.length} participantes
-        </p>
-      </header>
+        {/* ── Header ──────────────────────────────────────────────────────────── */}
+        <header className="rounded-2xl border border-border/70 bg-surface/90 p-4 shadow-card-sm">
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Ranking</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {mainPool.pool.tournament?.name ?? 'FIFA World Cup 2026'} · {leaderboard.leaderboard.length} participantes
+          </p>
+        </header>
 
-      {/* ── Ranking ─────────────────────────────────────────────────────────── */}
-      {leaderboard.leaderboard.length === 0 ? (
-        <StatePanel
-          variant="empty"
-          description="Aún no hay predicciones registradas. ¡Sé el primero en predecir!"
+        {/* ── Ranking ─────────────────────────────────────────────────────────── */}
+        {leaderboard.leaderboard.length === 0 ? (
+          <StatePanel
+            variant="empty"
+            description="Aún no hay predicciones registradas. ¡Sé el primero en predecir!"
+          />
+        ) : (
+          <div className="grid gap-2">
+            {leaderboard.leaderboard.map((row) => {
+              const isMe = row.entryId === myEntryId;
+              return (
+                <LeaderboardRow
+                  key={row.entryId}
+                  rank={row.rank}
+                  displayName={row.userDisplayName}
+                  entryName={row.entryName ?? undefined}
+                  totalPoints={row.totalPoints}
+                  matchPredictionsScored={row.matchPredictionsScored}
+                  questionPredictionsScored={row.questionPredictionsScored}
+                  isMe={isMe}
+                  onClick={() => setSelectedEntryId(row.entryId)}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Breakdown sheet ──────────────────────────────────────────────────── */}
+      {selectedEntryId && mainPool && token && (
+        <ParticipantBreakdownSheet
+          poolId={mainPool.pool.id}
+          entryId={selectedEntryId}
+          token={token}
+          onClose={() => setSelectedEntryId(null)}
         />
-      ) : (
-        <div className="grid gap-2">
-          {leaderboard.leaderboard.map((row) => {
-            const isMe = row.entryId === myEntryId;
-            return (
-              <LeaderboardRow
-                key={row.entryId}
-                rank={row.rank}
-                displayName={row.userDisplayName}
-                entryName={row.entryName ?? undefined}
-                totalPoints={row.totalPoints}
-                matchPredictionsScored={row.matchPredictionsScored}
-                questionPredictionsScored={row.questionPredictionsScored}
-                entryId={row.entryId}
-                poolId={poolId}
-                isMe={isMe}
-              />
-            );
-          })}
-        </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -105,9 +116,8 @@ function LeaderboardRow({
   totalPoints,
   matchPredictionsScored,
   questionPredictionsScored,
-  entryId,
-  poolId,
   isMe,
+  onClick,
 }: {
   rank: number;
   displayName: string;
@@ -115,22 +125,24 @@ function LeaderboardRow({
   totalPoints: number;
   matchPredictionsScored: number;
   questionPredictionsScored: number;
-  entryId: string;
-  poolId: string;
   isMe: boolean;
+  onClick: () => void;
 }) {
   const isTop1 = rank === 1;
   const isTop2 = rank === 2;
   const isTop3 = rank === 3;
 
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Ver detalle de ${displayName}`}
       className={cn(
-        'flex items-center gap-3 rounded-xl border px-4 py-3.5 shadow-card-sm transition-all duration-150',
-        isTop1 && 'border-amber-300/50 bg-amber-50/60',
-        isTop2 && 'border-slate-300/50 bg-slate-50/50',
-        isTop3 && 'border-orange-300/40 bg-orange-50/40',
-        !isTop1 && !isTop2 && !isTop3 && 'border-border/60 bg-surface/90 hover:border-primary/20 hover:shadow-card',
+        'flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left shadow-card-sm transition-all duration-150 active:scale-[0.99]',
+        isTop1 && 'border-amber-300/50 bg-amber-50/60 hover:border-amber-400/60',
+        isTop2 && 'border-slate-300/50 bg-slate-50/50 hover:border-slate-400/50',
+        isTop3 && 'border-orange-300/40 bg-orange-50/40 hover:border-orange-400/40',
+        !isTop1 && !isTop2 && !isTop3 && 'border-border/60 bg-surface/90 hover:border-primary/30 hover:shadow-card',
         isMe && !isTop1 && !isTop2 && !isTop3 && 'border-primary/30 bg-primary/5',
       )}
     >
@@ -166,15 +178,9 @@ function LeaderboardRow({
         {totalPoints} pts
       </Badge>
 
-      {/* Link to entry — visible on sm+ */}
-      <Link
-        href={`/pools/${poolId}/entries/${entryId}`}
-        aria-label={`Ver boleta de ${displayName}`}
-        className="hidden shrink-0 text-muted-foreground transition-colors hover:text-primary sm:block"
-      >
-        <ArrowRight className="h-4 w-4" aria-hidden="true" />
-      </Link>
-    </div>
+      {/* Drill-down affordance */}
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50" aria-hidden="true" />
+    </button>
   );
 }
 

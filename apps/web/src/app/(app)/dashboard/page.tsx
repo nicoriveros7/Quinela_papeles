@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { StatePanel } from '@/components/ui/state-panel';
+import { TeamLabel } from '@/components/ui/team-label';
 
 export default function DashboardPage() {
   const { token, user } = useAuth();
@@ -69,7 +70,6 @@ export default function DashboardPage() {
   if (!mainPool) return null;
 
   const entry = mainPool.mainEntry;
-  const poolId = mainPool.pool.id;
 
   return (
     <div className="grid gap-5 animate-fade-in">
@@ -108,7 +108,7 @@ export default function DashboardPage() {
 
         {/* CTAs: primary first, secondary 2-col */}
         <div className="grid gap-2.5 sm:col-span-2">
-          <Link href={`/pools/${poolId}/entries/${entry.id}`} className="block">
+          <Link href="/quiniela/predicciones" className="block">
             <Button className="w-full gap-2">
               <ListChecks className="h-4 w-4" aria-hidden="true" />
               Mis predicciones
@@ -153,8 +153,6 @@ export default function DashboardPage() {
               <UpcomingMatchRow
                 key={match.id}
                 match={match}
-                poolId={poolId}
-                entryId={entry.id}
               />
             ))}
           </div>
@@ -225,15 +223,7 @@ function StatCard({
 }
 
 /** Upcoming match row — sport-style: home code | vs + time | away code */
-function UpcomingMatchRow({
-  match,
-  poolId,
-  entryId,
-}: {
-  match: PoolMatch;
-  poolId: string;
-  entryId: string;
-}) {
+function UpcomingMatchRow({ match }: { match: PoolMatch }) {
   const home = match.homeTournamentTeam?.team;
   const away = match.awayTournamentTeam?.team;
   const homeCode = home?.code ?? match.homeSlotLabel ?? 'TBD';
@@ -254,14 +244,20 @@ function UpcomingMatchRow({
 
   return (
     <Link
-      href={`/pools/${poolId}/entries/${entryId}`}
+      href="/quiniela/predicciones"
       className="group flex items-center gap-2 rounded-xl border border-border/60 bg-surface/90 px-4 py-3.5 shadow-card-sm transition-all duration-150 hover:border-primary/30 hover:shadow-card"
     >
       {/* Home */}
       <div className="flex min-w-0 flex-1 flex-col items-end">
-        <span className="text-sm font-extrabold leading-none text-foreground">{homeCode}</span>
+        <TeamLabel
+          name={homeName}
+          code={homeCode}
+          flagEmoji={home?.flagEmoji}
+          format="compact"
+          className="text-sm font-extrabold leading-none text-foreground"
+        />
         <span className="mt-0.5 max-w-[80px] truncate text-[11px] text-muted-foreground">
-          {homeName}
+          {home?.name ?? ''}
         </span>
       </div>
 
@@ -276,9 +272,15 @@ function UpcomingMatchRow({
 
       {/* Away */}
       <div className="flex min-w-0 flex-1 flex-col items-start">
-        <span className="text-sm font-extrabold leading-none text-foreground">{awayCode}</span>
+        <TeamLabel
+          name={awayName}
+          code={awayCode}
+          flagEmoji={away?.flagEmoji}
+          format="compact"
+          className="text-sm font-extrabold leading-none text-foreground"
+        />
         <span className="mt-0.5 max-w-[80px] truncate text-[11px] text-muted-foreground">
-          {awayName}
+          {away?.name ?? ''}
         </span>
       </div>
 

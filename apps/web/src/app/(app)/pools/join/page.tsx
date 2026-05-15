@@ -1,21 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
+import { StatePanel } from '@/components/ui/state-panel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
 export default function JoinPoolPage() {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isAdmin = user?.systemRole === 'ADMIN' || user?.systemRole === 'SUPER_ADMIN';
   const [joinCode, setJoinCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      void router.replace('/dashboard');
+    }
+  }, [isAdmin, router]);
 
   const onJoin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -37,6 +45,10 @@ export default function JoinPoolPage() {
       setLoading(false);
     }
   };
+
+  if (!isAdmin) {
+    return <StatePanel variant="loading" description="Redirigiendo..." />;
+  }
 
   return (
     <div className="mx-auto w-full max-w-lg">

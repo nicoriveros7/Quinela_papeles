@@ -9,6 +9,7 @@ import {
   AdminTournamentMatchesResponse,
   AuthResponse,
   CreateAdminQuestionPayload,
+  EntryBreakdownResponse,
   LeaderboardResponse,
   MatchPredictionsBundle,
   PoolDetail,
@@ -213,6 +214,13 @@ export const api = {
 
   getLeaderboard: (poolId: string, token: string) =>
     request<LeaderboardResponse>(`/pools/${poolId}/leaderboard`, { method: 'GET' }, token),
+
+  getEntryBreakdown: (poolId: string, entryId: string, token: string) =>
+    request<EntryBreakdownResponse>(
+      `/pools/${poolId}/entries/${entryId}/breakdown`,
+      { method: 'GET' },
+      token,
+    ),
 
   adminListTournaments: (token: string) =>
     request<AdminTournament[]>('/admin/tournaments', { method: 'GET' }, token),

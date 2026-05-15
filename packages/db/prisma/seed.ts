@@ -15,6 +15,69 @@ const countryToIsoCode: Record<string, string> = {
   Canada: 'CA',
 };
 
+const TEAM_DATA: Record<string, { name: string; countryCode: string | null; flagEmoji: string }> = {
+  // Group A
+  MEX: { name: 'México',               countryCode: 'MX', flagEmoji: '🇲🇽' },
+  RSA: { name: 'Sudáfrica',            countryCode: 'ZA', flagEmoji: '🇿🇦' },
+  KOR: { name: 'Corea del Sur',        countryCode: 'KR', flagEmoji: '🇰🇷' },
+  CZE: { name: 'República Checa',      countryCode: 'CZ', flagEmoji: '🇨🇿' },
+  // Group B
+  CAN: { name: 'Canadá',               countryCode: 'CA', flagEmoji: '🇨🇦' },
+  BIH: { name: 'Bosnia y Herzegovina', countryCode: 'BA', flagEmoji: '🇧🇦' },
+  QAT: { name: 'Qatar',                countryCode: 'QA', flagEmoji: '🇶🇦' },
+  SUI: { name: 'Suiza',                countryCode: 'CH', flagEmoji: '🇨🇭' },
+  // Group C
+  HAI: { name: 'Haití',                countryCode: 'HT', flagEmoji: '🇭🇹' },
+  SCO: { name: 'Escocia',              countryCode: null, flagEmoji: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
+  BRA: { name: 'Brasil',               countryCode: 'BR', flagEmoji: '🇧🇷' },
+  MAR: { name: 'Marruecos',            countryCode: 'MA', flagEmoji: '🇲🇦' },
+  // Group D
+  USA: { name: 'Estados Unidos',       countryCode: 'US', flagEmoji: '🇺🇸' },
+  PAR: { name: 'Paraguay',             countryCode: 'PY', flagEmoji: '🇵🇾' },
+  AUS: { name: 'Australia',            countryCode: 'AU', flagEmoji: '🇦🇺' },
+  TUR: { name: 'Türkiye',              countryCode: 'TR', flagEmoji: '🇹🇷' },
+  // Group E
+  CIV: { name: 'Costa de Marfil',      countryCode: 'CI', flagEmoji: '🇨🇮' },
+  ECU: { name: 'Ecuador',              countryCode: 'EC', flagEmoji: '🇪🇨' },
+  GER: { name: 'Alemania',             countryCode: 'DE', flagEmoji: '🇩🇪' },
+  CUW: { name: 'Curazao',              countryCode: 'CW', flagEmoji: '🇨🇼' },
+  // Group F
+  NED: { name: 'Países Bajos',         countryCode: 'NL', flagEmoji: '🇳🇱' },
+  JPN: { name: 'Japón',                countryCode: 'JP', flagEmoji: '🇯🇵' },
+  SWE: { name: 'Suecia',               countryCode: 'SE', flagEmoji: '🇸🇪' },
+  TUN: { name: 'Túnez',                countryCode: 'TN', flagEmoji: '🇹🇳' },
+  // Group G
+  IRN: { name: 'Irán',                 countryCode: 'IR', flagEmoji: '🇮🇷' },
+  NZL: { name: 'Nueva Zelanda',        countryCode: 'NZ', flagEmoji: '🇳🇿' },
+  BEL: { name: 'Bélgica',              countryCode: 'BE', flagEmoji: '🇧🇪' },
+  EGY: { name: 'Egipto',               countryCode: 'EG', flagEmoji: '🇪🇬' },
+  // Group H
+  KSA: { name: 'Arabia Saudita',       countryCode: 'SA', flagEmoji: '🇸🇦' },
+  URU: { name: 'Uruguay',              countryCode: 'UY', flagEmoji: '🇺🇾' },
+  ESP: { name: 'España',               countryCode: 'ES', flagEmoji: '🇪🇸' },
+  CPV: { name: 'Cabo Verde',           countryCode: 'CV', flagEmoji: '🇨🇻' },
+  // Group I
+  FRA: { name: 'Francia',              countryCode: 'FR', flagEmoji: '🇫🇷' },
+  SEN: { name: 'Senegal',              countryCode: 'SN', flagEmoji: '🇸🇳' },
+  IRQ: { name: 'Iraq',                 countryCode: 'IQ', flagEmoji: '🇮🇶' },
+  NOR: { name: 'Noruega',              countryCode: 'NO', flagEmoji: '🇳🇴' },
+  // Group J
+  ARG: { name: 'Argentina',            countryCode: 'AR', flagEmoji: '🇦🇷' },
+  ALG: { name: 'Argelia',              countryCode: 'DZ', flagEmoji: '🇩🇿' },
+  AUT: { name: 'Austria',              countryCode: 'AT', flagEmoji: '🇦🇹' },
+  JOR: { name: 'Jordania',             countryCode: 'JO', flagEmoji: '🇯🇴' },
+  // Group K
+  POR: { name: 'Portugal',             countryCode: 'PT', flagEmoji: '🇵🇹' },
+  COD: { name: 'R.D. Congo',           countryCode: 'CD', flagEmoji: '🇨🇩' },
+  UZB: { name: 'Uzbekistán',           countryCode: 'UZ', flagEmoji: '🇺🇿' },
+  COL: { name: 'Colombia',             countryCode: 'CO', flagEmoji: '🇨🇴' },
+  // Group L
+  GHA: { name: 'Ghana',                countryCode: 'GH', flagEmoji: '🇬🇭' },
+  PAN: { name: 'Panamá',               countryCode: 'PA', flagEmoji: '🇵🇦' },
+  ENG: { name: 'Inglaterra',           countryCode: null, flagEmoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+  CRO: { name: 'Croacia',              countryCode: 'HR', flagEmoji: '🇭🇷' },
+};
+
 function mapKnockoutStageToMatchStage(stage: (typeof fifa2026KnockoutMatches)[number]['stage']): MatchStage {
   if (stage === 'ROUND_OF_32') return MatchStage.ROUND_OF_32;
   if (stage === 'ROUND_OF_16') return MatchStage.ROUND_OF_16;
@@ -554,13 +617,21 @@ async function seedFifa2026Calendar() {
   );
 
   for (const code of allTeamCodes) {
+    const teamInfo = TEAM_DATA[code];
+    if (!teamInfo) {
+      throw new Error(`No team data found for code: ${code}. Add it to TEAM_DATA.`);
+    }
+    const { name, countryCode, flagEmoji } = teamInfo;
+
     const team = await prisma.team.upsert({
       where: { code },
-      update: {},
+      update: { name, countryCode, flagEmoji },
       create: {
         code,
         slug: code.toLowerCase(),
-        name: code,
+        name,
+        countryCode,
+        flagEmoji,
       },
       select: {
         id: true,

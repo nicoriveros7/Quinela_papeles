@@ -11,6 +11,7 @@ import { JwtUserPayload } from '../auth/types/jwt-user-payload.type';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpsertMatchPredictionDto } from './dto/upsert-match-prediction.dto';
 import { UpsertMatchQuestionPredictionDto } from './dto/upsert-match-question-prediction.dto';
+import { EntryBreakdownResponse } from './dto/entry-breakdown.dto';
 import { calculateMatchPredictionBreakdown, resolveMatchScoringConfig } from '../scoring/scoring.rules';
 
 @Injectable()
@@ -225,6 +226,217 @@ export class PredictionsService {
       questions,
       questionPredictions,
     };
+  }
+
+  async getEntryBreakdown(
+    poolId: string,
+    entryId: string,
+    currentUser: JwtUserPayload,
+  ): Promise<EntryBreakdownResponse> {
+    const [entry, membership] = await Promise.all([
+      this.prisma.poolEntry.findUnique({
+        where: { id: entryId },
+        select: {
+          id: true,
+          poolId: true,
+          entryName: true,
+          rank: true,
+          totalPoints: true,
+          user: { select: { displayName: true } },
+          pool: {
+            select: {
+              tournamentId: true,
+              pointsExactScore: true,
+              pointsMatchOutcome: true,
+              pointsConfig: true,
+            },
+          },
+        },
+      }),
+      this.prisma.poolMember.findUnique({
+        where: { poolId_userId: { poolId, userId: currentUser.sub } },
+        select: { status: true },
+      }),
+    ]);
+
+    if (!membership || membership.status !== PoolMemberStatus.ACTIVE) {
+      throw new ForbiddenException('Active pool membership is required');
+    }
+
+    if (!entry || entry.poolId !== poolId) {
+      throw new NotFoundException('Entry not found in this pool');
+    }
+
+    const { pool } = entry;
+    const scoringConfig = resolveMatchScoringConfig(
+      pool.pointsExactScore,
+      pool.pointsMatchOutcome,
+      pool.pointsConfig,
+    );
+
+    const [matches, tournamentPrediction] = await Promise.all([
+      this.prisma.match.findMany({
+        where: { tournamentId: pool.tournamentId },
+        orderBy: { kickoffAt: 'asc' },
+        select: {
+          id: true,
+          kickoffAt: true,
+          status: true,
+          homeScore: true,
+          awayScore: true,
+          homeSlotLabel: true,
+          awaySlotLabel: true,
+          homeTournamentTeam: { select: { team: { select: { name: true, code: true, flagEmoji: true } } } },
+          awayTournamentTeam: { select: { team: { select: { name: true, code: true, flagEmoji: true } } } },
+          predictions: {
+            where: { poolEntryId: entryId },
+            select: { predictedHomeScore: true, predictedAwayScore: true, pointsAwarded: true },
+          },
+          questions: {
+            where: { isPublished: true },
+            orderBy: { createdAt: 'asc' },
+            select: {
+              id: true,
+              questionText: true,
+              answerType: true,
+              isResolved: true,
+              correctOption: { select: { label: true } },
+              predictions: {
+                where: { poolEntryId: entryId },
+                select: {
+                  pointsAwarded: true,
+                  isScored: true,
+                  selectedBoolean: true,
+                  selectedOption: { select: { label: true } },
+                  selectedTeam: { select: { name: true } },
+                  selectedPlayer: { select: { fullName: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.tournamentPrediction.findFirst({
+        where: { poolEntryId: entryId, tournamentId: pool.tournamentId },
+        select: {
+          pointsAwarded: true,
+          isScored: true,
+          champion: { select: { team: { select: { name: true, code: true, flagEmoji: true } } } },
+          runnerUp: { select: { team: { select: { name: true, code: true, flagEmoji: true } } } },
+          topScorer: { select: { player: { select: { fullName: true } } } },
+        },
+      }),
+    ]);
+
+    let totalMatchPoints = 0;
+    let totalBonusPoints = 0;
+
+    const matchPredictions = matches.map((match) => {
+      const pred = match.predictions[0] ?? null;
+
+      let breakdown = null;
+      if (
+        pred &&
+        match.status === MatchStatus.FINISHED &&
+        match.homeScore !== null &&
+        match.awayScore !== null
+      ) {
+        breakdown = calculateMatchPredictionBreakdown(
+          pred.predictedHomeScore,
+          pred.predictedAwayScore,
+          match.homeScore,
+          match.awayScore,
+          scoringConfig,
+        ).breakdown;
+      }
+
+      totalMatchPoints += pred?.pointsAwarded ?? 0;
+
+      const questions = match.questions.map((q) => {
+        const qPred = q.predictions[0] ?? null;
+        const questionPoints = qPred?.pointsAwarded ?? 0;
+        totalBonusPoints += questionPoints;
+
+        return {
+          questionId: q.id,
+          questionText: q.questionText,
+          answerLabel: this.resolveAnswerLabel(q.answerType, qPred),
+          correctAnswerLabel: q.isResolved ? (q.correctOption?.label ?? null) : null,
+          pointsAwarded: questionPoints,
+          isScored: qPred?.isScored ?? false,
+          isCorrect: qPred?.isScored ? questionPoints > 0 : null,
+        };
+      });
+
+      return {
+        matchId: match.id,
+        kickoffAt: match.kickoffAt,
+        status: match.status,
+        homeTeamName: match.homeTournamentTeam?.team?.name ?? match.homeSlotLabel ?? null,
+        homeTeamCode: match.homeTournamentTeam?.team?.code ?? null,
+        homeTeamFlagEmoji: match.homeTournamentTeam?.team?.flagEmoji ?? null,
+        awayTeamName: match.awayTournamentTeam?.team?.name ?? match.awaySlotLabel ?? null,
+        awayTeamCode: match.awayTournamentTeam?.team?.code ?? null,
+        awayTeamFlagEmoji: match.awayTournamentTeam?.team?.flagEmoji ?? null,
+        homeSlotLabel: match.homeSlotLabel,
+        awaySlotLabel: match.awaySlotLabel,
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
+        predictedHomeScore: pred?.predictedHomeScore ?? null,
+        predictedAwayScore: pred?.predictedAwayScore ?? null,
+        pointsAwarded: pred?.pointsAwarded ?? 0,
+        breakdown,
+        questions,
+      };
+    });
+
+    const tournamentPoints = tournamentPrediction?.pointsAwarded ?? 0;
+
+    return {
+      entryId,
+      participantName: entry.entryName ?? `#${entryId.slice(-6)}`,
+      displayName: entry.user.displayName,
+      rank: entry.rank,
+      totalPoints: entry.totalPoints,
+      summary: {
+        matchPoints: totalMatchPoints,
+        bonusPoints: totalBonusPoints,
+        tournamentPoints,
+      },
+      matchPredictions,
+      tournamentPrediction: tournamentPrediction
+        ? {
+            champion: tournamentPrediction.champion?.team?.name ?? null,
+            championCode: tournamentPrediction.champion?.team?.code ?? null,
+            championFlagEmoji: tournamentPrediction.champion?.team?.flagEmoji ?? null,
+            runnerUp: tournamentPrediction.runnerUp?.team?.name ?? null,
+            runnerUpCode: tournamentPrediction.runnerUp?.team?.code ?? null,
+            runnerUpFlagEmoji: tournamentPrediction.runnerUp?.team?.flagEmoji ?? null,
+            topScorer: tournamentPrediction.topScorer?.player?.fullName ?? null,
+            pointsAwarded: tournamentPoints,
+            isScored: tournamentPrediction.isScored,
+          }
+        : null,
+    };
+  }
+
+  private resolveAnswerLabel(
+    answerType: QuestionAnswerType,
+    pred: {
+      selectedOption: { label: string } | null;
+      selectedBoolean: boolean | null;
+      selectedTeam: { name: string } | null;
+      selectedPlayer: { fullName: string } | null;
+    } | null,
+  ): string | null {
+    if (!pred) return null;
+    if (pred.selectedOption?.label) return pred.selectedOption.label;
+    if (answerType === QuestionAnswerType.BOOLEAN && pred.selectedBoolean !== null) {
+      return pred.selectedBoolean ? 'Sí' : 'No';
+    }
+    if (pred.selectedTeam?.name) return pred.selectedTeam.name;
+    if (pred.selectedPlayer?.fullName) return pred.selectedPlayer.fullName;
+    return null;
   }
 
   private async getEntryReadContext(poolId: string, entryId: string, userId: string) {

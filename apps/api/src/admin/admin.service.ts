@@ -82,6 +82,7 @@ export class AdminService {
                 id: true,
                 name: true,
                 code: true,
+                flagEmoji: true,
               },
             },
           },
@@ -93,6 +94,7 @@ export class AdminService {
                 id: true,
                 name: true,
                 code: true,
+                flagEmoji: true,
               },
             },
           },
@@ -144,6 +146,7 @@ export class AdminService {
               select: {
                 name: true,
                 code: true,
+                flagEmoji: true,
               },
             },
           },
@@ -154,6 +157,7 @@ export class AdminService {
               select: {
                 name: true,
                 code: true,
+                flagEmoji: true,
               },
             },
           },

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronRight, ListChecks, Medal, Plus } from 'lucide-react';
 
@@ -19,7 +19,16 @@ export default function PoolDetailPage() {
   const params = useParams<{ poolId: string }>();
   const poolId = params.poolId;
 
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isAdmin = user?.systemRole === 'ADMIN' || user?.systemRole === 'SUPER_ADMIN';
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isAdmin) {
+      void router.replace('/dashboard');
+    }
+  }, [isAdmin, router]);
+
   const [pool, setPool] = useState<PoolDetail | null>(null);
   const [entries, setEntries] = useState<PoolEntry[]>([]);
   const [entryName, setEntryName] = useState('');
@@ -43,7 +52,7 @@ export default function PoolDetailPage() {
       setPool(poolData);
       setEntries(entryData);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo cargar la pool.');
+      setError(err instanceof ApiError ? err.message : 'No se pudo cargar la quiniela.');
     } finally {
       setLoading(false);
     }
@@ -60,7 +69,7 @@ export default function PoolDetailPage() {
     }
 
     if (entries.length > 0) {
-      setError('Ya tienes una entry en esta pool.');
+      setError('Ya tienes una participación activa.');
       return;
     }
 
@@ -69,19 +78,23 @@ export default function PoolDetailPage() {
     setSuccess(null);
 
     try {
-      await api.createEntry(poolId, entryName.trim() || 'Mi Entry', token);
+      await api.createEntry(poolId, entryName.trim() || 'Mi Quiniela', token);
       setEntryName('');
-      setSuccess('Tu entry fue creada correctamente.');
+      setSuccess('Tu participación fue creada correctamente.');
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo crear el entry.');
+      setError(err instanceof ApiError ? err.message : 'No se pudo crear tu participación.');
     } finally {
       setCreatingEntry(false);
     }
   };
 
+  if (!isAdmin) {
+    return <StatePanel variant="loading" description="Redirigiendo..." />;
+  }
+
   if (loading) {
-    return <StatePanel variant="loading" description="Cargando detalle de la pool..." />;
+    return <StatePanel variant="loading" description="Cargando quiniela..." />;
   }
 
   if (error) {
@@ -89,26 +102,28 @@ export default function PoolDetailPage() {
   }
 
   if (!pool) {
-    return <StatePanel variant="empty" description="Pool no encontrada o sin acceso para este usuario." />;
+    return <StatePanel variant="empty" description="Quiniela no encontrada." />;
   }
 
   return (
     <div className="grid gap-4">
-      <PoolContextTabs poolId={poolId} entryId={entries[0]?.id} />
+      {isAdmin && <PoolContextTabs poolId={poolId} entryId={entries[0]?.id} />}
 
       <header className="rounded-2xl border border-border/70 bg-surface p-4">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-extrabold">{pool.name}</h1>
           <Badge>{pool.status}</Badge>
-          {pool.membership ? <Badge variant="muted">{pool.membership.role}</Badge> : null}
+          {isAdmin && pool.membership ? <Badge variant="muted">{pool.membership.role}</Badge> : null}
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">{pool.description ?? 'Sin descripcion'}</p>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-          <span>Join code: {pool.joinCode ?? 'N/A'}</span>
-          <span>Exacto: {pool.pointsExactScore}</span>
-          <span>Outcome: {pool.pointsMatchOutcome}</span>
-          <span>Bonus: {pool.pointsBonusCorrect}</span>
-        </div>
+        <p className="mt-1 text-sm text-muted-foreground">{pool.description ?? 'Sin descripción'}</p>
+        {isAdmin ? (
+          <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <span>Join code: {pool.joinCode ?? 'N/A'}</span>
+            <span>Exacto: {pool.pointsExactScore}</span>
+            <span>Outcome: {pool.pointsMatchOutcome}</span>
+            <span>Bonus: {pool.pointsBonusCorrect}</span>
+          </div>
+        ) : null}
       </header>
 
       {success ? <StatePanel variant="success" description={success} compact /> : null}
@@ -116,11 +131,11 @@ export default function PoolDetailPage() {
       <section className="grid gap-3 sm:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Mi entry</CardTitle>
+            <CardTitle className="text-sm">Mi participación</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2">
             {entries.length === 0 ? (
-              <StatePanel variant="empty" description="Aun no tienes entry en esta pool." compact />
+              <StatePanel variant="empty" description="Aún no tienes predicciones activas." compact />
             ) : (
               entries.map((entry) => (
                 <Link
@@ -140,19 +155,19 @@ export default function PoolDetailPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Crear mi entry</CardTitle>
+            <CardTitle className="text-sm">Participar</CardTitle>
           </CardHeader>
           <CardContent>
             {entries.length > 0 ? (
               <StatePanel
                 variant="success"
-                description="Ya tienes tu entry activa en esta pool. Solo se permite una por usuario."
+                description="Ya tienes tu participación activa."
                 compact
               />
             ) : (
               <form className="grid gap-2" onSubmit={onCreateEntry}>
                 <Input
-                  placeholder="Nombre de tu entry"
+                  placeholder="Nombre de tu quiniela"
                   value={entryName}
                   onChange={(e) => setEntryName(e.target.value)}
                   minLength={2}
@@ -160,7 +175,7 @@ export default function PoolDetailPage() {
                 />
                 <Button type="submit" disabled={creatingEntry}>
                   <Plus className="mr-2 h-4 w-4" />
-                  {creatingEntry ? 'Creando...' : 'Crear Entry'}
+                  {creatingEntry ? 'Creando...' : 'Participar'}
                 </Button>
               </form>
             )}
