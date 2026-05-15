@@ -3,11 +3,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Plus, Save } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2, Plus, Save } from 'lucide-react';
 
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
-import { AdminMatchPlayerPoolResponse, AdminMatchQuestion, CreateAdminQuestionPayload } from '@/types/api';
+import {
+  AdminMatchPlayerPoolResponse,
+  AdminMatchQuestion,
+  AdminMatchQuestionsResponse,
+  CreateAdminQuestionPayload,
+} from '@/types/api';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmActionButton } from '@/components/ui/confirm-action-button';
@@ -20,79 +26,106 @@ type NewQuestionForm = {
   points: string;
   lockAt: string;
   optionLabels: string;
+  isPublished: boolean;
 };
 
+const TYPE_LABELS: Record<NewQuestionForm['answerType'], string> = {
+  BOOLEAN: 'Sí / No',
+  SINGLE_CHOICE: 'Opción única',
+  TEAM_PICK: 'Equipo',
+  PLAYER_PICK: 'Jugador',
+  TIME_RANGE: 'Rango horario',
+};
+
+const ANSWER_TYPES: NewQuestionForm['answerType'][] = [
+  'BOOLEAN',
+  'SINGLE_CHOICE',
+  'TEAM_PICK',
+  'PLAYER_PICK',
+  'TIME_RANGE',
+];
+
+const SELECT_CLASS =
+  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/25';
+
+type MatchContext = AdminMatchQuestionsResponse['match'];
+
 function formatTeamLabel(team: AdminMatchPlayerPoolResponse['teams'][number]) {
-  const baseName = team.teamName && team.teamName !== team.teamCode
-    ? `${team.teamName} (${team.teamCode})`
-    : team.teamCode;
-
-  if (team.matchSide === 'HOME') {
-    return `Local: ${baseName}`;
-  }
-
-  if (team.matchSide === 'AWAY') {
-    return `Visita: ${baseName}`;
-  }
-
+  const baseName =
+    team.teamName && team.teamName !== team.teamCode
+      ? `${team.teamName} (${team.teamCode})`
+      : team.teamCode;
+  if (team.matchSide === 'HOME') return `Local: ${baseName}`;
+  if (team.matchSide === 'AWAY') return `Visita: ${baseName}`;
   return baseName;
+}
+
+function FormSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid gap-3">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+        {label}
+      </p>
+      {children}
+    </div>
+  );
 }
 
 export default function MatchQuestionsPage() {
   const params = useParams<{ matchId: string }>();
   const matchId = params?.matchId ?? '';
   const { token } = useAuth();
+
   const [questions, setQuestions] = useState<AdminMatchQuestion[]>([]);
+  const [matchContext, setMatchContext] = useState<MatchContext | null>(null);
   const [playerPool, setPlayerPool] = useState<AdminMatchPlayerPoolResponse | null>(null);
+
   const [newQuestion, setNewQuestion] = useState<NewQuestionForm>({
     questionText: '',
     answerType: 'BOOLEAN',
     points: '1',
     lockAt: '',
     optionLabels: '',
+    isPublished: true,
   });
+
   const [editingPrompt, setEditingPrompt] = useState<Record<string, string>>({});
+  const [selectedOption, setSelectedOption] = useState<Record<string, string>>({});
   const [resolutionDraft, setResolutionDraft] = useState<Record<string, string>>({});
+
   const [creating, setCreating] = useState(false);
   const [workingId, setWorkingId] = useState<string | null>(null);
+  const [publishWorkingId, setPublishWorkingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [selectedOption, setSelectedOption] = useState<Record<string, string>>({});
+
+  // Player pick state
   const [selectedPlayerTeamCode, setSelectedPlayerTeamCode] = useState<string>('');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [playerScope, setPlayerScope] = useState<'TEAM' | 'MATCH'>('TEAM');
 
-  const selectableTeams = playerPool
-    ? playerPool.teams.filter((team) => team.matchSide)
-    : [];
+  // Derived player pool helpers
+  const selectableTeams = playerPool?.teams.filter((t) => t.matchSide) ?? [];
   const fallbackTeams = playerPool?.teams ?? [];
   const teamOptions = selectableTeams.length > 0 ? selectableTeams : fallbackTeams;
   const matchTeams = selectableTeams.length > 0 ? selectableTeams : [];
-
-  const selectedTeam = playerPool?.teams.find((team) => team.teamCode === selectedPlayerTeamCode) ?? null;
+  const selectedTeam = playerPool?.teams.find((t) => t.teamCode === selectedPlayerTeamCode) ?? null;
   const teamPlayers = selectedTeam?.players ?? [];
-  const matchPlayers = matchTeams.flatMap((team) =>
-    team.players.map((player) => ({ ...player, teamCode: team.teamCode })),
+  const matchPlayers = matchTeams.flatMap((t) =>
+    t.players.map((p) => ({ ...p, teamCode: t.teamCode })),
   );
-  const playerOptions = playerScope === 'MATCH'
-    ? matchPlayers
-    : teamPlayers.map((player) => ({ ...player, teamCode: selectedTeam?.teamCode ?? '' }));
+  const playerOptions =
+    playerScope === 'MATCH'
+      ? matchPlayers
+      : teamPlayers.map((p) => ({ ...p, teamCode: selectedTeam?.teamCode ?? '' }));
 
-  const selectAllTeamPlayers = () => {
-    setSelectedPlayerIds(teamPlayers.map((player) => player.playerId));
-  };
-
-  const selectAllMatchPlayers = () => {
-    const ids = new Set(matchPlayers.map((player) => player.playerId));
-    setSelectedPlayerIds(Array.from(ids));
-  };
+  const selectAllTeamPlayers = () => setSelectedPlayerIds(teamPlayers.map((p) => p.playerId));
+  const selectAllMatchPlayers = () =>
+    setSelectedPlayerIds(Array.from(new Set(matchPlayers.map((p) => p.playerId))));
 
   const loadQuestions = useCallback(async () => {
-    if (!token) {
-      return;
-    }
-
+    if (!token) return;
     setLoading(true);
     setError(null);
     try {
@@ -101,15 +134,19 @@ export default function MatchQuestionsPage() {
         api.adminListMatchPlayerPool(matchId, token),
       ]);
 
+      setMatchContext(questionData.match);
       setQuestions(questionData.questions);
       setEditingPrompt(Object.fromEntries(questionData.questions.map((q) => [q.id, q.questionText])));
       setResolutionDraft(Object.fromEntries(questionData.questions.map((q) => [q.id, q.correctOptionId ?? ''])));
-      setSelectedOption(Object.fromEntries(questionData.questions.map((q) => [q.id, q.correctOptionId ?? q.options[0]?.id ?? ''])));
+      setSelectedOption(
+        Object.fromEntries(
+          questionData.questions.map((q) => [q.id, q.correctOptionId ?? q.options[0]?.id ?? '']),
+        ),
+      );
 
       setPlayerPool(playerPoolData);
-      const preferredTeam = playerPoolData.teams.find((team) => team.matchSide)?.teamCode;
-      const defaultTeamCode = preferredTeam ?? playerPoolData.teams[0]?.teamCode ?? '';
-      setSelectedPlayerTeamCode(defaultTeamCode);
+      const preferred = playerPoolData.teams.find((t) => t.matchSide)?.teamCode;
+      setSelectedPlayerTeamCode(preferred ?? playerPoolData.teams[0]?.teamCode ?? '');
       setSelectedPlayerIds([]);
       setPlayerScope('TEAM');
     } catch (err) {
@@ -124,16 +161,14 @@ export default function MatchQuestionsPage() {
   }, [loadQuestions]);
 
   const createQuestion = async () => {
-    if (!token) {
-      return;
-    }
+    if (!token) return;
     if (!newQuestion.questionText.trim()) {
       setError('El enunciado es obligatorio.');
       return;
     }
     const points = Number(newQuestion.points);
     if (Number.isNaN(points) || points < 0) {
-      setError('Points debe ser un número mayor o igual a 0.');
+      setError('Los puntos deben ser un número mayor o igual a 0.');
       return;
     }
 
@@ -141,7 +176,7 @@ export default function MatchQuestionsPage() {
       questionText: newQuestion.questionText.trim(),
       answerType: newQuestion.answerType,
       pointsOverride: points,
-      isPublished: true,
+      isPublished: newQuestion.isPublished,
     };
 
     if (newQuestion.lockAt) {
@@ -153,47 +188,41 @@ export default function MatchQuestionsPage() {
         setError('No se pudo cargar el pool de jugadores para este partido.');
         return;
       }
-
-      const candidatePlayers = playerScope === 'MATCH'
-        ? matchPlayers
-        : teamPlayers.map((player) => ({ ...player, teamCode: selectedTeam?.teamCode ?? '' }));
+      const candidates =
+        playerScope === 'MATCH'
+          ? matchPlayers
+          : teamPlayers.map((p) => ({ ...p, teamCode: selectedTeam?.teamCode ?? '' }));
 
       if (playerScope === 'TEAM' && !selectedTeam) {
-        setError('Debes seleccionar un pais/equipo para PLAYER_PICK.');
+        setError('Debes seleccionar un equipo para preguntas de Jugador.');
         return;
       }
-
       if (playerScope === 'MATCH' && matchPlayers.length === 0) {
         setError('Este partido no tiene equipos asignados todavía.');
         return;
       }
 
-      const pickedPlayers = candidatePlayers.filter((player) => selectedPlayerIds.includes(player.playerId));
-      if (pickedPlayers.length < 2) {
-        setError('Para PLAYER_PICK debes seleccionar al menos 2 jugadores del equipo elegido.');
+      const picked = candidates.filter((p) => selectedPlayerIds.includes(p.playerId));
+      if (picked.length < 2) {
+        setError('Debes seleccionar al menos 2 jugadores.');
         return;
       }
 
-      payload.options = pickedPlayers.map((player, index) => ({
-        key: `PLAYER_${index + 1}`,
-        label: player.shortName ?? player.fullName,
-        playerId: player.playerId,
+      payload.options = picked.map((p, i) => ({
+        key: `PLAYER_${i + 1}`,
+        label: p.shortName ?? p.fullName,
+        playerId: p.playerId,
       }));
     } else if (newQuestion.answerType !== 'BOOLEAN') {
       const labels = newQuestion.optionLabels
         .split(',')
-        .map((value) => value.trim())
+        .map((v) => v.trim())
         .filter(Boolean);
-
       if (labels.length < 2) {
-        setError('Para preguntas no BOOLEAN debes ingresar al menos 2 opciones separadas por coma.');
+        setError('Debes ingresar al menos 2 opciones separadas por coma.');
         return;
       }
-
-      payload.options = labels.map((label, index) => ({
-        key: `OPT_${index + 1}`,
-        label,
-      }));
+      payload.options = labels.map((label, i) => ({ key: `OPT_${i + 1}`, label }));
     }
 
     setCreating(true);
@@ -205,8 +234,15 @@ export default function MatchQuestionsPage() {
       setEditingPrompt((prev) => ({ ...prev, [created.id]: created.questionText }));
       setResolutionDraft((prev) => ({ ...prev, [created.id]: created.correctOptionId ?? '' }));
       setSelectedOption((prev) => ({ ...prev, [created.id]: created.options[0]?.id ?? '' }));
-      setNewQuestion({ questionText: '', answerType: 'BOOLEAN', points: '1', lockAt: '', optionLabels: '' });
-      setSuccess('Pregunta creada.');
+      setNewQuestion({
+        questionText: '',
+        answerType: 'BOOLEAN',
+        points: '1',
+        lockAt: '',
+        optionLabels: '',
+        isPublished: true,
+      });
+      setSuccess(newQuestion.isPublished ? 'Pregunta creada y publicada.' : 'Pregunta creada como borrador.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear la pregunta.');
     } finally {
@@ -215,23 +251,19 @@ export default function MatchQuestionsPage() {
   };
 
   const saveQuestion = async (questionId: string) => {
-    if (!token) {
-      return;
-    }
-
+    if (!token) return;
     const questionText = (editingPrompt[questionId] ?? '').trim();
     if (!questionText) {
       setError('El enunciado no puede quedar vacío.');
       return;
     }
-
     setWorkingId(questionId);
     setError(null);
     setSuccess(null);
     try {
-      const updated = await api.adminUpdateQuestion(questionId, { questionText, isPublished: true }, token);
+      const updated = await api.adminUpdateQuestion(questionId, { questionText }, token);
       setQuestions((prev) => prev.map((q) => (q.id === questionId ? updated : q)));
-      setSuccess('Pregunta actualizada.');
+      setSuccess('Enunciado actualizado.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo actualizar la pregunta.');
     } finally {
@@ -239,24 +271,36 @@ export default function MatchQuestionsPage() {
     }
   };
 
-  const resolveQuestion = async (questionId: string) => {
-    if (!token) {
-      return;
+  const togglePublish = async (question: AdminMatchQuestion) => {
+    if (!token) return;
+    setPublishWorkingId(question.id);
+    setError(null);
+    setSuccess(null);
+    try {
+      const updated = await api.adminUpdateQuestion(question.id, { isPublished: !question.isPublished }, token);
+      setQuestions((prev) => prev.map((q) => (q.id === question.id ? updated : q)));
+      setSuccess(updated.isPublished ? 'Pregunta publicada.' : 'Pregunta movida a borrador.');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudo cambiar el estado de publicación.');
+    } finally {
+      setPublishWorkingId(null);
     }
+  };
 
+  const resolveQuestion = async (questionId: string) => {
+    if (!token) return;
     const optionId = selectedOption[questionId] || resolutionDraft[questionId];
     if (!optionId) {
       setError('Debes seleccionar una opción correcta.');
       return;
     }
-
     setWorkingId(questionId);
     setError(null);
     setSuccess(null);
     try {
       const resolved = await api.adminResolveQuestion(questionId, optionId, token);
       setQuestions((prev) => prev.map((q) => (q.id === questionId ? resolved : q)));
-      setSuccess('Pregunta resuelta.');
+      setSuccess('Pregunta resuelta correctamente.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo resolver la pregunta.');
     } finally {
@@ -268,214 +312,507 @@ export default function MatchQuestionsPage() {
     return <StatePanel variant="loading" description="Cargando bonus questions..." />;
   }
 
+  const matchTitle = matchContext
+    ? `${matchContext.homeTournamentTeam.team.name} vs ${matchContext.awayTournamentTeam.team.name}`
+    : 'Partido';
+
+  const backHref = playerPool?.tournamentId
+    ? `/admin/tournaments/${playerPool.tournamentId}/matches`
+    : '/admin/tournaments';
+
+  const resolvedCount = questions.filter((q) => q.isResolved).length;
+
   return (
     <div className="grid gap-4">
+      {/* ── Create card ──────────────────────────────────────────────── */}
       <Card>
-        <CardHeader className="gap-3">
-          <Link href="/admin/tournaments" className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+        <CardHeader className="gap-2">
+          <Link
+            href={backHref}
+            className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-primary"
+          >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Volver
+            Volver a partidos
           </Link>
-          <CardTitle>Bonus Questions</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3">
-          {error && <StatePanel variant="error" description={error} compact />}
-          {success && <StatePanel variant="success" description={success} compact />}
-
-          <div className="grid gap-2 rounded-2xl border border-border/70 p-3 sm:grid-cols-[2fr_1fr_1fr_1fr_auto] sm:items-end">
-            <Input
-              placeholder="Nueva pregunta"
-              value={newQuestion.questionText}
-              onChange={(event) => setNewQuestion((prev) => ({ ...prev, questionText: event.target.value }))}
-            />
-            <select
-              value={newQuestion.answerType}
-              onChange={(event) => setNewQuestion((prev) => ({ ...prev, answerType: event.target.value as NewQuestionForm['answerType'] }))}
-              className="h-10 rounded-md border border-border/70 bg-background px-3 text-sm"
-            >
-              <option value="BOOLEAN">BOOLEAN</option>
-              <option value="SINGLE_CHOICE">SINGLE_CHOICE</option>
-              <option value="TEAM_PICK">TEAM_PICK</option>
-              <option value="PLAYER_PICK">PLAYER_PICK</option>
-              <option value="TIME_RANGE">TIME_RANGE</option>
-            </select>
-            <Input
-              type="number"
-              min={0}
-              placeholder="Points"
-              value={newQuestion.points}
-              onChange={(event) => setNewQuestion((prev) => ({ ...prev, points: event.target.value }))}
-            />
-            <Input
-              type="datetime-local"
-              value={newQuestion.lockAt}
-              onChange={(event) => setNewQuestion((prev) => ({ ...prev, lockAt: event.target.value }))}
-            />
-            <Button size="sm" onClick={() => void createQuestion()} disabled={creating}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              {creating ? 'Creando...' : 'Crear'}
-            </Button>
+          <div>
+            <CardTitle>Bonus Questions</CardTitle>
+            <p className="mt-0.5 text-sm text-muted-foreground">{matchTitle}</p>
           </div>
-          {newQuestion.answerType === 'PLAYER_PICK' ? (
-            <div className="grid gap-2 rounded-xl border border-border/70 p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  size="sm"
-                  variant={playerScope === 'TEAM' ? 'default' : 'outline'}
-                  onClick={() => {
-                    setPlayerScope('TEAM');
-                    setSelectedPlayerIds([]);
-                  }}
-                >
-                  Solo equipo
-                </Button>
-                <Button
-                  size="sm"
-                  variant={playerScope === 'MATCH' ? 'default' : 'outline'}
-                  onClick={() => {
-                    setPlayerScope('MATCH');
-                    setSelectedPlayerIds([]);
-                  }}
-                  disabled={matchPlayers.length === 0}
-                >
-                  Ambos equipos
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setSelectedPlayerIds([])}
-                >
-                  Limpiar
-                </Button>
-                {playerScope === 'TEAM' ? (
-                  <Button size="sm" variant="ghost" onClick={selectAllTeamPlayers}>
-                    Seleccionar todo equipo
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="ghost" onClick={selectAllMatchPlayers}>
-                    Seleccionar ambos equipos
-                  </Button>
-                )}
-              </div>
+        </CardHeader>
 
-              <div className="grid gap-2 sm:grid-cols-[220px_1fr] sm:items-start">
+        <CardContent className="grid gap-4">
+          {/* Global feedback */}
+          {error && (
+            <div role="alert" aria-live="assertive">
+              <StatePanel variant="error" description={error} compact />
+            </div>
+          )}
+          {success && (
+            <div role="status" aria-live="polite">
+              <StatePanel variant="success" description={success} compact />
+            </div>
+          )}
+
+          {/* ── New question form ─────────────────────────────────────── */}
+          <div className="grid gap-5 rounded-2xl border border-border/70 bg-gradient-to-br from-white via-white to-emerald-50/50 p-5">
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Nueva pregunta
+            </p>
+
+            {/* Section 1: Enunciado */}
+            <FormSection label="Enunciado">
+              <div className="grid gap-1.5">
+                <label htmlFor="new-question-text" className="text-sm font-medium text-foreground">
+                  Texto de la pregunta <span className="text-rose-500">*</span>
+                </label>
+                <Input
+                  id="new-question-text"
+                  placeholder="Ej: ¿El partido termina con goles en ambos arcos?"
+                  value={newQuestion.questionText}
+                  onChange={(e) => setNewQuestion((prev) => ({ ...prev, questionText: e.target.value }))}
+                />
+              </div>
+            </FormSection>
+
+            <div className="border-t border-border/40" />
+
+            {/* Section 2: Tipo de respuesta + opciones condicionales */}
+            <FormSection label="Tipo de respuesta">
+              <div className="grid gap-1.5">
+                <label htmlFor="new-answer-type" className="text-sm font-medium text-foreground">
+                  Tipo
+                </label>
                 <select
-                  value={selectedPlayerTeamCode}
-                  onChange={(event) => {
-                    setSelectedPlayerTeamCode(event.target.value);
-                    setSelectedPlayerIds([]);
-                  }}
-                  className="h-10 rounded-md border border-border/70 bg-background px-3 text-sm"
-                  disabled={playerScope === 'MATCH'}
+                  id="new-answer-type"
+                  value={newQuestion.answerType}
+                  onChange={(e) =>
+                    setNewQuestion((prev) => ({
+                      ...prev,
+                      answerType: e.target.value as NewQuestionForm['answerType'],
+                      optionLabels: '',
+                    }))
+                  }
+                  className={SELECT_CLASS}
                 >
-                  <option value="">Selecciona pais/equipo</option>
-                  {teamOptions.map((team) => (
-                    <option key={team.teamCode} value={team.teamCode}>
-                      {formatTeamLabel(team)}
+                  {ANSWER_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {TYPE_LABELS[type]}
                     </option>
                   ))}
                 </select>
+              </div>
 
-                <div className="max-h-48 overflow-auto rounded-md border border-border/70 p-2">
-                  {playerOptions.length > 0 ? (
-                    playerOptions.map((player) => {
-                      const checked = selectedPlayerIds.includes(player.playerId);
-                      return (
-                        <label key={player.playerId} className="flex items-center gap-2 py-1 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              setSelectedPlayerIds((prev) =>
-                                checked
-                                  ? prev.filter((id) => id !== player.playerId)
-                                  : [...prev, player.playerId],
-                              );
-                            }}
-                          />
-                          <span>
-                            {player.shortName ?? player.fullName}
-                            {player.shirtNumber ? ` (#${player.shirtNumber})` : ''}
-                            {playerScope === 'MATCH' ? ` · ${player.teamCode}` : ''}
-                          </span>
-                        </label>
-                      );
-                    })
+              {/* BOOLEAN hint */}
+              {newQuestion.answerType === 'BOOLEAN' && (
+                <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/40 px-3 py-2.5">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                  <span className="text-sm text-muted-foreground">
+                    Genera automáticamente las opciones{' '}
+                    <strong className="text-foreground">Sí</strong> y{' '}
+                    <strong className="text-foreground">No</strong>.
+                  </span>
+                </div>
+              )}
+
+              {/* Text options */}
+              {(newQuestion.answerType === 'SINGLE_CHOICE' ||
+                newQuestion.answerType === 'TEAM_PICK' ||
+                newQuestion.answerType === 'TIME_RANGE') && (
+                <div className="grid gap-1.5">
+                  <label htmlFor="new-option-labels" className="text-sm font-medium text-foreground">
+                    Opciones{' '}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      (separadas por coma, mínimo 2)
+                    </span>
+                  </label>
+                  <Input
+                    id="new-option-labels"
+                    placeholder={
+                      newQuestion.answerType === 'TEAM_PICK'
+                        ? 'Ej: México, Estados Unidos, Empate'
+                        : newQuestion.answerType === 'TIME_RANGE'
+                        ? 'Ej: Antes del min 45, En el segundo tiempo, En penales'
+                        : 'Ej: Opción A, Opción B, Opción C'
+                    }
+                    value={newQuestion.optionLabels}
+                    onChange={(e) => setNewQuestion((prev) => ({ ...prev, optionLabels: e.target.value }))}
+                  />
+                </div>
+              )}
+
+              {/* Player pick */}
+              {newQuestion.answerType === 'PLAYER_PICK' && (
+                <div className="grid gap-3 rounded-xl border border-border/70 bg-muted/20 p-3">
+                  {teamOptions.length === 0 ? (
+                    <StatePanel
+                      variant="empty"
+                      description="Este partido aún no tiene jugadores registrados. Agrega jugadores al torneo primero."
+                      compact
+                    />
                   ) : (
-                    <p className="text-xs text-muted-foreground">Elige un pais/equipo para ver jugadores.</p>
+                    <>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Alcance:
+                        </span>
+                        <Button
+                          size="sm"
+                          variant={playerScope === 'TEAM' ? 'default' : 'outline'}
+                          onClick={() => { setPlayerScope('TEAM'); setSelectedPlayerIds([]); }}
+                        >
+                          Solo un equipo
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={playerScope === 'MATCH' ? 'default' : 'outline'}
+                          onClick={() => { setPlayerScope('MATCH'); setSelectedPlayerIds([]); }}
+                          disabled={matchPlayers.length === 0}
+                        >
+                          Ambos equipos
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setSelectedPlayerIds([])}>
+                          Limpiar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={playerScope === 'TEAM' ? selectAllTeamPlayers : selectAllMatchPlayers}
+                        >
+                          Seleccionar todos
+                        </Button>
+                      </div>
+
+                      <div className="grid gap-2 sm:grid-cols-[200px_1fr] sm:items-start">
+                        <div className="grid gap-1.5">
+                          <span className="text-xs font-medium text-muted-foreground">Equipo</span>
+                          <select
+                            value={selectedPlayerTeamCode}
+                            onChange={(e) => { setSelectedPlayerTeamCode(e.target.value); setSelectedPlayerIds([]); }}
+                            disabled={playerScope === 'MATCH'}
+                            className={SELECT_CLASS + ' disabled:opacity-50'}
+                          >
+                            <option value="">Selecciona equipo</option>
+                            {teamOptions.map((team) => (
+                              <option key={team.teamCode} value={team.teamCode}>
+                                {formatTeamLabel(team)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="grid gap-1.5">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Jugadores{' '}
+                            <span className="font-normal">
+                              ({selectedPlayerIds.length} seleccionados, mín. 2)
+                            </span>
+                          </span>
+                          <div className="max-h-48 overflow-auto rounded-md border border-input bg-background p-2">
+                            {playerOptions.length > 0 ? (
+                              playerOptions.map((player) => {
+                                const checked = selectedPlayerIds.includes(player.playerId);
+                                return (
+                                  <label
+                                    key={player.playerId}
+                                    className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted/50"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() =>
+                                        setSelectedPlayerIds((prev) =>
+                                          checked
+                                            ? prev.filter((id) => id !== player.playerId)
+                                            : [...prev, player.playerId],
+                                        )
+                                      }
+                                    />
+                                    <span>
+                                      {player.shortName ?? player.fullName}
+                                      {player.shirtNumber ? (
+                                        <span className="ml-1 text-xs text-muted-foreground">
+                                          #{player.shirtNumber}
+                                        </span>
+                                      ) : null}
+                                      {playerScope === 'MATCH' ? (
+                                        <span className="ml-1 text-xs text-muted-foreground">
+                                          · {player.teamCode}
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                  </label>
+                                );
+                              })
+                            ) : (
+                              <p className="py-3 text-center text-xs text-muted-foreground">
+                                {playerScope === 'TEAM'
+                                  ? 'Selecciona un equipo para ver jugadores.'
+                                  : 'No hay jugadores disponibles para este partido.'}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Jugadores seleccionados: {selectedPlayerIds.length}. Para crear la pregunta se requieren al menos 2.
-              </p>
-            </div>
-          ) : newQuestion.answerType !== 'BOOLEAN' ? (
-            <Input
-              placeholder="Opciones separadas por coma (ej: Equipo A, Empate, Equipo B)"
-              value={newQuestion.optionLabels}
-              onChange={(event) => setNewQuestion((prev) => ({ ...prev, optionLabels: event.target.value }))}
-            />
-          ) : null}
-        </CardContent>
-      </Card>
+              )}
+            </FormSection>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Preguntas existentes</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3">
-          {questions.length === 0 && <StatePanel variant="empty" description="No hay preguntas para este match." />}
+            <div className="border-t border-border/40" />
 
-          {questions.map((question) => (
-            <article key={question.id} className="grid gap-2 rounded-2xl border border-border/70 p-3">
-              <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-end">
-                <Input
-                  value={editingPrompt[question.id] ?? ''}
-                  onChange={(event) =>
-                    setEditingPrompt((prev) => ({
-                      ...prev,
-                      [question.id]: event.target.value,
-                    }))
-                  }
-                />
-                <select
-                  value={selectedOption[question.id] ?? ''}
-                  onChange={(event) =>
-                    setSelectedOption((prev) => ({
-                      ...prev,
-                      [question.id]: event.target.value,
-                    }))
-                  }
-                  className="h-10 rounded-md border border-border/70 bg-background px-3 text-sm"
-                >
-                  {question.options.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => void saveQuestion(question.id)} disabled={workingId === question.id}>
-                    <Save className="mr-1.5 h-4 w-4" />
-                    Guardar texto
-                  </Button>
-                  <ConfirmActionButton
-                    size="sm"
-                    label="Resolver"
-                    confirmLabel="Si, resolver"
-                    title="Confirmar resolución"
-                    description="La pregunta quedara resuelta con la opcion seleccionada actualmente."
-                    disabled={workingId === question.id || question.isResolved}
-                    onConfirm={() => resolveQuestion(question.id)}
+            {/* Section 3: Configuración */}
+            <FormSection label="Configuración">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <label htmlFor="new-points" className="text-sm font-medium text-foreground">
+                    Puntos
+                  </label>
+                  <Input
+                    id="new-points"
+                    type="number"
+                    min={0}
+                    placeholder="1"
+                    value={newQuestion.points}
+                    onChange={(e) => setNewQuestion((prev) => ({ ...prev, points: e.target.value }))}
+                  />
+                </div>
+
+                <div className="grid gap-1.5">
+                  <label htmlFor="new-lock-at" className="text-sm font-medium text-foreground">
+                    Bloquear predicciones en{' '}
+                    <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+                  </label>
+                  <Input
+                    id="new-lock-at"
+                    type="datetime-local"
+                    value={newQuestion.lockAt}
+                    onChange={(e) => setNewQuestion((prev) => ({ ...prev, lockAt: e.target.value }))}
                   />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Tipo: {question.answerType} · Points: {question.pointsOverride ?? '-'} · Publicada: {question.isPublished ? 'si' : 'no'}
-              </p>
-            </article>
-          ))}
+            </FormSection>
+
+            <div className="border-t border-border/40" />
+
+            {/* Section 4: Publicación */}
+            <FormSection label="Publicación">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={newQuestion.isPublished}
+                  onChange={(e) => setNewQuestion((prev) => ({ ...prev, isPublished: e.target.checked }))}
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+                <div>
+                  <span className="text-sm font-medium text-foreground">
+                    Publicar inmediatamente
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    {newQuestion.isPublished
+                      ? 'Los usuarios verán esta pregunta al instante.'
+                      : 'Se guardará como borrador, no visible para usuarios.'}
+                  </p>
+                </div>
+              </label>
+            </FormSection>
+
+            {/* Submit */}
+            <div className="flex justify-end border-t border-border/50 pt-3">
+              <Button onClick={() => void createQuestion()} disabled={creating} className="gap-2">
+                {creating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                {creating
+                  ? 'Creando...'
+                  : newQuestion.isPublished
+                  ? 'Crear y publicar'
+                  : 'Crear borrador'}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Existing questions ────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <CardTitle>Preguntas existentes</CardTitle>
+            {questions.length > 0 && (
+              <span className="text-sm text-muted-foreground">
+                {resolvedCount} de {questions.length} resueltas
+              </span>
+            )}
+          </div>
+        </CardHeader>
+
+        <CardContent className="grid gap-3">
+          {questions.length === 0 && (
+            <StatePanel variant="empty" description="No hay preguntas para este partido." />
+          )}
+
+          {questions.map((question) => {
+            const correctOption = question.options.find((o) => o.id === question.correctOptionId);
+            const pendingLabel =
+              question.options.find((o) => o.id === (selectedOption[question.id] ?? ''))?.label ?? '—';
+            const isWorking = workingId === question.id;
+            const isPublishWorking = publishWorkingId === question.id;
+            const isBusy = isWorking || isPublishWorking;
+
+            return (
+              <article
+                key={question.id}
+                className={`grid gap-3 rounded-xl border p-4 transition-colors ${
+                  question.isResolved
+                    ? 'border-emerald-200/70 bg-emerald-50/30'
+                    : 'border-border/70 bg-white'
+                }`}
+              >
+                {/* Row 1: status badges */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {question.isResolved ? (
+                    <Badge variant="success" className="text-[11px]">Resuelta</Badge>
+                  ) : (
+                    <Badge variant="muted" className="text-[11px]">Pendiente</Badge>
+                  )}
+                  {question.isPublished ? (
+                    <Badge variant="success" className="text-[11px]">Publicada</Badge>
+                  ) : (
+                    <Badge variant="warning" className="text-[11px]">Borrador</Badge>
+                  )}
+                  <Badge variant="muted" className="text-[11px]">
+                    {TYPE_LABELS[question.answerType]}
+                  </Badge>
+                  {question.pointsOverride !== null && (
+                    <Badge variant="muted" className="text-[11px]">
+                      {question.pointsOverride} pts
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Row 2: editable enunciado */}
+                <div className="grid gap-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">Enunciado</span>
+                  <Input
+                    value={editingPrompt[question.id] ?? ''}
+                    onChange={(e) =>
+                      setEditingPrompt((prev) => ({ ...prev, [question.id]: e.target.value }))
+                    }
+                  />
+                </div>
+
+                {/* Row 3: options as readable pills */}
+                {question.options.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {question.options.map((opt) => (
+                      <span
+                        key={opt.id}
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                          opt.id === question.correctOptionId
+                            ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {opt.id === question.correctOptionId && (
+                          <CheckCircle2 className="h-3 w-3 shrink-0" />
+                        )}
+                        {opt.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Row 4: resolved answer banner */}
+                {question.isResolved && correctOption && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                    <span className="text-xs font-semibold text-emerald-700">Respuesta correcta:</span>
+                    <span className="font-bold text-emerald-800">{correctOption.label}</span>
+                  </div>
+                )}
+
+                {/* Row 5: resolve selector (only when pending) */}
+                {!question.isResolved && (
+                  <div className="grid gap-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Seleccionar respuesta correcta
+                    </span>
+                    <select
+                      value={selectedOption[question.id] ?? ''}
+                      onChange={(e) =>
+                        setSelectedOption((prev) => ({ ...prev, [question.id]: e.target.value }))
+                      }
+                      className={SELECT_CLASS}
+                    >
+                      {question.options.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Row 6: action buttons */}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void saveQuestion(question.id)}
+                      disabled={isBusy}
+                      className="gap-1.5"
+                    >
+                      {isWorking ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Save className="h-3.5 w-3.5" />
+                      )}
+                      Guardar texto
+                    </Button>
+
+                    {!question.isResolved && (
+                      <button
+                        onClick={() => void togglePublish(question)}
+                        disabled={isBusy}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border/70 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isPublishWorking ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : question.isPublished ? (
+                          <EyeOff className="h-3 w-3" />
+                        ) : (
+                          <Eye className="h-3 w-3" />
+                        )}
+                        {question.isPublished ? 'Mover a borrador' : 'Publicar'}
+                      </button>
+                    )}
+                  </div>
+
+                  {question.isResolved ? (
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Resuelta — no se puede cambiar
+                    </div>
+                  ) : (
+                    <ConfirmActionButton
+                      size="sm"
+                      disabled={isBusy}
+                      label="Resolver pregunta"
+                      confirmLabel="Sí, resolver"
+                      title="Confirmar resolución"
+                      description={`La pregunta quedará resuelta con "${pendingLabel}". Esta acción marca el resultado correcto para el scoring.`}
+                      onConfirm={() => resolveQuestion(question.id)}
+                      panelClassName="w-full sm:max-w-[380px]"
+                    />
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </CardContent>
       </Card>
     </div>

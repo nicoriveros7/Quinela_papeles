@@ -11,8 +11,8 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: 'Quinela Pro | Fantasy Futbol',
-  description: 'Quiniela moderna para competir con tus amigos',
+  title: 'La Polla Mundialista 2026',
+  description: 'La quiniela del Mundial FIFA 2026. Predice, compite y sube en el ranking.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

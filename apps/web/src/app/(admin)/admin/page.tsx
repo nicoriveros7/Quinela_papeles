@@ -2,14 +2,38 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { CalendarDays, ChevronRight, Globe2, Users, type LucideIcon } from 'lucide-react';
 
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
 import { AdminPool, AdminTournament } from '@/types/api';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatePanel } from '@/components/ui/state-panel';
+
+function getStatusVariant(status: string): BadgeVariant {
+  const s = status.toUpperCase();
+  if (s === 'ACTIVE' || s === 'LIVE' || s === 'OPEN') return 'success';
+  if (s === 'CANCELLED') return 'danger';
+  if (s === 'PENDING' || s === 'DRAFT' || s === 'UPCOMING') return 'warning';
+  return 'muted';
+}
+
+function getStatusLabel(status: string): string {
+  switch (status.toUpperCase()) {
+    case 'ACTIVE': return 'Activo';
+    case 'LIVE': return 'En vivo';
+    case 'OPEN': return 'Abierto';
+    case 'FINISHED': return 'Finalizado';
+    case 'COMPLETED': return 'Completado';
+    case 'CLOSED': return 'Cerrado';
+    case 'CANCELLED': return 'Cancelado';
+    case 'PENDING': return 'Pendiente';
+    case 'DRAFT': return 'Borrador';
+    case 'UPCOMING': return 'Próximo';
+    default: return status;
+  }
+}
 
 export default function AdminHomePage() {
   const { token } = useAuth();
@@ -19,9 +43,7 @@ export default function AdminHomePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) {
-      return;
-    }
+    if (!token) return;
 
     const load = async () => {
       setLoading(true);
@@ -31,7 +53,6 @@ export default function AdminHomePage() {
           api.adminListTournaments(token),
           api.adminListPools(token),
         ]);
-
         setTournaments(tournamentsData);
         setPools(poolsData);
       } catch (err) {
@@ -46,11 +67,12 @@ export default function AdminHomePage() {
 
   const stats = useMemo(() => {
     const totalMatches = tournaments.reduce((acc, t) => acc + t._count.matches, 0);
-    const totalPools = pools.length;
+    const totalMembers = pools.reduce((acc, p) => acc + p._count.members, 0);
     return {
       totalTournaments: tournaments.length,
       totalMatches,
-      totalPools,
+      totalPools: pools.length,
+      totalMembers,
     };
   }, [pools, tournaments]);
 
@@ -64,72 +86,108 @@ export default function AdminHomePage() {
 
   return (
     <div className="grid gap-4">
-      <header className="rounded-2xl border border-border/70 bg-surface p-4">
-        <h1 className="text-2xl font-extrabold">Panel Admin</h1>
-        <p className="text-sm text-muted-foreground">Consola operativa para gestionar torneos, matches y bonus questions.</p>
+      {/* ── Page header ──────────────────────────────────────────── */}
+      <header className="rounded-2xl border border-border/70 bg-surface p-5">
+        <h1 className="text-2xl font-extrabold text-foreground">Admin Console</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Gestión operativa de torneos, partidos y bonus questions.
+        </p>
       </header>
 
+      {/* ── Metrics ──────────────────────────────────────────────── */}
       <section className="grid gap-3 sm:grid-cols-3">
-        <MetricCard title="Torneos" value={stats.totalTournaments} />
-        <MetricCard title="Matches" value={stats.totalMatches} />
-        <MetricCard title="Pools" value={stats.totalPools} />
+        <MetricCard
+          icon={Globe2}
+          title="Torneos"
+          value={stats.totalTournaments}
+          description="registrados"
+        />
+        <MetricCard
+          icon={CalendarDays}
+          title="Partidos"
+          value={stats.totalMatches}
+          description="en total"
+        />
+        <MetricCard
+          icon={Users}
+          title="Pools"
+          value={stats.totalPools}
+          description={`· ${stats.totalMembers} participante${stats.totalMembers !== 1 ? 's' : ''}`}
+        />
       </section>
 
+      {/* ── Recent lists ─────────────────────────────────────────── */}
       <section className="grid gap-3 xl:grid-cols-2">
+        {/* Tournaments */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm">Torneos recientes</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2">
+            {tournaments.length === 0 && (
+              <StatePanel variant="empty" description="No hay torneos creados todavía." compact />
+            )}
+
             {tournaments.slice(0, 5).map((tournament) => (
               <Link
                 key={tournament.id}
                 href={`/admin/tournaments/${tournament.id}/matches`}
-                className="flex items-center justify-between rounded-xl border border-border/70 px-3 py-2 text-sm hover:border-primary/40"
+                className="flex items-center justify-between rounded-xl border border-border/70 px-3 py-2.5 text-sm transition-colors hover:border-primary/40 hover:bg-primary/5"
               >
-                <div>
-                  <p className="font-semibold">{tournament.name}</p>
-                  <p className="text-xs text-muted-foreground">{tournament._count.matches} matches</p>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-foreground">{tournament.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {tournament._count.matches} partidos · {tournament._count.pools} pools
+                  </p>
                 </div>
-                <Badge variant="muted">{tournament.status}</Badge>
+                <Badge variant={getStatusVariant(tournament.status)} className="ml-3 shrink-0 text-[11px]">
+                  {getStatusLabel(tournament.status)}
+                </Badge>
               </Link>
             ))}
 
-            {tournaments.length === 0 && (
-              <StatePanel variant="empty" description="No hay torneos creados todavia." compact />
-            )}
-
-            <Link href="/admin/tournaments" className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+            <Link
+              href="/admin/tournaments"
+              className="inline-flex items-center gap-1 pt-1 text-xs font-semibold uppercase tracking-[0.08em] text-primary hover:underline"
+            >
               Ver todos
               <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </CardContent>
         </Card>
 
+        {/* Pools */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm">Pools recientes</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2">
+            {pools.length === 0 && (
+              <StatePanel variant="empty" description="No hay pools creados todavía." compact />
+            )}
+
             {pools.slice(0, 5).map((pool) => (
               <Link
                 key={pool.id}
                 href={`/admin/pools/${pool.id}/matches`}
-                className="flex items-center justify-between rounded-xl border border-border/70 px-3 py-2 text-sm hover:border-primary/40"
+                className="flex items-center justify-between rounded-xl border border-border/70 px-3 py-2.5 text-sm transition-colors hover:border-primary/40 hover:bg-primary/5"
               >
-                <div>
-                  <p className="font-semibold">{pool.name}</p>
-                  <p className="text-xs text-muted-foreground">{pool.tournament.name}</p>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-foreground">{pool.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {pool.tournament.name} · {pool._count.members} participante{pool._count.members !== 1 ? 's' : ''}
+                  </p>
                 </div>
-                <Badge>{pool.status}</Badge>
+                <Badge variant={getStatusVariant(pool.status)} className="ml-3 shrink-0 text-[11px]">
+                  {getStatusLabel(pool.status)}
+                </Badge>
               </Link>
             ))}
 
-            {pools.length === 0 && (
-              <StatePanel variant="empty" description="No hay pools creados todavia." compact />
-            )}
-
-            <Link href="/admin/pools" className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+            <Link
+              href="/admin/pools"
+              className="inline-flex items-center gap-1 pt-1 text-xs font-semibold uppercase tracking-[0.08em] text-primary hover:underline"
+            >
               Ver todos
               <ChevronRight className="h-3.5 w-3.5" />
             </Link>
@@ -140,12 +198,28 @@ export default function AdminHomePage() {
   );
 }
 
-function MetricCard({ title, value }: { title: string; value: number }) {
+function MetricCard({
+  icon: Icon,
+  title,
+  value,
+  description,
+}: {
+  icon: LucideIcon;
+  title: string;
+  value: number;
+  description: string;
+}) {
   return (
     <Card>
       <CardContent className="py-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{title}</p>
-        <p className="mt-2 text-3xl font-extrabold text-foreground">{value}</p>
+        <div className="mb-3 inline-flex rounded-xl bg-primary/10 p-2 text-primary">
+          <Icon className="h-4 w-4" />
+        </div>
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+          {title}
+        </p>
+        <p className="mt-1 text-3xl font-extrabold tabular-nums text-foreground">{value}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
       </CardContent>
     </Card>
   );
