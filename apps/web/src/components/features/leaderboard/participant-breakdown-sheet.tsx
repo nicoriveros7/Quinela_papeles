@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Clock, Minus, Star, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -37,6 +37,50 @@ const STATUS_CONFIG: Record<PredictionStatus, StatusConfig> = {
   'sin-pick':  { label: 'Sin pick',  chipClass: 'bg-muted text-muted-foreground',  Icon: Minus },
 };
 
+// ── Filter types and helpers ──────────────────────────────────────────────────
+
+type PredictionFilter = 'all' | 'with-pick' | 'no-pick' | 'with-points';
+type PhaseFilter = 'all' | 'groups' | 'knockout' | 'finished';
+
+const PREDICTION_FILTERS: { value: PredictionFilter; label: string }[] = [
+  { value: 'all',         label: 'Todos'      },
+  { value: 'with-pick',   label: 'Con pick'   },
+  { value: 'no-pick',     label: 'Sin pick'   },
+  { value: 'with-points', label: 'Con puntos' },
+];
+
+const PHASE_FILTERS: { value: PhaseFilter; label: string }[] = [
+  { value: 'all',      label: 'Todos'          },
+  { value: 'groups',   label: 'Grupos'         },
+  { value: 'knockout', label: 'Eliminatorias'  },
+  { value: 'finished', label: 'Finalizados'    },
+];
+
+function filterMatches(
+  matches: MatchBreakdown[],
+  predFilter: PredictionFilter,
+  phaseFilter: PhaseFilter,
+): MatchBreakdown[] {
+  return matches.filter((match) => {
+    // ── Prediction filter ──
+    const hasPick   = match.predictedHomeScore !== null;
+    const hasPoints =
+      match.pointsAwarded > 0 ||
+      match.questions.some((q) => q.pointsAwarded > 0);
+
+    if (predFilter === 'with-pick'   && !hasPick)   return false;
+    if (predFilter === 'no-pick'     && hasPick)    return false;
+    if (predFilter === 'with-points' && !hasPoints) return false;
+
+    // ── Phase filter ──
+    if (phaseFilter === 'groups'   && match.stage !== 'GROUP')    return false;
+    if (phaseFilter === 'knockout' && match.stage === 'GROUP')    return false;
+    if (phaseFilter === 'finished' && match.status !== 'FINISHED') return false;
+
+    return true;
+  });
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 
 interface ParticipantBreakdownSheetProps {
@@ -56,6 +100,11 @@ export function ParticipantBreakdownSheet({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedMatches, setExpandedMatches] = useState<Set<string>>(new Set());
+
+  // ── Filter state ──
+  const [predFilter, setPredFilter] = useState<PredictionFilter>('all');
+  const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>('all');
+
   const panelRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -98,6 +147,17 @@ export function ParticipantBreakdownSheet({
       return next;
     });
   };
+
+  // ── Filtered matches ──
+  const filteredMatches = useMemo(
+    () =>
+      data
+        ? filterMatches(data.matchPredictions, predFilter, phaseFilter)
+        : [],
+    [data, predFilter, phaseFilter],
+  );
+
+  const hasActiveFilter = predFilter !== 'all' || phaseFilter !== 'all';
 
   return (
     <>
@@ -168,6 +228,17 @@ export function ParticipantBreakdownSheet({
           </button>
         </div>
 
+        {/* ── Filter bar — sticky below header, above scroll area ── */}
+        {!loading && !error && data && data.matchPredictions.length > 0 && (
+          <FilterBar
+            predFilter={predFilter}
+            phaseFilter={phaseFilter}
+            count={filteredMatches.length}
+            onPredFilter={setPredFilter}
+            onPhaseFilter={setPhaseFilter}
+          />
+        )}
+
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-4 pb-8 pt-4">
           {loading && <BreakdownSkeleton />}
@@ -196,16 +267,21 @@ export function ParticipantBreakdownSheet({
                   <h3 className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
                     Predicciones de partidos
                   </h3>
-                  <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60">
-                    {data.matchPredictions.map((match) => (
-                      <MatchRow
-                        key={match.matchId}
-                        match={match}
-                        expanded={expandedMatches.has(match.matchId)}
-                        onToggle={() => toggleMatch(match.matchId)}
-                      />
-                    ))}
-                  </div>
+
+                  {filteredMatches.length === 0 ? (
+                    <EmptyFilterState onReset={() => { setPredFilter('all'); setPhaseFilter('all'); }} hasActiveFilter={hasActiveFilter} />
+                  ) : (
+                    <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60">
+                      {filteredMatches.map((match) => (
+                        <MatchRow
+                          key={match.matchId}
+                          match={match}
+                          expanded={expandedMatches.has(match.matchId)}
+                          onToggle={() => toggleMatch(match.matchId)}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </section>
               )}
 
@@ -218,6 +294,120 @@ export function ParticipantBreakdownSheet({
         </div>
       </div>
     </>
+  );
+}
+
+// ── FilterBar ────────────────────────────────────────────────────────────────
+
+function FilterBar({
+  predFilter,
+  phaseFilter,
+  count,
+  onPredFilter,
+  onPhaseFilter,
+}: {
+  predFilter: PredictionFilter;
+  phaseFilter: PhaseFilter;
+  count: number;
+  onPredFilter: (v: PredictionFilter) => void;
+  onPhaseFilter: (v: PhaseFilter) => void;
+}) {
+  return (
+    <div className="shrink-0 border-b border-border/60 px-4 py-2.5 space-y-2">
+      {/* Row 1: Prediction filter */}
+      <div
+        role="tablist"
+        aria-label="Filtrar por estado de predicción"
+        className="flex gap-1 overflow-x-auto"
+        style={{ scrollbarWidth: 'none' }}
+      >
+        {PREDICTION_FILTERS.map(({ value, label }) => (
+          <FilterPill
+            key={value}
+            label={label}
+            active={predFilter === value}
+            onClick={() => onPredFilter(value)}
+          />
+        ))}
+      </div>
+
+      {/* Row 2: Phase filter */}
+      <div
+        role="tablist"
+        aria-label="Filtrar por fase"
+        className="flex gap-1 overflow-x-auto"
+        style={{ scrollbarWidth: 'none' }}
+      >
+        {PHASE_FILTERS.map(({ value, label }) => (
+          <FilterPill
+            key={value}
+            label={label}
+            active={phaseFilter === value}
+            onClick={() => onPhaseFilter(value)}
+          />
+        ))}
+      </div>
+
+      {/* Counter */}
+      <p className="text-[11px] font-medium text-muted-foreground">
+        {count} {count === 1 ? 'partido' : 'partidos'}
+      </p>
+    </div>
+  );
+}
+
+function FilterPill({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      role="tab"
+      type="button"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        'shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+        active
+          ? 'bg-primary text-primary-foreground'
+          : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground',
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ── EmptyFilterState ─────────────────────────────────────────────────────────
+
+function EmptyFilterState({
+  onReset,
+  hasActiveFilter,
+}: {
+  onReset: () => void;
+  hasActiveFilter: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-border/60 bg-muted/30 px-4 py-8 text-center">
+      <p className="text-sm font-medium text-muted-foreground">
+        No hay partidos para este filtro.
+      </p>
+      {hasActiveFilter && (
+        <button
+          type="button"
+          onClick={onReset}
+          className="mt-3 text-xs font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded"
+        >
+          Quitar filtros
+        </button>
+      )}
+    </div>
   );
 }
 

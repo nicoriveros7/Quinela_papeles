@@ -16,6 +16,7 @@ export interface MatchBreakdown {
   matchId: string;
   kickoffAt: Date;
   status: MatchStatus;
+  stage: string;
   homeTeamName: string | null;
   homeTeamCode: string | null;
   homeTeamFlagEmoji: string | null;

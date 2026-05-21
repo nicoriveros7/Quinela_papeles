@@ -357,6 +357,7 @@ export type MatchBreakdown = {
   matchId: string;
   kickoffAt: string;
   status: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'POSTPONED' | 'CANCELLED';
+  stage: string;
   homeTeamName: string | null;
   homeTeamCode: string | null;
   homeTeamFlagEmoji: string | null;
