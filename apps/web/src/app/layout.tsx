@@ -12,7 +12,7 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: 'La Polla Mundialista 2026',
-  description: 'La quiniela del Mundial FIFA 2026. Predice, compite y sube en el ranking.',
+  description: 'La polla del Mundial FIFA 2026. Predice, compite y sube en el ranking.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

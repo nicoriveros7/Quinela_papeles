@@ -55,12 +55,12 @@ export function AuthForm({ mode }: { mode: AuthFormMode }) {
         </span>
 
         <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
-          {isRegister ? 'Crea tu cuenta' : 'Entra a la Quiniela'}
+          {isRegister ? 'Crea tu cuenta' : 'Entra a la Polla'}
         </h1>
 
         <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
           {isRegister
-            ? 'Al registrarte quedas inscrito automáticamente a la Quiniela Mundial 2026. Sin crear ni unirte a ningún grupo.'
+            ? 'Al registrarte quedas inscrito automáticamente a la Polla Mundial 2026. Sin crear ni unirte a ningún grupo.'
             : 'Bienvenido de vuelta. Entra para ver tus predicciones y el ranking.'}
         </p>
       </div>
@@ -157,7 +157,7 @@ export function AuthForm({ mode }: { mode: AuthFormMode }) {
                 Procesando...
               </>
             ) : isRegister ? (
-              'Crear cuenta y entrar a la quiniela'
+              'Crear cuenta y entrar a la polla'
             ) : (
               'Entrar'
             )}

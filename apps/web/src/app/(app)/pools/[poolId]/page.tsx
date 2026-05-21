@@ -52,7 +52,7 @@ export default function PoolDetailPage() {
       setPool(poolData);
       setEntries(entryData);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo cargar la quiniela.');
+      setError(err instanceof ApiError ? err.message : 'No se pudo cargar la polla.');
     } finally {
       setLoading(false);
     }
@@ -78,7 +78,7 @@ export default function PoolDetailPage() {
     setSuccess(null);
 
     try {
-      await api.createEntry(poolId, entryName.trim() || 'Mi Quiniela', token);
+      await api.createEntry(poolId, entryName.trim() || 'Mi Polla', token);
       setEntryName('');
       setSuccess('Tu participación fue creada correctamente.');
       await load();
@@ -94,7 +94,7 @@ export default function PoolDetailPage() {
   }
 
   if (loading) {
-    return <StatePanel variant="loading" description="Cargando quiniela..." />;
+    return <StatePanel variant="loading" description="Cargando polla..." />;
   }
 
   if (error) {
@@ -102,7 +102,7 @@ export default function PoolDetailPage() {
   }
 
   if (!pool) {
-    return <StatePanel variant="empty" description="Quiniela no encontrada." />;
+    return <StatePanel variant="empty" description="Polla no encontrada." />;
   }
 
   return (
@@ -167,7 +167,7 @@ export default function PoolDetailPage() {
             ) : (
               <form className="grid gap-2" onSubmit={onCreateEntry}>
                 <Input
-                  placeholder="Nombre de tu quiniela"
+                  placeholder="Nombre de tu polla"
                   value={entryName}
                   onChange={(e) => setEntryName(e.target.value)}
                   minLength={2}

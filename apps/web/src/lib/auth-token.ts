@@ -1,4 +1,4 @@
-const TOKEN_KEY = 'quinela_access_token';
+const TOKEN_KEY = 'polla_access_token';
 
 export function getStoredToken() {
   if (typeof window === 'undefined') {

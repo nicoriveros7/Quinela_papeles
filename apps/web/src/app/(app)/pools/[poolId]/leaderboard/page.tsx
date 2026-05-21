@@ -21,7 +21,7 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     if (!isAdmin) {
-      void router.replace('/quiniela/leaderboard');
+      void router.replace('/polla/leaderboard');
     }
   }, [isAdmin, router]);
 
@@ -77,7 +77,7 @@ export default function LeaderboardPage() {
 
       <header className="rounded-2xl border border-border/70 bg-surface p-4">
         <h1 className="text-2xl font-extrabold">Ranking</h1>
-        <p className="text-sm text-muted-foreground">Ranking oficial de la quiniela.</p>
+        <p className="text-sm text-muted-foreground">Ranking oficial de la polla.</p>
       </header>
 
       <Card>

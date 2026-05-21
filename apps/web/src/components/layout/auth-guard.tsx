@@ -34,40 +34,40 @@ type NavLink = {
 
 // ── Nav definitions ──────────────────────────────────────────────────────────
 
-/** Quiniela links — visible to ALL users in sidebar and bottom nav */
-const quinielaLinks: NavLink[] = [
+/** Polla links — visible to ALL users in sidebar and bottom nav */
+const pollaLinks: NavLink[] = [
   {
     href: '/dashboard',
-    label: 'Mi Quiniela',
-    shortLabel: 'Quiniela',
+    label: 'La Polla',
+    shortLabel: 'Polla',
     icon: Globe,
     activeWhen: (p) =>
       p === '/dashboard' ||
       (p.startsWith('/pools/') && !p.includes('/leaderboard') && !p.includes('/entries')),
   },
   {
-    href: '/quiniela/partidos',
+    href: '/polla/partidos',
     label: 'Partidos',
     icon: Swords,
   },
   {
-    href: '/quiniela/predicciones',
+    href: '/polla/predicciones',
     label: 'Mis predicciones',
     shortLabel: 'Predecir',
     icon: ListChecks,
     activeWhen: (p) =>
-      (p.startsWith('/quiniela/predicciones') &&
-        !p.startsWith('/quiniela/predicciones-torneo')) ||
+      (p.startsWith('/polla/predicciones') &&
+        !p.startsWith('/polla/predicciones-torneo')) ||
       p.includes('/entries/'),
   },
   {
-    href: '/quiniela/leaderboard',
+    href: '/polla/leaderboard',
     label: 'Ranking',
     icon: Trophy,
-    activeWhen: (p) => p.startsWith('/quiniela/leaderboard') || p.includes('/leaderboard'),
+    activeWhen: (p) => p.startsWith('/polla/leaderboard') || p.includes('/leaderboard'),
   },
   {
-    href: '/quiniela/predicciones-torneo',
+    href: '/polla/predicciones-torneo',
     label: 'Pre-torneo',
     icon: Star,
   },
@@ -182,7 +182,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             <p className="text-xs font-bold uppercase tracking-[0.09em] text-primary">
               Mundial 2026
             </p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">Quiniela oficial</p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">Polla oficial</p>
           </div>
         </div>
 
@@ -218,17 +218,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 Mundial 2026
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {isAdmin ? 'Panel de administración' : 'Quiniela oficial'}
+                {isAdmin ? 'Panel de administración' : 'Polla oficial'}
               </p>
             </div>
           </div>
 
-          {/* ── Quiniela navigation ── */}
-          <nav aria-label="Quiniela" className="grid gap-0.5">
+          {/* ── Polla navigation ── */}
+          <nav aria-label="Polla" className="grid gap-0.5">
             <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-              Quiniela
+              Polla
             </p>
-            {quinielaLinks.map((link) => (
+            {pollaLinks.map((link) => (
               <SidebarLink key={link.href} link={link} pathname={pathname} />
             ))}
           </nav>
@@ -306,7 +306,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex h-16 items-stretch border-t border-border/70 bg-surface/95 backdrop-blur"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        {quinielaLinks.map((link) => (
+        {pollaLinks.map((link) => (
           <BottomNavItem key={link.href} link={link} pathname={pathname} />
         ))}
       </nav>

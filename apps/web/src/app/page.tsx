@@ -65,7 +65,7 @@ export default function HomePage() {
               </div>
 
               <h1 className="text-3xl font-extrabold leading-[1.1] tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-                La quiniela del<br />
+                La polla del<br />
                 <span className="text-primary">Mundial 2026</span>
               </h1>
 
@@ -90,7 +90,7 @@ export default function HomePage() {
 
               <p className="flex items-center gap-2 text-xs text-muted-foreground">
                 <CheckCircle className="h-3.5 w-3.5 shrink-0 text-primary" />
-                Al registrarte entras directo a la quiniela. Sin crear grupos ni pedir códigos.
+                Al registrarte entras directo a la polla. Sin crear grupos ni pedir códigos.
               </p>
             </div>
 

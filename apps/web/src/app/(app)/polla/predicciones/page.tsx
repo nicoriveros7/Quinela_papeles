@@ -24,7 +24,7 @@ export default function PrediccionesPage() {
         setError(
           err instanceof ApiError
             ? err.message
-            : 'No se pudo cargar la quiniela. Intenta recargar la página.',
+            : 'No se pudo cargar la polla. Intenta recargar la página.',
         );
       }
     };

@@ -42,7 +42,7 @@ export default function DashboardPage() {
         const matchData = await api.listPoolMatches(data.pool.id, token);
         setMatches(matchData.matches);
       } catch (err) {
-        setError(err instanceof ApiError ? err.message : 'No se pudo cargar la quiniela');
+        setError(err instanceof ApiError ? err.message : 'No se pudo cargar la polla');
       } finally {
         setLoading(false);
       }
@@ -60,7 +60,7 @@ export default function DashboardPage() {
   );
 
   if (loading) {
-    return <StatePanel variant="loading" description="Cargando tu quiniela..." />;
+    return <StatePanel variant="loading" description="Cargando tu polla..." />;
   }
 
   if (error) {
@@ -108,20 +108,20 @@ export default function DashboardPage() {
 
         {/* CTAs: primary first, secondary 2-col */}
         <div className="grid gap-2.5 sm:col-span-2">
-          <Link href="/quiniela/predicciones" className="block">
+          <Link href="/polla/predicciones" className="block">
             <Button className="w-full gap-2">
               <ListChecks className="h-4 w-4" aria-hidden="true" />
               Mis predicciones
             </Button>
           </Link>
           <div className="grid grid-cols-2 gap-2.5">
-            <Link href="/quiniela/leaderboard" className="block">
+            <Link href="/polla/leaderboard" className="block">
               <Button variant="outline" className="w-full gap-2">
                 <Medal className="h-4 w-4" aria-hidden="true" />
                 Leaderboard
               </Button>
             </Link>
-            <Link href="/quiniela/partidos" className="block">
+            <Link href="/polla/partidos" className="block">
               <Button variant="outline" className="w-full gap-2">
                 <Swords className="h-4 w-4" aria-hidden="true" />
                 Partidos
@@ -137,7 +137,7 @@ export default function DashboardPage() {
           <h2 className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
             Próximos partidos
           </h2>
-          <Link href="/quiniela/partidos">
+          <Link href="/polla/partidos">
             <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs text-muted-foreground">
               Ver todos
               <ArrowRight className="h-3 w-3" aria-hidden="true" />
@@ -165,7 +165,7 @@ export default function DashboardPage() {
           Predicciones del torneo
         </h2>
         <UserFeatureCard
-          href="/quiniela/predicciones-torneo"
+          href="/polla/predicciones-torneo"
           icon={Star}
           title="Pre-torneo"
           description="Predice el campeón, subcampeón y goleador del Mundial antes de que empiece."
@@ -244,7 +244,7 @@ function UpcomingMatchRow({ match }: { match: PoolMatch }) {
 
   return (
     <Link
-      href="/quiniela/predicciones"
+      href="/polla/predicciones"
       className="group flex items-center gap-2 rounded-xl border border-border/60 bg-surface/90 px-4 py-3.5 shadow-card-sm transition-all duration-150 hover:border-primary/30 hover:shadow-card"
     >
       {/* Home */}

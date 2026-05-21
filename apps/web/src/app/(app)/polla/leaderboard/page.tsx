@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { StatePanel } from '@/components/ui/state-panel';
 import { ParticipantBreakdownSheet } from '@/components/features/leaderboard/participant-breakdown-sheet';
 
-export default function QuinielaLeaderboardPage() {
+export default function PollaLeaderboardPage() {
   const { token } = useAuth();
   const [mainPool, setMainPool] = useState<WorldCupMainPool | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
