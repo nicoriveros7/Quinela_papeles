@@ -77,6 +77,97 @@ const QA_TEAM_CODES = new Set(
   qaGroupMatches.flatMap((m) => [m.homeCode, m.awayCode]),
 );
 
+const QA_MATCH_ORDER = [1, 2, 3, 4, 7, 8, 10, 11, 19, 73];
+const BOGOTA_TIMEZONE = 'America/Bogota';
+const BOGOTA_UTC_OFFSET_HOURS = 5;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+type BogotaDateParts = { year: number; month: number; day: number };
+
+function getBogotaDateParts(date: Date): BogotaDateParts {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: BOGOTA_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const lookup: Record<string, string> = {};
+  for (const part of parts) {
+    if (part.type !== 'literal') lookup[part.type] = part.value;
+  }
+
+  return {
+    year: Number(lookup.year),
+    month: Number(lookup.month),
+    day: Number(lookup.day),
+  };
+}
+
+function getBogotaWeekdayIndex(date: Date): number {
+  const weekday = new Intl.DateTimeFormat('en-US', {
+    timeZone: BOGOTA_TIMEZONE,
+    weekday: 'short',
+  }).format(date);
+
+  const map: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  };
+
+  return map[weekday] ?? 0;
+}
+
+function getBogotaMidnightUtc(date: Date): Date {
+  const { year, month, day } = getBogotaDateParts(date);
+  return new Date(Date.UTC(year, month - 1, day, BOGOTA_UTC_OFFSET_HOURS, 0, 0));
+}
+
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * DAY_MS);
+}
+
+function buildBogotaKickoffDate(baseBogotaMidnightUtc: Date, hour: number, minute: number): Date {
+  return new Date(baseBogotaMidnightUtc.getTime() + (hour * 60 + minute) * 60 * 1000);
+}
+
+function getQaKickoffDates(): Date[] {
+  const now = new Date();
+  const bogotaMidnightUtc = getBogotaMidnightUtc(now);
+  const tomorrowBogotaMidnightUtc = addDays(bogotaMidnightUtc, 1);
+
+  let daysUntilSunday = (7 - getBogotaWeekdayIndex(now)) % 7;
+  if (daysUntilSunday === 0) daysUntilSunday = 7;
+  const sundayBogotaMidnightUtc = addDays(bogotaMidnightUtc, daysUntilSunday);
+
+  const slots: Array<[number, number]> = [
+    [9, 0],
+    [10, 30],
+    [12, 0],
+    [14, 0],
+    [16, 0],
+  ];
+
+  return [
+    ...slots.map(([hour, minute]) => buildBogotaKickoffDate(tomorrowBogotaMidnightUtc, hour, minute)),
+    ...slots.map(([hour, minute]) => buildBogotaKickoffDate(sundayBogotaMidnightUtc, hour, minute)),
+  ];
+}
+
+const qaKickoffDates = getQaKickoffDates();
+if (qaKickoffDates.length !== QA_MATCH_ORDER.length) {
+  throw new Error('QA kickoff schedule mismatch: expected 10 dates.');
+}
+
+const qaKickoffByMatchNumber = new Map<number, Date>(
+  QA_MATCH_ORDER.map((matchNumber, index) => [matchNumber, qaKickoffDates[index]]),
+);
+
 // ── Main seed ─────────────────────────────────────────────────────────────────
 
 async function seedQA() {
@@ -122,9 +213,7 @@ async function seedQA() {
   console.info(`✅  SUPER_ADMIN: ${adminUser.email} (${existingAdmin ? 'updated' : 'created'})`);
 
   // 3. Tournament — mismos datos que producción, fechas derivadas de los 10 partidos QA
-  const kickoffValues = [...qaGroupMatches, ...qaKnockoutMatches].map(
-    (m) => new Date(m.kickoffEt).getTime(),
-  );
+  const kickoffValues = qaKickoffDates.map((kickoff) => kickoff.getTime());
 
   const tournament = await prisma.tournament.upsert({
     where: { slug: TOURNAMENT_SLUG },
@@ -272,6 +361,9 @@ async function seedQA() {
     const venue = venueByName.get(gm.venueName);
     if (!venue) throw new Error(`Missing venue for match ${gm.matchNumber}: ${gm.venueName}`);
 
+    const kickoffAt = qaKickoffByMatchNumber.get(gm.matchNumber);
+    if (!kickoffAt) throw new Error(`Missing kickoff schedule for match ${gm.matchNumber}`);
+
     await prisma.match.upsert({
       where: { tournamentId_matchNumber: { tournamentId: tournament.id, matchNumber: gm.matchNumber } },
       update: {
@@ -283,7 +375,7 @@ async function seedQA() {
         venueId:    venue.id,
         stage:      MatchStage.GROUP,
         roundLabel: gm.roundLabel,
-        kickoffAt:  new Date(gm.kickoffEt),
+        kickoffAt,
         status:     'SCHEDULED',
       },
       create: {
@@ -297,7 +389,7 @@ async function seedQA() {
         stage:       MatchStage.GROUP,
         roundLabel:  gm.roundLabel,
         matchNumber: gm.matchNumber,
-        kickoffAt:   new Date(gm.kickoffEt),
+        kickoffAt,
         status:      'SCHEDULED',
       },
     });
@@ -307,6 +399,9 @@ async function seedQA() {
   for (const km of qaKnockoutMatches) {
     const venue = venueByName.get(km.venueName);
     if (!venue) throw new Error(`Missing venue for knockout match ${km.matchNumber}: ${km.venueName}`);
+
+    const kickoffAt = qaKickoffByMatchNumber.get(km.matchNumber);
+    if (!kickoffAt) throw new Error(`Missing kickoff schedule for match ${km.matchNumber}`);
 
     await prisma.match.upsert({
       where: { tournamentId_matchNumber: { tournamentId: tournament.id, matchNumber: km.matchNumber } },
@@ -319,7 +414,7 @@ async function seedQA() {
         venueId:    venue.id,
         stage:      mapKnockoutStageToMatchStage(km.stage),
         roundLabel: km.roundLabel,
-        kickoffAt:  new Date(km.kickoffEt),
+        kickoffAt,
         status:     'SCHEDULED',
       },
       create: {
@@ -333,7 +428,7 @@ async function seedQA() {
         stage:       mapKnockoutStageToMatchStage(km.stage),
         roundLabel:  km.roundLabel,
         matchNumber: km.matchNumber,
-        kickoffAt:   new Date(km.kickoffEt),
+        kickoffAt,
         status:      'SCHEDULED',
       },
     });
