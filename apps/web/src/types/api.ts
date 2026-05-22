@@ -175,7 +175,7 @@ export type TournamentTeamOption = {
 
 export type TournamentPlayerOption = {
   id: string;
-  player: { id: string; fullName: string; shortName: string | null };
+  player: { id: string; fullName: string; shortName: string | null; nationalityCode: string | null };
 };
 
 export type TournamentPrediction = {

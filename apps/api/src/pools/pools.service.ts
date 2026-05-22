@@ -437,7 +437,7 @@ export class PoolsService {
       include: {
         champion: { include: { team: { select: { id: true, name: true, code: true, countryCode: true, flagEmoji: true } } } },
         runnerUp: { include: { team: { select: { id: true, name: true, code: true, countryCode: true, flagEmoji: true } } } },
-        topScorer: { include: { player: { select: { id: true, fullName: true, shortName: true } } } },
+        topScorer: { include: { player: { select: { id: true, fullName: true, shortName: true, nationalityCode: true } } } },
       },
     });
 
@@ -449,7 +449,7 @@ export class PoolsService {
 
     const tournamentPlayers = await this.prisma.tournamentPlayer.findMany({
       where: { tournamentId: pool.tournamentId },
-      include: { player: { select: { id: true, fullName: true, shortName: true } } },
+      include: { player: { select: { id: true, fullName: true, shortName: true, nationalityCode: true } } },
       orderBy: { player: { fullName: 'asc' } },
     });
 

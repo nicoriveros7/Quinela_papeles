@@ -281,6 +281,16 @@ function TeamPicker({
   );
 }
 
+function getFlagEmoji(nationalityCode: string | null | undefined): string | null {
+  if (!nationalityCode || nationalityCode.length !== 2) return null;
+  const [first, second] = nationalityCode.toUpperCase();
+  const base = 0x1f1e6;
+  return String.fromCodePoint(
+    base + (first.charCodeAt(0) - 65),
+    base + (second.charCodeAt(0) - 65),
+  );
+}
+
 // ── PlayerPicker ──────────────────────────────────────────────────────────────
 
 function PlayerPicker({
@@ -323,9 +333,19 @@ function PlayerPicker({
         <h2 className="font-semibold text-foreground">{label}</h2>
         <div className="ml-auto shrink-0">
           {selectedPlayer ? (
-            <Badge variant="success">
+            <Badge variant="success" className="gap-2 normal-case tracking-normal">
               <Check className="mr-1 h-2.5 w-2.5" aria-hidden="true" />
-              {selectedPlayer.player.shortName ?? selectedPlayer.player.fullName}
+              <span className="truncate">{selectedPlayer.player.fullName}</span>
+              {(selectedPlayer.player.nationalityCode || getFlagEmoji(selectedPlayer.player.nationalityCode)) && (
+                <span className="inline-flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-emerald-700/80">
+                  {getFlagEmoji(selectedPlayer.player.nationalityCode) && (
+                    <span className="text-base leading-none">
+                      {getFlagEmoji(selectedPlayer.player.nationalityCode)}
+                    </span>
+                  )}
+                  {selectedPlayer.player.nationalityCode}
+                </span>
+              )}
             </Badge>
           ) : (
             <Badge variant="muted">Sin seleccionar</Badge>
@@ -367,6 +387,8 @@ function PlayerPicker({
               <div className="p-1">
                 {filtered.map((p) => {
                   const isSelected = p.id === selectedId;
+                  const countryCode = (p.player.nationalityCode ?? '—').toUpperCase();
+                  const flagEmoji = getFlagEmoji(p.player.nationalityCode);
                   return (
                     <button
                       key={p.id}
@@ -385,16 +407,15 @@ function PlayerPicker({
                       )}
                     >
                       <span className="flex-1 truncate text-sm font-medium">{p.player.fullName}</span>
-                      {p.player.shortName && (
-                        <span
-                          className={cn(
-                            'shrink-0 text-xs',
-                            isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground',
-                          )}
-                        >
-                          {p.player.shortName}
-                        </span>
-                      )}
+                      <span
+                        className={cn(
+                          'inline-flex shrink-0 items-center gap-1 text-xs font-semibold uppercase tracking-[0.12em]',
+                          isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground',
+                        )}
+                      >
+                        {flagEmoji && <span className="text-base leading-none">{flagEmoji}</span>}
+                        {countryCode}
+                      </span>
                       {isSelected && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
                     </button>
                   );
