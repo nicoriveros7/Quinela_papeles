@@ -432,28 +432,49 @@ export class PoolsService {
     });
     if (!entry) throw new NotFoundException('Entry not found');
 
-    const prediction = await this.prisma.tournamentPrediction.findUnique({
-      where: { poolEntryId_tournamentId: { poolEntryId: entry.id, tournamentId: pool.tournamentId } },
-      include: {
-        champion: { include: { team: { select: { id: true, name: true, code: true, countryCode: true, flagEmoji: true } } } },
-        runnerUp: { include: { team: { select: { id: true, name: true, code: true, countryCode: true, flagEmoji: true } } } },
-        topScorer: { include: { player: { select: { id: true, fullName: true, shortName: true, nationalityCode: true } } } },
+    const [prediction, tournament, tournamentTeams, tournamentPlayers] = await Promise.all([
+      this.prisma.tournamentPrediction.findUnique({
+        where: { poolEntryId_tournamentId: { poolEntryId: entry.id, tournamentId: pool.tournamentId } },
+        include: {
+          champion: { include: { team: { select: { id: true, name: true, code: true, countryCode: true, flagEmoji: true } } } },
+          runnerUp: { include: { team: { select: { id: true, name: true, code: true, countryCode: true, flagEmoji: true } } } },
+          thirdPlace: { include: { team: { select: { id: true, name: true, code: true, countryCode: true, flagEmoji: true } } } },
+          topScorer: { include: { player: { select: { id: true, fullName: true, shortName: true, nationalityCode: true } } } },
+          goldenBall: { include: { player: { select: { id: true, fullName: true, shortName: true, nationalityCode: true } } } },
+          goldenGlove: { include: { player: { select: { id: true, fullName: true, shortName: true, nationalityCode: true } } } },
+        },
+      }),
+      this.prisma.tournament.findUnique({
+        where: { id: pool.tournamentId },
+        select: { tournamentPredictionsLocked: true, tournamentPredictionsLockAt: true },
+      }),
+      this.prisma.tournamentTeam.findMany({
+        where: { tournamentId: pool.tournamentId },
+        include: { team: { select: { id: true, name: true, code: true, countryCode: true, flagEmoji: true } } },
+        orderBy: { team: { name: 'asc' } },
+      }),
+      this.prisma.tournamentPlayer.findMany({
+        where: { tournamentId: pool.tournamentId },
+        include: { player: { select: { id: true, fullName: true, shortName: true, nationalityCode: true } } },
+        orderBy: { player: { fullName: 'asc' } },
+      }),
+    ]);
+
+    const lockAt = tournament?.tournamentPredictionsLockAt ?? null;
+    const isGloballyLocked =
+      (tournament?.tournamentPredictionsLocked ?? false) ||
+      (lockAt !== null && new Date() >= lockAt);
+
+    return {
+      prediction,
+      tournamentTeams,
+      tournamentPlayers,
+      lockInfo: {
+        isLocked: isGloballyLocked,
+        lockedManually: tournament?.tournamentPredictionsLocked ?? false,
+        lockAt: lockAt?.toISOString() ?? null,
       },
-    });
-
-    const tournamentTeams = await this.prisma.tournamentTeam.findMany({
-      where: { tournamentId: pool.tournamentId },
-      include: { team: { select: { id: true, name: true, code: true, countryCode: true, flagEmoji: true } } },
-      orderBy: { team: { name: 'asc' } },
-    });
-
-    const tournamentPlayers = await this.prisma.tournamentPlayer.findMany({
-      where: { tournamentId: pool.tournamentId },
-      include: { player: { select: { id: true, fullName: true, shortName: true, nationalityCode: true } } },
-      orderBy: { player: { fullName: 'asc' } },
-    });
-
-    return { prediction, tournamentTeams, tournamentPlayers };
+    };
   }
 
   async upsertMainTournamentPrediction(currentUser: JwtUserPayload, dto: UpsertTournamentPredictionDto) {
@@ -465,11 +486,23 @@ export class PoolsService {
     });
     if (!pool) throw new NotFoundException('Main pool not configured');
 
-    const entry = await this.prisma.poolEntry.findUnique({
-      where: { poolId_userId: { poolId: pool.id, userId: currentUser.sub } },
-      select: { id: true },
-    });
+    const [entry, tournament] = await Promise.all([
+      this.prisma.poolEntry.findUnique({
+        where: { poolId_userId: { poolId: pool.id, userId: currentUser.sub } },
+        select: { id: true },
+      }),
+      this.prisma.tournament.findUnique({
+        where: { id: pool.tournamentId },
+        select: { tournamentPredictionsLocked: true, tournamentPredictionsLockAt: true },
+      }),
+    ]);
     if (!entry) throw new NotFoundException('Entry not found');
+
+    const lockAt = tournament?.tournamentPredictionsLockAt ?? null;
+    const isGloballyLocked =
+      (tournament?.tournamentPredictionsLocked ?? false) ||
+      (lockAt !== null && new Date() >= lockAt);
+    if (isGloballyLocked) throw new BadRequestException('Tournament predictions are locked');
 
     const existing = await this.prisma.tournamentPrediction.findUnique({
       where: { poolEntryId_tournamentId: { poolEntryId: entry.id, tournamentId: pool.tournamentId } },
@@ -477,20 +510,19 @@ export class PoolsService {
     });
     if (existing?.isLocked) throw new BadRequestException('Tournament predictions are locked');
 
+    const fields = {
+      championTournamentTeamId: dto.championTournamentTeamId ?? null,
+      runnerUpTournamentTeamId: dto.runnerUpTournamentTeamId ?? null,
+      thirdPlaceTournamentTeamId: dto.thirdPlaceTournamentTeamId ?? null,
+      topScorerTournamentPlayerId: dto.topScorerTournamentPlayerId ?? null,
+      goldenBallTournamentPlayerId: dto.goldenBallTournamentPlayerId ?? null,
+      goldenGloveTournamentPlayerId: dto.goldenGloveTournamentPlayerId ?? null,
+    };
+
     const prediction = await this.prisma.tournamentPrediction.upsert({
       where: { poolEntryId_tournamentId: { poolEntryId: entry.id, tournamentId: pool.tournamentId } },
-      update: {
-        championTournamentTeamId: dto.championTournamentTeamId ?? null,
-        runnerUpTournamentTeamId: dto.runnerUpTournamentTeamId ?? null,
-        topScorerTournamentPlayerId: dto.topScorerTournamentPlayerId ?? null,
-      },
-      create: {
-        poolEntryId: entry.id,
-        tournamentId: pool.tournamentId,
-        championTournamentTeamId: dto.championTournamentTeamId ?? null,
-        runnerUpTournamentTeamId: dto.runnerUpTournamentTeamId ?? null,
-        topScorerTournamentPlayerId: dto.topScorerTournamentPlayerId ?? null,
-      },
+      update: fields,
+      create: { poolEntryId: entry.id, tournamentId: pool.tournamentId, ...fields },
     });
 
     return prediction;

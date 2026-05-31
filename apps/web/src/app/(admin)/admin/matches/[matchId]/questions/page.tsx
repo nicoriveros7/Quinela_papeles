@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2, Plus, Save } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2, Plus, Save, Trash2 } from 'lucide-react';
 
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
@@ -284,6 +284,19 @@ export default function MatchQuestionsPage() {
       setError(err instanceof ApiError ? err.message : 'No se pudo cambiar el estado de publicación.');
     } finally {
       setPublishWorkingId(null);
+    }
+  };
+
+  const deleteQuestion = async (questionId: string) => {
+    if (!token) return;
+    setError(null);
+    setSuccess(null);
+    try {
+      await api.adminDeleteQuestion(questionId, token);
+      setQuestions((prev) => prev.filter((q) => q.id !== questionId));
+      setSuccess('Pregunta eliminada correctamente.');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudo eliminar la pregunta.');
     }
   };
 
@@ -789,6 +802,22 @@ export default function MatchQuestionsPage() {
                         )}
                         {question.isPublished ? 'Mover a borrador' : 'Publicar'}
                       </button>
+                    )}
+
+                    {!question.isResolved && (
+                      <ConfirmActionButton
+                        size="sm"
+                        variant="outline"
+                        intent="destructive"
+                        disabled={isBusy}
+                        label={<><Trash2 className="h-3.5 w-3.5" />Eliminar</>}
+                        confirmLabel="Sí, eliminar"
+                        title="Eliminar pregunta"
+                        description="Se eliminará la pregunta y todas las respuestas de los usuarios. Esta acción no se puede deshacer."
+                        onConfirm={() => deleteQuestion(question.id)}
+                        buttonClassName="gap-1.5 border-rose-200 text-rose-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
+                        panelClassName="w-full sm:max-w-[400px]"
+                      />
                     )}
                   </div>
 

@@ -324,7 +324,10 @@ export class PredictionsService {
           isScored: true,
           champion: { select: { team: { select: { name: true, code: true, flagEmoji: true } } } },
           runnerUp: { select: { team: { select: { name: true, code: true, flagEmoji: true } } } },
+          thirdPlace: { select: { team: { select: { name: true, code: true, flagEmoji: true } } } },
           topScorer: { select: { player: { select: { fullName: true } } } },
+          goldenBall: { select: { player: { select: { fullName: true } } } },
+          goldenGlove: { select: { player: { select: { fullName: true } } } },
         },
       }),
     ]);
@@ -414,7 +417,12 @@ export class PredictionsService {
             runnerUp: tournamentPrediction.runnerUp?.team?.name ?? null,
             runnerUpCode: tournamentPrediction.runnerUp?.team?.code ?? null,
             runnerUpFlagEmoji: tournamentPrediction.runnerUp?.team?.flagEmoji ?? null,
+            thirdPlace: tournamentPrediction.thirdPlace?.team?.name ?? null,
+            thirdPlaceCode: tournamentPrediction.thirdPlace?.team?.code ?? null,
+            thirdPlaceFlagEmoji: tournamentPrediction.thirdPlace?.team?.flagEmoji ?? null,
             topScorer: tournamentPrediction.topScorer?.player?.fullName ?? null,
+            goldenBall: tournamentPrediction.goldenBall?.player?.fullName ?? null,
+            goldenGlove: tournamentPrediction.goldenGlove?.player?.fullName ?? null,
             pointsAwarded: tournamentPoints,
             isScored: tournamentPrediction.isScored,
           }

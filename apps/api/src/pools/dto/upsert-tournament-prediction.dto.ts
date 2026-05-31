@@ -11,5 +11,17 @@ export class UpsertTournamentPredictionDto {
 
   @IsOptional()
   @IsString()
+  thirdPlaceTournamentTeamId?: string | null;
+
+  @IsOptional()
+  @IsString()
   topScorerTournamentPlayerId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  goldenBallTournamentPlayerId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  goldenGloveTournamentPlayerId?: string | null;
 }

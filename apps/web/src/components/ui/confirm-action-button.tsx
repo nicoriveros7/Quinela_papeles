@@ -1,19 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
 import { Button } from './button';
 
 type ConfirmActionButtonProps = {
-  label: string;
+  label: React.ReactNode;
   confirmLabel?: string;
   title: string;
   description: string;
   onConfirm: () => Promise<void> | void;
   disabled?: boolean;
+  intent?: 'default' | 'destructive';
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg';
   buttonClassName?: string;
@@ -27,6 +28,7 @@ export function ConfirmActionButton({
   description,
   onConfirm,
   disabled,
+  intent = 'default',
   variant = 'default',
   size = 'sm',
   buttonClassName,
@@ -59,22 +61,38 @@ export function ConfirmActionButton({
     );
   }
 
+  const isDestructive = intent === 'destructive';
+
   return (
     <div
       className={cn(
-        'grid gap-2 rounded-xl border border-amber-200/70 bg-amber-50/80 p-3 text-sm text-amber-900 shadow-sm',
+        'grid gap-2 rounded-xl border p-3 text-sm shadow-sm',
+        isDestructive
+          ? 'border-rose-200/70 bg-rose-50/80 text-rose-900'
+          : 'border-amber-200/70 bg-amber-50/80 text-amber-900',
         panelClassName,
       )}
     >
       <div className="inline-flex items-center gap-2 font-semibold">
-        <AlertTriangle className="h-4 w-4" />
+        {isDestructive
+          ? <Trash2 className="h-4 w-4" />
+          : <AlertTriangle className="h-4 w-4" />}
         {title}
       </div>
-      <p className="text-xs text-amber-800">{description}</p>
+      <p className={cn('text-xs', isDestructive ? 'text-rose-700' : 'text-amber-800')}>
+        {description}
+      </p>
       <div className="flex gap-2">
-        <Button size="sm" onClick={() => void runConfirm()} disabled={loading}>
+        <Button
+          size="sm"
+          onClick={() => void runConfirm()}
+          disabled={loading}
+          className={isDestructive
+            ? 'bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-500'
+            : ''}
+        >
           {loading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-          {loading ? 'Procesando...' : confirmLabel}
+          {loading ? 'Eliminando...' : confirmLabel}
         </Button>
         <Button size="sm" variant="outline" onClick={() => setOpen(false)} disabled={loading}>
           Cancelar

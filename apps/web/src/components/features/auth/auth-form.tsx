@@ -14,6 +14,7 @@ type AuthFormMode = 'login' | 'register';
 
 export function AuthForm({ mode }: { mode: AuthFormMode }) {
   const { login, register } = useAuth();
+  const [identifier, setIdentifier] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -32,7 +33,7 @@ export function AuthForm({ mode }: { mode: AuthFormMode }) {
       if (isRegister) {
         await register(email.trim(), displayName.trim(), password);
       } else {
-        await login(email.trim(), password);
+        await login(identifier.trim(), password);
       }
     } catch (err) {
       if (err instanceof ApiError) {
@@ -70,10 +71,7 @@ export function AuthForm({ mode }: { mode: AuthFormMode }) {
         <form className="grid gap-4" onSubmit={onSubmit} noValidate>
           {isRegister && (
             <div className="grid gap-1.5">
-              <label
-                htmlFor="displayName"
-                className="text-sm font-medium text-foreground"
-              >
+              <label htmlFor="displayName" className="text-sm font-medium text-foreground">
                 Nombre visible
               </label>
               <Input
@@ -89,23 +87,37 @@ export function AuthForm({ mode }: { mode: AuthFormMode }) {
             </div>
           )}
 
-          <div className="grid gap-1.5">
-            <label
-              htmlFor="email"
-              className="text-sm font-medium text-foreground"
-            >
-              Correo electrónico
-            </label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="tu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete={isRegister ? 'email' : 'username'}
-            />
-          </div>
+          {isRegister ? (
+            <div className="grid gap-1.5">
+              <label htmlFor="email" className="text-sm font-medium text-foreground">
+                Correo electrónico
+              </label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="tu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+            </div>
+          ) : (
+            <div className="grid gap-1.5">
+              <label htmlFor="identifier" className="text-sm font-medium text-foreground">
+                Email o usuario
+              </label>
+              <Input
+                id="identifier"
+                type="text"
+                placeholder="tu@email.com o tu_usuario"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                required
+                autoComplete="username"
+              />
+            </div>
+          )}
 
           <div className="grid gap-1.5">
             <label

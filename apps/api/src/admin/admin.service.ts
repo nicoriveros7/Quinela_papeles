@@ -419,8 +419,122 @@ export class AdminService {
     });
   }
 
+  async deleteMatchQuestion(questionId: string) {
+    const question = await this.prisma.matchQuestion.findUnique({
+      where: { id: questionId },
+      select: { id: true, isResolved: true },
+    });
+
+    if (!question) {
+      throw new NotFoundException('Match question not found');
+    }
+
+    if (question.isResolved) {
+      throw new ConflictException('No se puede eliminar una pregunta ya resuelta porque afectaría el scoring.');
+    }
+
+    await this.prisma.matchQuestion.delete({ where: { id: questionId } });
+  }
+
   async recalculatePoolScoring(poolId: string, user: JwtUserPayload) {
     return this.scoringService.recalculatePool(poolId, user);
+  }
+
+  async getTournamentPredictionLock(tournamentId: string) {
+    const tournament = await this.prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      select: {
+        id: true,
+        tournamentPredictionsLocked: true,
+        tournamentPredictionsLockAt: true,
+      },
+    });
+    if (!tournament) throw new NotFoundException('Tournament not found');
+
+    const lockAt = tournament.tournamentPredictionsLockAt;
+    const isLocked =
+      tournament.tournamentPredictionsLocked || (lockAt !== null && new Date() >= lockAt);
+
+    return {
+      tournamentId: tournament.id,
+      isLocked,
+      lockedManually: tournament.tournamentPredictionsLocked,
+      lockAt: lockAt?.toISOString() ?? null,
+    };
+  }
+
+  async updateTournamentPredictionLock(
+    tournamentId: string,
+    payload: { locked?: boolean; lockAt?: string | null },
+  ) {
+    const tournament = await this.prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      select: { id: true },
+    });
+    if (!tournament) throw new NotFoundException('Tournament not found');
+
+    const data: { tournamentPredictionsLocked?: boolean; tournamentPredictionsLockAt?: Date | null } = {};
+
+    if (typeof payload.locked === 'boolean') {
+      data.tournamentPredictionsLocked = payload.locked;
+    }
+
+    if ('lockAt' in payload) {
+      data.tournamentPredictionsLockAt = payload.lockAt ? new Date(payload.lockAt) : null;
+    }
+
+    const updated = await this.prisma.tournament.update({
+      where: { id: tournamentId },
+      data,
+      select: {
+        id: true,
+        tournamentPredictionsLocked: true,
+        tournamentPredictionsLockAt: true,
+      },
+    });
+
+    const lockAt = updated.tournamentPredictionsLockAt;
+    const isLocked =
+      updated.tournamentPredictionsLocked || (lockAt !== null && new Date() >= lockAt);
+
+    return {
+      tournamentId: updated.id,
+      isLocked,
+      lockedManually: updated.tournamentPredictionsLocked,
+      lockAt: lockAt?.toISOString() ?? null,
+    };
+  }
+
+  async setTournamentActualResults(
+    tournamentId: string,
+    payload: {
+      actualChampionTournamentTeamId?: string | null;
+      actualRunnerUpTournamentTeamId?: string | null;
+      actualThirdPlaceTournamentTeamId?: string | null;
+      actualTopScorerTournamentPlayerId?: string | null;
+      actualGoldenBallTournamentPlayerId?: string | null;
+      actualGoldenGloveTournamentPlayerId?: string | null;
+    },
+  ) {
+    const tournament = await this.prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      select: { id: true },
+    });
+    if (!tournament) throw new NotFoundException('Tournament not found');
+
+    return this.prisma.tournament.update({
+      where: { id: tournamentId },
+      data: payload,
+      select: {
+        id: true,
+        actualChampionTournamentTeamId: true,
+        actualRunnerUpTournamentTeamId: true,
+        actualThirdPlaceTournamentTeamId: true,
+        actualTopScorerTournamentPlayerId: true,
+        actualGoldenBallTournamentPlayerId: true,
+        actualGoldenGloveTournamentPlayerId: true,
+      },
+    });
   }
 
   async updateMatchResult(matchId: string, payload: { status?: MatchStatus; homeScore?: number; awayScore?: number }) {

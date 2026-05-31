@@ -11,6 +11,7 @@ import { JwtUserPayload } from '../auth/types/jwt-user-payload.type';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   calculateMatchPredictionPoints,
+  calculateTournamentPredictionPoints,
   resolveMatchScoringConfig,
   resolveQuestionPoints,
 } from './scoring.rules';
@@ -120,7 +121,101 @@ export class ScoringService {
       await this.recalculateQuestionPredictions(poolId, question.id, user, true);
     }
 
+    await this.recalculateTournamentPredictions(poolId, true);
+
     return this.readLeaderboard(poolId);
+  }
+
+  async recalculateTournamentPredictions(poolId: string, skipAuth = false, user?: JwtUserPayload) {
+    if (!skipAuth && user) {
+      await this.ensurePoolAdminOrOwner(poolId, user);
+    }
+
+    const pool = await this.prisma.pool.findUnique({
+      where: { id: poolId },
+      select: { id: true, tournamentId: true },
+    });
+    if (!pool) throw new NotFoundException('Pool not found');
+
+    const tournament = await this.prisma.tournament.findUnique({
+      where: { id: pool.tournamentId },
+      select: {
+        actualChampionTournamentTeamId: true,
+        actualRunnerUpTournamentTeamId: true,
+        actualThirdPlaceTournamentTeamId: true,
+        actualTopScorerTournamentPlayerId: true,
+        actualGoldenBallTournamentPlayerId: true,
+        actualGoldenGloveTournamentPlayerId: true,
+      },
+    });
+    if (!tournament) throw new NotFoundException('Tournament not found');
+
+    const hasResults =
+      tournament.actualChampionTournamentTeamId ||
+      tournament.actualRunnerUpTournamentTeamId ||
+      tournament.actualThirdPlaceTournamentTeamId ||
+      tournament.actualTopScorerTournamentPlayerId ||
+      tournament.actualGoldenBallTournamentPlayerId ||
+      tournament.actualGoldenGloveTournamentPlayerId;
+
+    if (!hasResults) {
+      await this.prisma.tournamentPrediction.updateMany({
+        where: { poolEntry: { poolId }, tournamentId: pool.tournamentId },
+        data: { pointsAwarded: 0, isScored: false, scoredAt: null },
+      });
+      await this.recalculatePoolEntryTotals(poolId, pool.tournamentId);
+      return;
+    }
+
+    const predictions = await this.prisma.tournamentPrediction.findMany({
+      where: { poolEntry: { poolId }, tournamentId: pool.tournamentId },
+      select: {
+        id: true,
+        championTournamentTeamId: true,
+        runnerUpTournamentTeamId: true,
+        thirdPlaceTournamentTeamId: true,
+        topScorerTournamentPlayerId: true,
+        goldenBallTournamentPlayerId: true,
+        goldenGloveTournamentPlayerId: true,
+      },
+    });
+
+    const actual = {
+      championTeamId: tournament.actualChampionTournamentTeamId,
+      runnerUpTeamId: tournament.actualRunnerUpTournamentTeamId,
+      thirdPlaceTeamId: tournament.actualThirdPlaceTournamentTeamId,
+      topScorerPlayerId: tournament.actualTopScorerTournamentPlayerId,
+      goldenBallPlayerId: tournament.actualGoldenBallTournamentPlayerId,
+      goldenGlovePlayerId: tournament.actualGoldenGloveTournamentPlayerId,
+    };
+
+    const now = new Date();
+    const updates = predictions.map((pred) =>
+      this.prisma.tournamentPrediction.update({
+        where: { id: pred.id },
+        data: {
+          pointsAwarded: calculateTournamentPredictionPoints(
+            {
+              championTeamId: pred.championTournamentTeamId,
+              runnerUpTeamId: pred.runnerUpTournamentTeamId,
+              thirdPlaceTeamId: pred.thirdPlaceTournamentTeamId,
+              topScorerPlayerId: pred.topScorerTournamentPlayerId,
+              goldenBallPlayerId: pred.goldenBallTournamentPlayerId,
+              goldenGlovePlayerId: pred.goldenGloveTournamentPlayerId,
+            },
+            actual,
+          ),
+          isScored: true,
+          scoredAt: now,
+        },
+      }),
+    );
+
+    if (updates.length > 0) {
+      await this.prisma.$transaction(updates);
+    }
+
+    await this.recalculatePoolEntryTotals(poolId, pool.tournamentId);
   }
 
   async recalculateMatchPredictions(
@@ -371,7 +466,7 @@ export class ScoringService {
   }
 
   private async recalculatePoolEntryTotals(poolId: string, tournamentId: string) {
-    const [entries, matchSums, questionSums] = await Promise.all([
+    const [entries, matchSums, questionSums, tournamentSums] = await Promise.all([
       this.prisma.poolEntry.findMany({
         where: { poolId },
         select: {
@@ -399,6 +494,17 @@ export class ScoringService {
           pointsAwarded: true,
         },
       }),
+      this.prisma.tournamentPrediction.groupBy({
+        by: ['poolEntryId'],
+        where: {
+          poolEntry: { poolId },
+          tournamentId,
+          isScored: true,
+        },
+        _sum: {
+          pointsAwarded: true,
+        },
+      }),
     ]);
 
     const matchPointsByEntry = new Map(
@@ -407,14 +513,18 @@ export class ScoringService {
     const questionPointsByEntry = new Map(
       questionSums.map((row) => [row.poolEntryId, row._sum.pointsAwarded ?? 0]),
     );
+    const tournamentPointsByEntry = new Map(
+      tournamentSums.map((row) => [row.poolEntryId, row._sum.pointsAwarded ?? 0]),
+    );
 
     const totals = entries.map((entry) => {
       const matchPoints = matchPointsByEntry.get(entry.id) ?? 0;
       const questionPoints = questionPointsByEntry.get(entry.id) ?? 0;
+      const tournamentPoints = tournamentPointsByEntry.get(entry.id) ?? 0;
       return {
         entryId: entry.id,
         createdAt: entry.createdAt,
-        totalPoints: matchPoints + questionPoints,
+        totalPoints: matchPoints + questionPoints + tournamentPoints,
       };
     });
 

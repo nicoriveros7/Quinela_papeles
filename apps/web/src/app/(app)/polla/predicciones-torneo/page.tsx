@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Goal, Lock, Medal, Search, Trophy } from 'lucide-react';
+import { Award, Check, Goal, Lock, Medal, Search, ShieldCheck, Trophy } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
@@ -17,6 +17,19 @@ import { SaveFeedback } from '@/components/ui/save-feedback';
 import { StatePanel } from '@/components/ui/state-panel';
 import { TeamLabel } from '@/components/ui/team-label';
 
+function formatLockDate(isoString: string): string {
+  const date = new Date(isoString);
+  return date.toLocaleString('es-CO', {
+    timeZone: 'America/Bogota',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
 export default function PrediccionesTorneoPage() {
   const { token } = useAuth();
   const [data, setData] = useState<TournamentPredictionResponse | null>(null);
@@ -27,7 +40,10 @@ export default function PrediccionesTorneoPage() {
 
   const [championId, setChampionId] = useState('');
   const [runnerUpId, setRunnerUpId] = useState('');
+  const [thirdPlaceId, setThirdPlaceId] = useState('');
   const [topScorerId, setTopScorerId] = useState('');
+  const [goldenBallId, setGoldenBallId] = useState('');
+  const [goldenGloveId, setGoldenGloveId] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -40,7 +56,10 @@ export default function PrediccionesTorneoPage() {
         if (res.prediction) {
           setChampionId(res.prediction.championTournamentTeamId ?? '');
           setRunnerUpId(res.prediction.runnerUpTournamentTeamId ?? '');
+          setThirdPlaceId(res.prediction.thirdPlaceTournamentTeamId ?? '');
           setTopScorerId(res.prediction.topScorerTournamentPlayerId ?? '');
+          setGoldenBallId(res.prediction.goldenBallTournamentPlayerId ?? '');
+          setGoldenGloveId(res.prediction.goldenGloveTournamentPlayerId ?? '');
         }
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'No se pudieron cargar las predicciones');
@@ -61,7 +80,10 @@ export default function PrediccionesTorneoPage() {
         {
           championTournamentTeamId: championId || null,
           runnerUpTournamentTeamId: runnerUpId || null,
+          thirdPlaceTournamentTeamId: thirdPlaceId || null,
           topScorerTournamentPlayerId: topScorerId || null,
+          goldenBallTournamentPlayerId: goldenBallId || null,
+          goldenGloveTournamentPlayerId: goldenGloveId || null,
         },
         token,
       );
@@ -78,12 +100,18 @@ export default function PrediccionesTorneoPage() {
   if (error && !data) return <StatePanel variant="error" description={error} />;
   if (!data) return null;
 
-  const isLocked = data.prediction?.isLocked ?? false;
-  const isDuplicate = Boolean(championId && runnerUpId && championId === runnerUpId);
+  const isLocked = data.lockInfo.isLocked || (data.prediction?.isLocked ?? false);
+  const lockAt = data.lockInfo.lockAt;
+
+  const teamIds = [championId, runnerUpId, thirdPlaceId].filter(Boolean);
+  const hasDuplicateTeams = new Set(teamIds).size !== teamIds.length;
 
   const championTeam = data.tournamentTeams.find((t) => t.id === championId);
   const runnerUpTeam = data.tournamentTeams.find((t) => t.id === runnerUpId);
+  const thirdPlaceTeam = data.tournamentTeams.find((t) => t.id === thirdPlaceId);
   const topScorerPlayer = data.tournamentPlayers.find((p) => p.id === topScorerId);
+  const goldenBallPlayer = data.tournamentPlayers.find((p) => p.id === goldenBallId);
+  const goldenGlovePlayer = data.tournamentPlayers.find((p) => p.id === goldenGloveId);
 
   return (
     <div className="grid gap-5 animate-fade-in">
@@ -92,14 +120,20 @@ export default function PrediccionesTorneoPage() {
       <header className="rounded-2xl border border-border/70 bg-surface/90 p-4 shadow-card-sm">
         <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Predicciones del torneo</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Predice el campeón, subcampeón y goleador antes de que empiece el Mundial.
+          Predice campeón, subcampeón, tercer puesto, bota de oro, balón de oro y guante de oro antes de que empiece el Mundial.
         </p>
-        {isLocked && (
+
+        {isLocked ? (
           <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-600">
             <Lock className="h-3 w-3" aria-hidden="true" />
-            El torneo ya comenzó — predicciones bloqueadas
+            Predicciones pre-torneo cerradas — ya no pueden modificarse
           </div>
-        )}
+        ) : lockAt ? (
+          <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700">
+            <Lock className="h-3 w-3" aria-hidden="true" />
+            Cierran el {formatLockDate(lockAt)}
+          </div>
+        ) : null}
       </header>
 
       {/* ── Campeón ──────────────────────────────────────────────────────────── */}
@@ -124,25 +158,58 @@ export default function PrediccionesTorneoPage() {
         selectedTeam={runnerUpTeam}
       />
 
+      {/* ── Tercer puesto ────────────────────────────────────────────────────── */}
+      <TeamPicker
+        label="Tercer puesto"
+        icon={Medal}
+        teams={data.tournamentTeams}
+        selectedId={thirdPlaceId}
+        onSelect={setThirdPlaceId}
+        disabled={isLocked}
+        selectedTeam={thirdPlaceTeam}
+      />
+
       {/* ── Validation warning ───────────────────────────────────────────────── */}
-      {isDuplicate && (
+      {hasDuplicateTeams && (
         <div
           role="alert"
           className="rounded-xl border border-amber-300/50 bg-amber-50/60 px-4 py-3 text-sm font-semibold text-amber-800"
         >
-          El campeón y subcampeón no pueden ser el mismo equipo.
+          Campeón, subcampeón y tercer puesto deben ser equipos distintos.
         </div>
       )}
 
-      {/* ── Goleador ─────────────────────────────────────────────────────────── */}
+      {/* ── Bota de Oro (Goleador) ───────────────────────────────────────────── */}
       <PlayerPicker
-        label="Goleador del torneo"
+        label="Bota de Oro · Goleador del torneo"
         icon={Goal}
         players={data.tournamentPlayers}
         selectedId={topScorerId}
         onSelect={setTopScorerId}
         disabled={isLocked}
         selectedPlayer={topScorerPlayer}
+      />
+
+      {/* ── Balón de Oro ─────────────────────────────────────────────────────── */}
+      <PlayerPicker
+        label="Balón de Oro · Mejor jugador"
+        icon={Award}
+        players={data.tournamentPlayers}
+        selectedId={goldenBallId}
+        onSelect={setGoldenBallId}
+        disabled={isLocked}
+        selectedPlayer={goldenBallPlayer}
+      />
+
+      {/* ── Guante de Oro ────────────────────────────────────────────────────── */}
+      <PlayerPicker
+        label="Guante de Oro · Mejor portero"
+        icon={ShieldCheck}
+        players={data.tournamentPlayers}
+        selectedId={goldenGloveId}
+        onSelect={setGoldenGloveId}
+        disabled={isLocked}
+        selectedPlayer={goldenGlovePlayer}
       />
 
       {/* ── Save error ───────────────────────────────────────────────────────── */}
@@ -153,7 +220,7 @@ export default function PrediccionesTorneoPage() {
         <div className="flex flex-wrap items-center gap-3 pb-2">
           <Button
             onClick={handleSave}
-            disabled={saving || isDuplicate}
+            disabled={saving || hasDuplicateTeams}
             className="gap-2"
           >
             {saving ? 'Guardando...' : 'Guardar predicciones'}

@@ -185,3 +185,50 @@ function extractNumericConfigValue(config: unknown, path: string[]) {
 
   return sanitizeNonNegativeInt(current);
 }
+
+export type TournamentPredictionScoreConfig = {
+  pointsChampion: number;
+  pointsRunnerUp: number;
+  pointsThirdPlace: number;
+  pointsTopScorer: number;
+  pointsGoldenBall: number;
+  pointsGoldenGlove: number;
+};
+
+export const DEFAULT_TOURNAMENT_PREDICTION_CONFIG: TournamentPredictionScoreConfig = {
+  pointsChampion: 10,
+  pointsRunnerUp: 10,
+  pointsThirdPlace: 10,
+  pointsTopScorer: 5,
+  pointsGoldenBall: 5,
+  pointsGoldenGlove: 5,
+};
+
+export function calculateTournamentPredictionPoints(
+  predicted: {
+    championTeamId: string | null;
+    runnerUpTeamId: string | null;
+    thirdPlaceTeamId: string | null;
+    topScorerPlayerId: string | null;
+    goldenBallPlayerId: string | null;
+    goldenGlovePlayerId: string | null;
+  },
+  actual: {
+    championTeamId: string | null;
+    runnerUpTeamId: string | null;
+    thirdPlaceTeamId: string | null;
+    topScorerPlayerId: string | null;
+    goldenBallPlayerId: string | null;
+    goldenGlovePlayerId: string | null;
+  },
+  config: TournamentPredictionScoreConfig = DEFAULT_TOURNAMENT_PREDICTION_CONFIG,
+): number {
+  let points = 0;
+  if (actual.championTeamId && predicted.championTeamId === actual.championTeamId) points += config.pointsChampion;
+  if (actual.runnerUpTeamId && predicted.runnerUpTeamId === actual.runnerUpTeamId) points += config.pointsRunnerUp;
+  if (actual.thirdPlaceTeamId && predicted.thirdPlaceTeamId === actual.thirdPlaceTeamId) points += config.pointsThirdPlace;
+  if (actual.topScorerPlayerId && predicted.topScorerPlayerId === actual.topScorerPlayerId) points += config.pointsTopScorer;
+  if (actual.goldenBallPlayerId && predicted.goldenBallPlayerId === actual.goldenBallPlayerId) points += config.pointsGoldenBall;
+  if (actual.goldenGlovePlayerId && predicted.goldenGlovePlayerId === actual.goldenGlovePlayerId) points += config.pointsGoldenGlove;
+  return points;
+}

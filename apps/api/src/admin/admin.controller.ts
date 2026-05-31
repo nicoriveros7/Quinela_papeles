@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
 import { MatchStatus, SystemRole } from '@prisma/client';
-import { IsEnum, IsInt, IsOptional, Min } from 'class-validator';
+import { IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 import { JwtUserPayload } from '../auth/types/jwt-user-payload.type';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -24,6 +24,42 @@ class UpdateMatchResultDto {
   @IsInt()
   @Min(0)
   awayScore?: number;
+}
+
+class UpdateTournamentPredictionLockDto {
+  @IsOptional()
+  @IsBoolean()
+  locked?: boolean;
+
+  @IsOptional()
+  @IsDateString()
+  lockAt?: string | null;
+}
+
+class SetTournamentActualResultsDto {
+  @IsOptional()
+  @IsString()
+  actualChampionTournamentTeamId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  actualRunnerUpTournamentTeamId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  actualThirdPlaceTournamentTeamId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  actualTopScorerTournamentPlayerId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  actualGoldenBallTournamentPlayerId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  actualGoldenGloveTournamentPlayerId?: string | null;
 }
 
 @Roles(SystemRole.ADMIN, SystemRole.SUPER_ADMIN)
@@ -93,5 +129,32 @@ export class AdminController {
     @Body() dto: ResolveMatchQuestionDto,
   ) {
     return this.adminService.resolveMatchQuestion(questionId, dto);
+  }
+
+  @Delete('questions/:questionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteMatchQuestion(@Param('questionId') questionId: string) {
+    await this.adminService.deleteMatchQuestion(questionId);
+  }
+
+  @Get('tournaments/:tournamentId/prediction-lock')
+  async getTournamentPredictionLock(@Param('tournamentId') tournamentId: string) {
+    return this.adminService.getTournamentPredictionLock(tournamentId);
+  }
+
+  @Patch('tournaments/:tournamentId/prediction-lock')
+  async updateTournamentPredictionLock(
+    @Param('tournamentId') tournamentId: string,
+    @Body() dto: UpdateTournamentPredictionLockDto,
+  ) {
+    return this.adminService.updateTournamentPredictionLock(tournamentId, dto);
+  }
+
+  @Patch('tournaments/:tournamentId/actual-results')
+  async setTournamentActualResults(
+    @Param('tournamentId') tournamentId: string,
+    @Body() dto: SetTournamentActualResultsDto,
+  ) {
+    return this.adminService.setTournamentActualResults(tournamentId, dto);
   }
 }

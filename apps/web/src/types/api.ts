@@ -184,20 +184,33 @@ export type TournamentPrediction = {
   tournamentId: string;
   championTournamentTeamId: string | null;
   runnerUpTournamentTeamId: string | null;
+  thirdPlaceTournamentTeamId: string | null;
   topScorerTournamentPlayerId: string | null;
+  goldenBallTournamentPlayerId: string | null;
+  goldenGloveTournamentPlayerId: string | null;
   pointsAwarded: number;
   isLocked: boolean;
   isScored: boolean;
   scoredAt: string | null;
   champion: TournamentTeamOption | null;
   runnerUp: TournamentTeamOption | null;
+  thirdPlace: TournamentTeamOption | null;
   topScorer: TournamentPlayerOption | null;
+  goldenBall: TournamentPlayerOption | null;
+  goldenGlove: TournamentPlayerOption | null;
+};
+
+export type TournamentPredictionLockInfo = {
+  isLocked: boolean;
+  lockedManually: boolean;
+  lockAt: string | null;
 };
 
 export type TournamentPredictionResponse = {
   prediction: TournamentPrediction | null;
   tournamentTeams: TournamentTeamOption[];
   tournamentPlayers: TournamentPlayerOption[];
+  lockInfo: TournamentPredictionLockInfo;
 };
 
 export type WorldCupMainPool = {
@@ -382,9 +395,31 @@ export type TournamentPredictionBreakdown = {
   runnerUp: string | null;
   runnerUpCode: string | null;
   runnerUpFlagEmoji: string | null;
+  thirdPlace: string | null;
+  thirdPlaceCode: string | null;
+  thirdPlaceFlagEmoji: string | null;
   topScorer: string | null;
+  goldenBall: string | null;
+  goldenGlove: string | null;
   pointsAwarded: number;
   isScored: boolean;
+};
+
+export type AdminTournamentPredictionLock = {
+  tournamentId: string;
+  isLocked: boolean;
+  lockedManually: boolean;
+  lockAt: string | null;
+};
+
+export type AdminTournamentActualResults = {
+  id: string;
+  actualChampionTournamentTeamId: string | null;
+  actualRunnerUpTournamentTeamId: string | null;
+  actualThirdPlaceTournamentTeamId: string | null;
+  actualTopScorerTournamentPlayerId: string | null;
+  actualGoldenBallTournamentPlayerId: string | null;
+  actualGoldenGloveTournamentPlayerId: string | null;
 };
 
 export type EntryBreakdownResponse = {

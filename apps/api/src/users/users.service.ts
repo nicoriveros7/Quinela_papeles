@@ -25,6 +25,20 @@ export class UsersService {
     });
   }
 
+  async findByDisplayNameWithPassword(displayName: string) {
+    return this.prisma.user.findFirst({
+      where: { displayName: { equals: displayName, mode: 'insensitive' } },
+    });
+  }
+
+  async findByIdentifierWithPassword(identifier: string) {
+    const trimmed = identifier.trim();
+    if (trimmed.includes('@')) {
+      return this.findByEmailWithPassword(trimmed);
+    }
+    return this.findByDisplayNameWithPassword(trimmed);
+  }
+
   async createUser(input: { email: string; displayName: string; passwordHash: string }) {
     const user = await this.prisma.user.create({
       data: {

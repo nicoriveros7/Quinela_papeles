@@ -42,7 +42,7 @@ export class AuthService {
   }
 
   async login(input: LoginDto) {
-    const user = await this.usersService.findByEmailWithPassword(input.email);
+    const user = await this.usersService.findByIdentifierWithPassword(input.identifier);
     if (!user || !user.passwordHash || !user.isActive) {
       throw new UnauthorizedException('Invalid credentials');
     }

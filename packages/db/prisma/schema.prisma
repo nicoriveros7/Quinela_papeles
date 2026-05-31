@@ -152,6 +152,16 @@ model Tournament {
   startDate DateTime
   endDate   DateTime
   timezone  String           @default("UTC")
+
+  tournamentPredictionsLocked         Boolean   @default(false)
+  tournamentPredictionsLockAt         DateTime?
+  actualChampionTournamentTeamId      String?
+  actualRunnerUpTournamentTeamId      String?
+  actualThirdPlaceTournamentTeamId    String?
+  actualTopScorerTournamentPlayerId   String?
+  actualGoldenBallTournamentPlayerId  String?
+  actualGoldenGloveTournamentPlayerId String?
+
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
@@ -233,6 +243,7 @@ model TournamentTeam {
   awayMatches               Match[]                  @relation("AwayTournamentTeam")
   championPredictions       TournamentPrediction[]   @relation("TournamentPredictionChampion")
   runnerUpPredictions       TournamentPrediction[]   @relation("TournamentPredictionRunnerUp")
+  thirdPlacePredictions     TournamentPrediction[]   @relation("TournamentPredictionThirdPlace")
 
   @@unique([tournamentId, teamId])
   @@index([tournamentId, groupId])
@@ -254,7 +265,9 @@ model TournamentPlayer {
   tournament              Tournament             @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   tournamentTeam          TournamentTeam         @relation(fields: [tournamentTeamId], references: [id], onDelete: Cascade)
   player                  Player                 @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  topScorerPredictions    TournamentPrediction[]
+  topScorerPredictions    TournamentPrediction[] @relation("TournamentPredictionTopScorer")
+  goldenBallPredictions   TournamentPrediction[] @relation("TournamentPredictionGoldenBall")
+  goldenGlovePredictions  TournamentPrediction[] @relation("TournamentPredictionGoldenGlove")
 
   @@unique([tournamentId, tournamentTeamId, playerId])
   @@index([tournamentTeamId])
@@ -409,31 +422,40 @@ model MatchPrediction {
 }
 
 model TournamentPrediction {
-  id                          String    @id @default(cuid())
-  poolEntryId                 String
-  tournamentId                String
-  championTournamentTeamId    String?
-  runnerUpTournamentTeamId    String?
-  topScorerTournamentPlayerId String?
-  pointsAwarded               Int       @default(0)
-  isLocked                    Boolean   @default(false)
-  isScored                    Boolean   @default(false)
-  scoredAt                    DateTime?
-  createdAt                   DateTime  @default(now())
-  updatedAt                   DateTime  @updatedAt
+  id                            String    @id @default(cuid())
+  poolEntryId                   String
+  tournamentId                  String
+  championTournamentTeamId      String?
+  runnerUpTournamentTeamId      String?
+  thirdPlaceTournamentTeamId    String?
+  topScorerTournamentPlayerId   String?
+  goldenBallTournamentPlayerId  String?
+  goldenGloveTournamentPlayerId String?
+  pointsAwarded                 Int       @default(0)
+  isLocked                      Boolean   @default(false)
+  isScored                      Boolean   @default(false)
+  scoredAt                      DateTime?
+  createdAt                     DateTime  @default(now())
+  updatedAt                     DateTime  @updatedAt
 
-  poolEntry  PoolEntry         @relation(fields: [poolEntryId], references: [id], onDelete: Cascade)
-  tournament Tournament        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  champion   TournamentTeam?   @relation("TournamentPredictionChampion", fields: [championTournamentTeamId], references: [id], onDelete: SetNull)
-  runnerUp   TournamentTeam?   @relation("TournamentPredictionRunnerUp", fields: [runnerUpTournamentTeamId], references: [id], onDelete: SetNull)
-  topScorer  TournamentPlayer? @relation(fields: [topScorerTournamentPlayerId], references: [id], onDelete: SetNull)
+  poolEntry   PoolEntry         @relation(fields: [poolEntryId], references: [id], onDelete: Cascade)
+  tournament  Tournament        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  champion    TournamentTeam?   @relation("TournamentPredictionChampion", fields: [championTournamentTeamId], references: [id], onDelete: SetNull)
+  runnerUp    TournamentTeam?   @relation("TournamentPredictionRunnerUp", fields: [runnerUpTournamentTeamId], references: [id], onDelete: SetNull)
+  thirdPlace  TournamentTeam?   @relation("TournamentPredictionThirdPlace", fields: [thirdPlaceTournamentTeamId], references: [id], onDelete: SetNull)
+  topScorer   TournamentPlayer? @relation("TournamentPredictionTopScorer", fields: [topScorerTournamentPlayerId], references: [id], onDelete: SetNull)
+  goldenBall  TournamentPlayer? @relation("TournamentPredictionGoldenBall", fields: [goldenBallTournamentPlayerId], references: [id], onDelete: SetNull)
+  goldenGlove TournamentPlayer? @relation("TournamentPredictionGoldenGlove", fields: [goldenGloveTournamentPlayerId], references: [id], onDelete: SetNull)
 
   @@unique([poolEntryId, tournamentId])
   @@index([poolEntryId])
   @@index([tournamentId])
   @@index([championTournamentTeamId])
   @@index([runnerUpTournamentTeamId])
+  @@index([thirdPlaceTournamentTeamId])
   @@index([topScorerTournamentPlayerId])
+  @@index([goldenBallTournamentPlayerId])
+  @@index([goldenGloveTournamentPlayerId])
 }
 
 model QuestionTemplate {

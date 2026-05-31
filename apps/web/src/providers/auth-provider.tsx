@@ -20,7 +20,7 @@ type AuthContextValue = {
   user: PublicUser | null;
   isBootstrapping: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
   register: (email: string, displayName: string, password: string) => Promise<void>;
   logout: () => void;
   refreshMe: () => Promise<void>;
@@ -114,8 +114,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [pathname, router]);
 
   const login = useCallback(
-    async (email: string, password: string) => {
-      const response = await api.login(email, password);
+    async (identifier: string, password: string) => {
+      const response = await api.login(identifier, password);
       setStoredToken(response.accessToken);
       setToken(response.accessToken);
       setUser(response.user);

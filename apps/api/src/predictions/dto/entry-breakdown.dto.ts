@@ -41,7 +41,12 @@ export interface TournamentPredictionBreakdown {
   runnerUp: string | null;
   runnerUpCode: string | null;
   runnerUpFlagEmoji: string | null;
+  thirdPlace: string | null;
+  thirdPlaceCode: string | null;
+  thirdPlaceFlagEmoji: string | null;
   topScorer: string | null;
+  goldenBall: string | null;
+  goldenGlove: string | null;
   pointsAwarded: number;
   isScored: boolean;
 }

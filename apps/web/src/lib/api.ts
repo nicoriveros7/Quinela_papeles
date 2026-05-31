@@ -6,7 +6,9 @@ import {
   AdminPool,
   AdminPoolMatchesResponse,
   AdminTournament,
+  AdminTournamentActualResults,
   AdminTournamentMatchesResponse,
+  AdminTournamentPredictionLock,
   AuthResponse,
   CreateAdminQuestionPayload,
   EntryBreakdownResponse,
@@ -82,10 +84,10 @@ async function request<T>(
 }
 
 export const api = {
-  login: (email: string, password: string) =>
+  login: (identifier: string, password: string) =>
     request<AuthResponse>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ identifier, password }),
     }),
 
   register: (email: string, displayName: string, password: string) =>
@@ -106,7 +108,10 @@ export const api = {
     dto: {
       championTournamentTeamId?: string | null;
       runnerUpTournamentTeamId?: string | null;
+      thirdPlaceTournamentTeamId?: string | null;
       topScorerTournamentPlayerId?: string | null;
+      goldenBallTournamentPlayerId?: string | null;
+      goldenGloveTournamentPlayerId?: string | null;
     },
     token: string,
   ) =>
@@ -282,6 +287,45 @@ export const api = {
       body: JSON.stringify({ correctOptionId }),
     }, token),
 
+  adminDeleteQuestion: (questionId: string, token: string) =>
+    request<void>(`/admin/questions/${questionId}`, { method: 'DELETE' }, token),
+
   adminRecalculatePoolScoring: (poolId: string, token: string) =>
     request(`/admin/pools/${poolId}/scoring/recalculate`, { method: 'POST' }, token),
+
+  adminGetTournamentPredictionLock: (tournamentId: string, token: string) =>
+    request<AdminTournamentPredictionLock>(
+      `/admin/tournaments/${tournamentId}/prediction-lock`,
+      { method: 'GET' },
+      token,
+    ),
+
+  adminUpdateTournamentPredictionLock: (
+    tournamentId: string,
+    dto: { locked?: boolean; lockAt?: string | null },
+    token: string,
+  ) =>
+    request<AdminTournamentPredictionLock>(
+      `/admin/tournaments/${tournamentId}/prediction-lock`,
+      { method: 'PATCH', body: JSON.stringify(dto) },
+      token,
+    ),
+
+  adminSetTournamentActualResults: (
+    tournamentId: string,
+    dto: {
+      actualChampionTournamentTeamId?: string | null;
+      actualRunnerUpTournamentTeamId?: string | null;
+      actualThirdPlaceTournamentTeamId?: string | null;
+      actualTopScorerTournamentPlayerId?: string | null;
+      actualGoldenBallTournamentPlayerId?: string | null;
+      actualGoldenGloveTournamentPlayerId?: string | null;
+    },
+    token: string,
+  ) =>
+    request<AdminTournamentActualResults>(
+      `/admin/tournaments/${tournamentId}/actual-results`,
+      { method: 'PATCH', body: JSON.stringify(dto) },
+      token,
+    ),
 };
