@@ -175,6 +175,17 @@ export function AuthForm({ mode }: { mode: AuthFormMode }) {
             )}
           </Button>
 
+          {!isRegister && (
+            <p className="text-center text-sm text-muted-foreground">
+              <Link
+                href="/forgot-password"
+                className="hover:underline focus-visible:underline"
+              >
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </p>
+          )}
+
           <p className="text-center text-sm text-muted-foreground">
             {isRegister ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}{' '}
             <Link

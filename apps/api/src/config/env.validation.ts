@@ -8,4 +8,9 @@ export const envValidationSchema = Joi.object({
   DATABASE_URL: Joi.string().uri({ scheme: ['postgresql', 'postgres'] }).required(),
   JWT_SECRET: Joi.string().min(16).required(),
   JWT_EXPIRES_IN: Joi.string().default('7d'),
+
+  // Email / password reset — optional in development, recommended in production
+  RESEND_API_KEY: Joi.string().optional(),
+  PASSWORD_RESET_FROM_EMAIL: Joi.string().email().optional(),
+  WEB_APP_URL: Joi.string().uri().optional(),
 });

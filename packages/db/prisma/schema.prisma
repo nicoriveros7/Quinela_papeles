@@ -134,10 +134,11 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  createdPools Pool[]       @relation("PoolOwner")
-  poolMembers  PoolMember[]
-  poolEntries  PoolEntry[]
-  auditLogs    AuditLog[]   @relation("AuditActor")
+  createdPools        Pool[]               @relation("PoolOwner")
+  poolMembers         PoolMember[]
+  poolEntries         PoolEntry[]
+  auditLogs           AuditLog[]           @relation("AuditActor")
+  passwordResetTokens PasswordResetToken[]
 
   @@index([systemRole])
 }
@@ -583,4 +584,18 @@ model AuditLog {
   @@index([actorUserId])
   @@index([tournamentId])
   @@index([poolId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }

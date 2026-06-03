@@ -96,6 +96,18 @@ export const api = {
       body: JSON.stringify({ email, displayName, password }),
     }),
 
+  forgotPassword: (email: string) =>
+    request<{ message: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword }),
+    }),
+
   me: (token: string) => request<PublicUser>('/users/me', { method: 'GET' }, token),
 
   getMyMainPool: (token: string) =>
