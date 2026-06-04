@@ -37,7 +37,14 @@ export function AuthForm({ mode }: { mode: AuthFormMode }) {
       }
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(err.message);
+        const msg = err.message.toLowerCase();
+        if (msg.includes('invalid credentials') || msg.includes('unauthorized')) {
+          setError('Credenciales incorrectas. Intenta de nuevo.');
+        } else if (msg.includes('email is already in use') || msg.includes('conflict')) {
+          setError('Este correo ya está registrado. Intenta iniciar sesión.');
+        } else {
+          setError(err.message);
+        }
       } else {
         setError('No se pudo completar la operación. Intenta nuevamente.');
       }
@@ -156,7 +163,7 @@ export function AuthForm({ mode }: { mode: AuthFormMode }) {
           {error && (
             <div
               role="alert"
-              className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
+              className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm font-medium text-rose-300"
             >
               {error}
             </div>

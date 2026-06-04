@@ -68,8 +68,8 @@ export function ConfirmActionButton({
       className={cn(
         'grid gap-2 rounded-xl border p-3 text-sm shadow-sm',
         isDestructive
-          ? 'border-rose-200/70 bg-rose-50/80 text-rose-900'
-          : 'border-amber-200/70 bg-amber-50/80 text-amber-900',
+          ? 'border-rose-400/30 bg-rose-500/10 text-rose-200'
+          : 'border-border bg-surface text-foreground',
         panelClassName,
       )}
     >
@@ -79,7 +79,7 @@ export function ConfirmActionButton({
           : <AlertTriangle className="h-4 w-4" />}
         {title}
       </div>
-      <p className={cn('text-xs', isDestructive ? 'text-rose-700' : 'text-amber-800')}>
+      <p className={cn('text-xs', isDestructive ? 'text-rose-300' : 'text-muted-foreground')}>
         {description}
       </p>
       <div className="flex gap-2">

@@ -141,7 +141,7 @@ export default function PoolDetailPage() {
                 <Link
                   key={entry.id}
                   href={`/pools/${poolId}/entries/${entry.id}`}
-                  className="flex items-center justify-between rounded-xl border border-border/60 bg-white/70 px-3 py-2 text-sm hover:border-primary/40"
+                  className="flex items-center justify-between rounded-xl border border-border/60 bg-surface/80 px-3 py-2 text-sm hover:border-primary/40"
                 >
                   <span>
                     {entry.entryName ?? 'Mi Entry'} · {entry.totalPoints} pts

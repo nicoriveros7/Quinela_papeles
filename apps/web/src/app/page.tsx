@@ -26,17 +26,9 @@ const features = [
   },
 ];
 
-const pointsSystem = [
-  { label: 'Resultado exacto', value: '3 pts' },
-  { label: 'Ganador correcto', value: '1 pt' },
-  { label: 'Campeón acertado', value: '10 pts' },
-  { label: 'Subcampeón acertado', value: '6 pts' },
-  { label: 'Goleador acertado', value: '5 pts' },
-];
-
 export default function HomePage() {
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-background text-foreground">
+    <main className="relative isolate min-h-dvh overflow-hidden bg-background text-foreground">
       <div className="absolute inset-0 -z-10 bg-stadium" />
 
       <div className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-5 py-8 sm:px-8 lg:px-12 lg:py-10">
@@ -55,12 +47,18 @@ export default function HomePage() {
         </header>
 
         {/* ── Hero ───────────────────────────────────────────────────── */}
-        <section className="mb-4 animate-slide-up rounded-3xl border border-white/20 bg-surface/90 p-6 shadow-card backdrop-blur sm:p-8 lg:p-10">
-          <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:gap-10">
+        <section className="relative overflow-hidden mb-6 animate-slide-up rounded-3xl border border-white/[0.09] bg-surface p-6 shadow-card shadow-inner-subtle backdrop-blur sm:p-8 lg:p-10">
+          {/* FIFA artwork texture — rendered above bg-surface, below content (DOM order) */}
+          <div
+            aria-hidden="true"
+            className="absolute -inset-2 bg-cover bg-center opacity-[0.09] blur-[4px] pointer-events-none"
+            style={{ backgroundImage: "url('/backgrounds/fifa-dark-organic-landscape.jpeg')" }}
+          />
+          <div className="relative grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:gap-10">
             {/* Left: headline + CTA */}
             <div className="flex flex-col gap-5">
-              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-accent-foreground">
-                <Award className="h-3.5 w-3.5 text-accent" />
+              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary">
+                <Award className="h-3.5 w-3.5 text-primary" />
                 Mundial FIFA 2026
               </div>
 
@@ -95,17 +93,67 @@ export default function HomePage() {
             </div>
 
             {/* Right: points system */}
-            <div className="flex flex-col justify-center">
-              <p className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                Sistema de puntos
-              </p>
-              <div className="divide-y divide-border/50 rounded-2xl border border-border/60 bg-white/70 shadow-inner-subtle">
-                {pointsSystem.map((item) => (
-                  <div key={item.label} className="flex items-center justify-between px-4 py-3">
-                    <span className="text-sm text-foreground/80">{item.label}</span>
-                    <span className="text-sm font-bold text-primary">{item.value}</span>
+            <div className="flex flex-col justify-center gap-4">
+              <div className="rounded-2xl border border-white/[0.08] bg-background/60 p-4 shadow-inner-subtle">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                  Sistema de puntos
+                </p>
+
+                <div className="grid gap-5">
+                  {/* Bloque 1 — Partidos */}
+                  <div>
+                    <h3 className="mb-1 text-xs font-bold text-primary">Partidos</h3>
+                    <p className="mb-2.5 text-[10px] leading-relaxed text-muted-foreground">
+                      Cada partido suma por aciertos parciales. Mientras más cerca estés, más puntos ganas.
+                    </p>
+                    <div className="grid gap-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-foreground/70">Marcador exacto</span>
+                        <span className="font-bold text-primary">+5 pts</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] text-muted-foreground/80">
+                        <span>Dif. goles / Ganador</span>
+                        <span className="font-semibold">+1 pt</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] text-muted-foreground/80">
+                        <span>Goles local / visita / total</span>
+                        <span className="font-semibold">+1 pt c/u</span>
+                      </div>
+                    </div>
                   </div>
-                ))}
+
+                  {/* Bloque 2 — Pre-torneo */}
+                  <div>
+                    <h3 className="mb-1 text-xs font-bold text-primary">Pre-torneo</h3>
+                    <div className="grid gap-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-foreground/70">Equipos acertados</span>
+                        <span className="font-bold text-primary">+15 pts</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/60 leading-tight">
+                        Campeón, subcampeón y tercer puesto.
+                      </p>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-foreground/70">Jugadores acertados</span>
+                        <span className="font-bold text-primary">+10 pts</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/60 leading-tight">
+                        Goleador, MVP y mejor arquero.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Bloque 3 — Bonus */}
+                  <div className="pt-2 border-t border-white/[0.06]">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-bold text-primary">Preguntas Bonus</h3>
+                      <span className="text-[11px] font-bold text-primary">Variable</span>
+                    </div>
+                    <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                      Algunos partidos tienen preguntas especiales con puntos extra.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -118,7 +166,7 @@ export default function HomePage() {
             return (
               <article
                 key={feature.title}
-                className="animate-slide-up rounded-2xl border border-white/20 bg-surface/85 p-5 shadow-card-sm backdrop-blur"
+                className="animate-slide-up rounded-2xl border border-white/[0.09] bg-surface p-5 shadow-card-sm shadow-inner-subtle backdrop-blur"
                 style={{ animationDelay: `${60 + i * 40}ms` }}
               >
                 <div className="mb-3 inline-flex rounded-xl bg-primary/10 p-2.5 text-primary">

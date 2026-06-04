@@ -27,14 +27,14 @@ const config: Record<
   error: {
     icon: AlertTriangle,
     title: 'Algo salió mal',
-    iconWrap: 'bg-rose-100',
-    iconColor: 'text-rose-600',
+    iconWrap: 'bg-rose-500/15',
+    iconColor: 'text-rose-400',
   },
   success: {
     icon: CheckCircle2,
     title: 'Éxito',
-    iconWrap: 'bg-emerald-100',
-    iconColor: 'text-emerald-700',
+    iconWrap: 'bg-emerald-500/15',
+    iconColor: 'text-emerald-400',
   },
 };
 

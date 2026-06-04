@@ -133,7 +133,16 @@ export class ScoringService {
 
     const pool = await this.prisma.pool.findUnique({
       where: { id: poolId },
-      select: { id: true, tournamentId: true },
+      select: {
+        id: true,
+        tournamentId: true,
+        pointsChampionCorrect: true,
+        pointsRunnerUpCorrect: true,
+        pointsThirdPlaceCorrect: true,
+        pointsTopScorerCorrect: true,
+        pointsGoldenBallCorrect: true,
+        pointsGoldenGloveCorrect: true,
+      },
     });
     if (!pool) throw new NotFoundException('Pool not found');
 
@@ -189,6 +198,15 @@ export class ScoringService {
       goldenGlovePlayerId: tournament.actualGoldenGloveTournamentPlayerId,
     };
 
+    const scoringConfig = {
+      pointsChampion: pool.pointsChampionCorrect,
+      pointsRunnerUp: pool.pointsRunnerUpCorrect,
+      pointsThirdPlace: pool.pointsThirdPlaceCorrect,
+      pointsTopScorer: pool.pointsTopScorerCorrect,
+      pointsGoldenBall: pool.pointsGoldenBallCorrect,
+      pointsGoldenGlove: pool.pointsGoldenGloveCorrect,
+    };
+
     const now = new Date();
     const updates = predictions.map((pred) =>
       this.prisma.tournamentPrediction.update({
@@ -204,6 +222,7 @@ export class ScoringService {
               goldenGlovePlayerId: pred.goldenGloveTournamentPlayerId,
             },
             actual,
+            scoringConfig,
           ),
           isScored: true,
           scoredAt: now,

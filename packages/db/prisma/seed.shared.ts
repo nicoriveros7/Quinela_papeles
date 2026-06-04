@@ -32,6 +32,12 @@ export const MAIN_POOL_CONFIG = {
   pointsExactScore:        5,
   pointsMatchOutcome:      1,
   pointsBonusCorrect:      5,
+  pointsChampionCorrect:   15,
+  pointsRunnerUpCorrect:   15,
+  pointsThirdPlaceCorrect: 15,
+  pointsTopScorerCorrect:  10,
+  pointsGoldenBallCorrect: 10,
+  pointsGoldenGloveCorrect: 10,
   pointsConfig: {
     match: { exactScore: 5, goalDifference: 3, winner: 1, loser: 1, homeGoals: 2, awayGoals: 2, totalGoals: 1 },
     bonus: { default: 5 },

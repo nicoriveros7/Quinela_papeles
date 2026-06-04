@@ -21,7 +21,7 @@ export function SaveFeedback({
   }
 
   return (
-    <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700">
+    <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300">
       <CheckCircle2 className="h-3.5 w-3.5" />
       {message}
     </div>

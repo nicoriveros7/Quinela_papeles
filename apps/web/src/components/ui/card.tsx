@@ -16,7 +16,7 @@ export function Card({ className, interactive = false, ...props }: CardProps) {
     <div
       className={cn(
         // Base card: consistent across all contexts
-        'rounded-2xl border border-border/70 bg-surface/90 shadow-card backdrop-blur',
+        'rounded-2xl border border-white/[0.08] bg-surface shadow-card shadow-inner-subtle backdrop-blur',
         // Interactive lift — 2px translateY + deeper shadow on hover,
         // springs back instantly on active press (active:translate-y-0).
         interactive &&

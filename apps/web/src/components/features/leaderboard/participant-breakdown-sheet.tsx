@@ -30,9 +30,9 @@ type StatusConfig = {
 };
 
 const STATUS_CONFIG: Record<PredictionStatus, StatusConfig> = {
-  exacto:      { label: 'Exacto',    chipClass: 'bg-emerald-100 text-emerald-700', Icon: Star  },
-  resultado:   { label: 'Resultado', chipClass: 'bg-amber-100 text-amber-700',     Icon: Check },
-  fallado:     { label: 'Fallado',   chipClass: 'bg-rose-100 text-rose-600',       Icon: X     },
+  exacto:      { label: 'Exacto',    chipClass: 'bg-emerald-500/15 text-emerald-300', Icon: Star  },
+  resultado:   { label: 'Resultado', chipClass: 'bg-muted text-muted-foreground',    Icon: Check },
+  fallado:     { label: 'Fallado',   chipClass: 'bg-rose-500/15 text-rose-300',     Icon: X     },
   pendiente:   { label: 'Pendiente', chipClass: 'bg-primary/10 text-primary',      Icon: Clock },
   'sin-pick':  { label: 'Sin pick',  chipClass: 'bg-muted text-muted-foreground',  Icon: Minus },
 };
@@ -245,7 +245,7 @@ export function ParticipantBreakdownSheet({
 
           {!loading && error && (
             <div className="py-10 text-center">
-              <p className="text-sm text-rose-600">{error}</p>
+              <p className="text-sm text-rose-400">{error}</p>
               <button
                 type="button"
                 className="mt-3 text-xs text-primary underline-offset-2 hover:underline"
@@ -548,8 +548,8 @@ function MatchRow({
                     <span
                       className={cn(
                         'font-medium',
-                        q.isCorrect === true && 'text-emerald-700',
-                        q.isCorrect === false && 'text-rose-600',
+                        q.isCorrect === true && 'text-emerald-300',
+                        q.isCorrect === false && 'text-rose-400',
                         q.isCorrect === null && 'text-foreground',
                       )}
                     >
@@ -575,9 +575,12 @@ function TournamentSection({
   prediction: NonNullable<EntryBreakdownResponse['tournamentPrediction']>;
 }) {
   const items = [
-    { label: 'Campeón',    value: prediction.champion,  flagEmoji: prediction.championFlagEmoji, code: prediction.championCode },
-    { label: 'Subcampeón', value: prediction.runnerUp,  flagEmoji: prediction.runnerUpFlagEmoji,  code: prediction.runnerUpCode },
-    { label: 'Goleador',   value: prediction.topScorer, flagEmoji: null,                           code: null },
+    { label: 'Campeón',      value: prediction.champion,      flagEmoji: prediction.championFlagEmoji,      code: prediction.championCode },
+    { label: 'Subcampeón',   value: prediction.runnerUp,      flagEmoji: prediction.runnerUpFlagEmoji,      code: prediction.runnerUpCode },
+    { label: 'Tercer puesto', value: prediction.thirdPlace,    flagEmoji: prediction.thirdPlaceFlagEmoji,    code: prediction.thirdPlaceCode },
+    { label: 'Goleador',     value: prediction.topScorer,     flagEmoji: null,                             code: null },
+    { label: 'Mejor jugador', value: prediction.goldenBall,    flagEmoji: null,                             code: null },
+    { label: 'Mejor arquero', value: prediction.goldenGlove,   flagEmoji: null,                             code: null },
   ].filter((item): item is { label: string; value: string; flagEmoji: string | null; code: string | null } => item.value !== null);
 
   if (items.length === 0) return null;

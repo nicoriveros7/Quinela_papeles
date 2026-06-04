@@ -217,7 +217,7 @@ export default function TournamentMatchesPage() {
         </div>
 
         {/* Filters */}
-        <div className="grid gap-3 rounded-2xl border border-border/70 bg-gradient-to-br from-white via-white to-emerald-50/70 p-4">
+        <div className="grid gap-3 rounded-2xl border border-white/[0.08] bg-surface p-4 shadow-inner-subtle">
           <div className="grid gap-3 lg:grid-cols-[2fr_1fr] lg:items-end">
             <div className="grid gap-1.5">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
@@ -227,6 +227,7 @@ export default function TournamentMatchesPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Ej: MEX, Grupo A, Matchday 1, #12"
+                className="bg-background/70"
               />
             </div>
             <div className="grid gap-1.5">
@@ -234,7 +235,7 @@ export default function TournamentMatchesPage() {
                 Grupo / Fase
               </p>
               <select
-                className="h-11 w-full rounded-md border border-input bg-white/90 px-3 text-sm text-foreground shadow-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/25"
+                className="h-11 w-full rounded-md border border-input bg-background/70 px-3 text-sm text-foreground shadow-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/25"
                 value={groupFilter}
                 onChange={(event) => setGroupFilter(event.target.value)}
               >
@@ -278,12 +279,16 @@ export default function TournamentMatchesPage() {
           const homeLabel = getSideLabel(match, 'home');
           const awayLabel = getSideLabel(match, 'away');
           const justSaved = lastSavedId === match.id;
+          const draft = drafts[match.id];
+          const hasValidScore =
+            draft?.homeScore !== undefined && draft.homeScore !== '' &&
+            draft?.awayScore !== undefined && draft.awayScore !== '';
 
           return (
             <article
               key={match.id}
               className={`grid gap-3 rounded-xl border p-4 shadow-sm transition-colors ${
-                isFinished ? 'border-emerald-200/70 bg-emerald-50/30' : 'border-border/70 bg-white'
+                isFinished ? 'border-emerald-400/25 bg-emerald-500/10' : 'border-white/[0.08] bg-surface'
               }`}
             >
               {/* Row 1: status badges + date */}
@@ -344,13 +349,13 @@ export default function TournamentMatchesPage() {
 
               {/* Row 3: FINISHED banner (when score is already official) */}
               {isFinished && match.homeScore !== null && match.awayScore !== null && (
-                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                  <span className="text-xs font-semibold text-emerald-700">Resultado oficial:</span>
-                  <span className="font-bold tabular-nums text-emerald-800">
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                  <span className="text-xs font-semibold text-emerald-300">Resultado oficial:</span>
+                  <span className="font-bold tabular-nums text-emerald-200">
                     {match.homeScore} – {match.awayScore}
                   </span>
-                  <span className="ml-auto text-[10px] text-emerald-600/70">
+                  <span className="ml-auto text-[10px] text-emerald-400/70">
                     Editable si necesitas corregir
                   </span>
                 </div>
@@ -368,7 +373,7 @@ export default function TournamentMatchesPage() {
                     value={drafts[match.id]?.homeScore ?? ''}
                     onChange={(event) => updateDraft(match.id, 'homeScore', event.target.value)}
                     placeholder="0"
-                    className="h-10 text-center text-base font-bold"
+                    className="h-10 bg-background/70 text-center text-base font-bold"
                   />
                 </div>
                 <span className="hidden pb-1.5 text-center text-sm font-bold text-muted-foreground sm:block">
@@ -384,7 +389,7 @@ export default function TournamentMatchesPage() {
                     value={drafts[match.id]?.awayScore ?? ''}
                     onChange={(event) => updateDraft(match.id, 'awayScore', event.target.value)}
                     placeholder="0"
-                    className="h-10 text-center text-base font-bold"
+                    className="h-10 bg-background/70 text-center text-base font-bold"
                   />
                 </div>
               </div>
@@ -405,18 +410,22 @@ export default function TournamentMatchesPage() {
 
                 <div className="flex flex-wrap items-center gap-2">
                   {justSaved && (
-                    <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                    <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Guardado
                     </span>
                   )}
                   <ConfirmActionButton
                     size="sm"
-                    disabled={savingId === match.id}
+                    disabled={savingId === match.id || !hasValidScore}
                     label={savingId === match.id ? 'Guardando...' : isFinished ? 'Actualizar resultado' : 'Guardar y cerrar'}
                     confirmLabel="Sí, confirmar"
                     title="Confirmar resultado"
-                    description={`Se guardará ${drafts[match.id]?.homeScore || '-'} – ${drafts[match.id]?.awayScore || '-'} y el partido quedará como Finalizado.`}
+                    description={
+                      hasValidScore
+                        ? `${homeLabel} ${draft!.homeScore} – ${draft!.awayScore} ${awayLabel}. El partido quedará como Finalizado.`
+                        : 'Ingresa el marcador de ambos equipos antes de confirmar.'
+                    }
                     onConfirm={() => saveResult(match.id)}
                     panelClassName="w-full sm:max-w-[340px]"
                   />

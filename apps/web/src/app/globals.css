@@ -4,26 +4,26 @@
 
 /* ── Design tokens ──────────────────────────────────────────────────────── */
 :root {
-  --background: 153 43% 96%;
-  --foreground: 162 50% 11%;
-  --primary: 168 78% 28%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 164 41% 88%;
-  --secondary-foreground: 162 55% 14%;
-  --muted: 154 24% 90%;
-  --muted-foreground: 162 15% 36%;
-  --accent: 41 97% 58%;
-  --accent-foreground: 33 38% 17%;
-  --border: 159 22% 79%;
-  --input: 159 22% 79%;
-  --ring: 168 78% 28%;
-  --surface: 0 0% 100%;
+  --background: 0 0% 5%;
+  --foreground: 0 0% 98%;
+  --primary: 69 100% 58%;
+  --primary-foreground: 0 0% 5%;
+  --secondary: 0 0% 14%;
+  --secondary-foreground: 0 0% 96%;
+  --muted: 0 0% 16%;
+  --muted-foreground: 0 0% 68%;
+  --accent: 145 100% 45%;
+  --accent-foreground: 0 0% 5%;
+  --border: 0 0% 22%;
+  --input: 0 0% 30%;
+  --ring: 69 100% 58%;
+  --surface: 0 0% 12%;
   --radius: 0.9rem;
 }
 
 /* ── Keyframes ──────────────────────────────────────────────────────────── */
 
-/* Skeleton shimmer — sweeps a light band left-to-right over a muted base */
+/* Skeleton shimmer — sweeps a subtle band left-to-right over a muted base */
 @keyframes shimmer {
   to {
     transform: translateX(100%);
@@ -78,6 +78,10 @@
     background: hsl(var(--border));
     border-radius: 9999px;
   }
+
+  html::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
 }
 
 /* ── Utility layer ──────────────────────────────────────────────────────── */
@@ -94,7 +98,7 @@
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.48) 50%,
+      rgba(223, 255, 41, 0.06) 50%,
       transparent 100%
     );
     animation: shimmer 1.5s ease-in-out infinite;

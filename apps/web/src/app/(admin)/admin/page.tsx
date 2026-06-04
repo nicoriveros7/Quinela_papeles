@@ -14,9 +14,9 @@ import { StatePanel } from '@/components/ui/state-panel';
 
 function getStatusVariant(status: string): BadgeVariant {
   const s = status.toUpperCase();
-  if (s === 'ACTIVE' || s === 'LIVE' || s === 'OPEN') return 'success';
+  if (s === 'ACTIVE' || s === 'LIVE' || s === 'OPEN' || s === 'IN_PROGRESS') return 'success';
   if (s === 'CANCELLED') return 'danger';
-  if (s === 'PENDING' || s === 'DRAFT' || s === 'UPCOMING') return 'warning';
+  if (s === 'PENDING' || s === 'DRAFT' || s === 'UPCOMING' || s === 'PUBLISHED') return 'warning';
   return 'muted';
 }
 
@@ -25,10 +25,14 @@ function getStatusLabel(status: string): string {
     case 'ACTIVE': return 'Activo';
     case 'LIVE': return 'En vivo';
     case 'OPEN': return 'Abierto';
+    case 'PUBLISHED': return 'Publicado';
+    case 'IN_PROGRESS': return 'En curso';
     case 'FINISHED': return 'Finalizado';
     case 'COMPLETED': return 'Completado';
     case 'CLOSED': return 'Cerrado';
+    case 'LOCKED': return 'Bloqueado';
     case 'CANCELLED': return 'Cancelado';
+    case 'ARCHIVED': return 'Archivado';
     case 'PENDING': return 'Pendiente';
     case 'DRAFT': return 'Borrador';
     case 'UPCOMING': return 'Próximo';
@@ -99,7 +103,7 @@ export default function AdminHomePage() {
   return (
     <div className="grid gap-4">
       {/* ── Page header ──────────────────────────────────────────── */}
-      <header className="rounded-2xl border border-border/70 bg-surface p-5">
+      <header className="rounded-2xl border border-white/[0.08] bg-surface p-5">
         <h1 className="text-2xl font-extrabold text-foreground">Admin Console</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           Gestión operativa de torneos, partidos y bonus questions.
@@ -348,7 +352,7 @@ function TournamentPredictionControlCard({
                 type="datetime-local"
                 value={dateInput}
                 onChange={(e) => setDateInput(e.target.value)}
-                className="rounded-lg border border-border/60 bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                className="rounded-lg border border-white/[0.12] bg-background/70 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring/40"
               />
               <Button size="sm" onClick={handleSaveDate} disabled={loading}>
                 Guardar

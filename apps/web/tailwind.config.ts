@@ -42,12 +42,12 @@ const config: Config = {
       },
       // ── Shadow scale ────────────────────────────────────────────────────
       boxShadow: {
-        card: '0 10px 40px -20px rgba(7, 45, 33, 0.65)',
-        'card-sm': '0 2px 12px -4px rgba(7, 45, 33, 0.22)',
-        'card-hover': '0 16px 48px -12px rgba(7, 45, 33, 0.48)',
-        'card-lg': '0 24px 64px -16px rgba(7, 45, 33, 0.55)',
-        'inner-subtle': 'inset 0 1px 3px 0 rgba(7, 45, 33, 0.07)',
-        'glow-primary': '0 0 0 3px hsl(168 78% 28% / 0.18)',
+        card:           '0 18px 50px -24px rgba(0, 0, 0, 0.85)',
+        'card-sm':      '0 8px 24px -16px rgba(0, 0, 0, 0.70)',
+        'card-hover':   '0 24px 70px -28px rgba(0, 0, 0, 0.95)',
+        'card-lg':      '0 30px 90px -30px rgba(0, 0, 0, 1)',
+        'inner-subtle': 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+        'glow-primary': '0 0 0 3px hsl(69 100% 58% / 0.20)',
       },
       // ── Keyframes ───────────────────────────────────────────────────────
       keyframes: {
@@ -70,23 +70,21 @@ const config: Config = {
       },
       // ── Animation utilities ─────────────────────────────────────────────
       animation: {
-        'fade-in': 'fade-in 0.2s ease-out both',
-        'slide-up': 'slide-up 0.25s ease-out both',
-        'scale-in': 'scale-in 0.15s ease-out both',
+        'fade-in':   'fade-in 0.2s ease-out both',
+        'slide-up':  'slide-up 0.25s ease-out both',
+        'scale-in':  'scale-in 0.15s ease-out both',
         'pulse-dot': 'pulse-dot 1.4s ease-in-out infinite',
       },
       // ── Background images ───────────────────────────────────────────────
       backgroundImage: {
         pitch:
-          'radial-gradient(circle at 20% 10%, rgba(64, 145, 108, 0.15), transparent 45%), radial-gradient(circle at 80% 90%, rgba(16, 185, 129, 0.14), transparent 44%)',
+          'radial-gradient(circle at 20% 10%, rgba(223,255,41,0.10), transparent 42%), radial-gradient(circle at 80% 90%, rgba(0,230,118,0.10), transparent 44%), linear-gradient(180deg, #0D0D0D, #111111)',
         stadium:
-          'radial-gradient(circle at 50% -20%, rgba(7, 96, 73, 0.28), transparent 55%), linear-gradient(140deg, rgba(227, 246, 239, 0.86), rgba(213, 240, 225, 0.92) 45%, rgba(239, 248, 242, 0.96))',
-        // Subtle surface for match cards / inner sections
+          'radial-gradient(circle at 50% -20%, rgba(223,255,41,0.18), transparent 50%), radial-gradient(circle at 85% 20%, rgba(0,230,118,0.12), transparent 45%), linear-gradient(140deg, rgba(18,18,18,0.98), rgba(10,10,10,0.98))',
         'surface-sport':
-          'linear-gradient(135deg, rgba(255,255,255,0.97) 0%, rgba(239,248,242,0.88) 100%)',
-        // Hero card with stronger verde depth
+          'linear-gradient(135deg, rgba(24,24,24,0.98) 0%, rgba(18,18,18,0.98) 100%)',
         'hero-deep':
-          'radial-gradient(circle at 30% 20%, rgba(7, 96, 73, 0.22), transparent 50%), radial-gradient(circle at 70% 80%, rgba(16, 185, 129, 0.12), transparent 50%), linear-gradient(150deg, rgba(220, 244, 233, 0.9), rgba(207, 238, 219, 0.95))',
+          'radial-gradient(circle at 30% 20%, rgba(223,255,41,0.16), transparent 50%), radial-gradient(circle at 70% 80%, rgba(0,230,118,0.10), transparent 50%), linear-gradient(150deg, rgba(18,18,18,0.98), rgba(10,10,10,0.98))',
       },
     },
   },

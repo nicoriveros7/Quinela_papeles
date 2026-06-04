@@ -102,7 +102,15 @@ export default function PartidosPage() {
     <div className="grid gap-4 animate-fade-in">
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <header className="rounded-2xl border border-border/70 bg-surface/90 p-4 shadow-card-sm">
+      <header className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-surface p-4 shadow-card-sm shadow-inner-subtle">
+        {/* Subtle premium glow */}
+        <div
+          aria-hidden="true"
+          className="absolute right-0 top-0 -z-10 h-full w-full opacity-40 pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle at top right, hsl(var(--primary) / 0.08), transparent 45%)',
+          }}
+        />
         <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Partidos</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {mainPool.pool.tournament?.name ?? 'FIFA World Cup 2026'} · {matches.length} partidos en total
@@ -113,7 +121,7 @@ export default function PartidosPage() {
       <div
         role="tablist"
         aria-label="Filtrar partidos"
-        className="scrollbar-sport flex gap-1.5 overflow-x-auto rounded-2xl border border-border/70 bg-surface/90 p-1.5 shadow-card-sm"
+        className="scrollbar-sport flex gap-1.5 overflow-x-auto rounded-2xl border border-border/70 bg-surface/90 p-1.5 shadow-card-sm [-webkit-overflow-scrolling:touch]"
       >
         {(Object.keys(FILTER_LABELS) as MatchFilter[]).map((key) => {
           const active = filter === key;
@@ -187,7 +195,7 @@ function MatchRow({
   const statusLabel = isLive ? 'LIVE' : isFinished ? 'Final' : 'Próximo';
 
   return (
-    <div className="rounded-xl border border-border/60 bg-surface/90 px-4 py-3.5 shadow-card-sm transition-all duration-150 hover:border-primary/20 hover:shadow-card">
+    <div className="rounded-xl border border-white/[0.08] bg-surface px-4 py-3.5 shadow-card-sm shadow-inner-subtle transition-all duration-150 hover:border-primary/25 hover:shadow-card">
 
       {/* ── Top row: stage + status badge ── */}
       <div className="mb-2.5 flex items-center justify-between gap-2">
@@ -219,7 +227,7 @@ function MatchRow({
           {isFinished || isLive ? (
             <span className={cn(
               'rounded-lg px-3 py-1 text-sm font-extrabold tabular-nums leading-none',
-              isLive ? 'bg-rose-500/10 text-rose-600' : 'bg-muted text-foreground',
+              isLive ? 'bg-rose-500/10 text-rose-400' : 'bg-muted text-foreground',
             )}>
               {match.homeScore ?? 0} – {match.awayScore ?? 0}
             </span>

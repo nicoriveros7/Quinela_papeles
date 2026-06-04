@@ -4,12 +4,12 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
+  CalendarDays,
   ListChecks,
   Medal,
   Shield,
   ShieldUser,
   Star,
-  Swords,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -75,17 +75,26 @@ export default function DashboardPage() {
     <div className="grid gap-5 animate-fade-in">
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="rounded-3xl border border-primary/10 bg-hero-deep p-5 shadow-card sm:p-6">
+      <section className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-surface p-5 shadow-card sm:p-6">
+        {/* Subtle premium glow */}
+        <div
+          aria-hidden="true"
+          className="absolute right-0 top-0 -z-10 h-full w-full opacity-40 pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle at top right, hsl(var(--primary) / 0.08), transparent 45%)',
+          }}
+        />
+
         <Badge variant="success" className="mb-3">FIFA World Cup 2026</Badge>
-        <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+        <h1 className="truncate text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
           Hola, {user?.displayName}
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
           Predice todos los partidos, suma puntos y sube en el leaderboard.
         </p>
-        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-surface/80 px-3 py-1.5 text-xs font-semibold text-foreground shadow-card-sm">
+        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-background/60 px-3 py-1.5 text-xs font-semibold text-foreground shadow-card-sm">
           <Shield className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-          {mainPool.pool._count?.members ?? 0} participantes · {mainPool.pool.tournament?.name ?? 'Mundial 2026'}
+          {mainPool.pool._count?.members ?? 0} participante{(mainPool.pool._count?.members ?? 0) !== 1 ? 's' : ''} · {mainPool.pool.tournament?.name ?? 'Mundial 2026'}
         </div>
       </section>
 
@@ -118,12 +127,12 @@ export default function DashboardPage() {
             <Link href="/polla/leaderboard" className="block">
               <Button variant="outline" className="w-full gap-2">
                 <Medal className="h-4 w-4" aria-hidden="true" />
-                Leaderboard
+                Ranking
               </Button>
             </Link>
             <Link href="/polla/partidos" className="block">
               <Button variant="outline" className="w-full gap-2">
-                <Swords className="h-4 w-4" aria-hidden="true" />
+                <CalendarDays className="h-4 w-4" aria-hidden="true" />
                 Partidos
               </Button>
             </Link>
@@ -205,7 +214,7 @@ function StatCard({
   accent?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-surface/90 p-4 shadow-card-sm">
+    <div className="rounded-2xl border border-white/[0.08] bg-surface p-4 shadow-card-sm shadow-inner-subtle">
       <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
         {label}
       </p>
@@ -245,7 +254,7 @@ function UpcomingMatchRow({ match }: { match: PoolMatch }) {
   return (
     <Link
       href="/polla/predicciones"
-      className="group flex items-center gap-2 rounded-xl border border-border/60 bg-surface/90 px-4 py-3.5 shadow-card-sm transition-all duration-150 hover:border-primary/30 hover:shadow-card"
+      className="group flex items-center gap-2 rounded-xl border border-white/[0.08] bg-surface px-4 py-3.5 shadow-card-sm shadow-inner-subtle transition-all duration-150 hover:border-primary/30 hover:shadow-card"
     >
       {/* Home */}
       <div className="flex min-w-0 flex-1 flex-col items-end">

@@ -99,7 +99,7 @@ function matchCardStateClass(
     return 'border-emerald-400/30 bg-emerald-500/10';
   }
   if (match.status === 'SCHEDULED' && summary !== undefined) {
-    return 'border-amber-400/20 bg-amber-500/10';
+    return 'border-primary/20 bg-primary/8';
   }
   if (match.status === 'FINISHED') {
     return 'border-border/40 bg-muted/50';
@@ -439,7 +439,15 @@ export default function EntryPredictionsPage() {
       {isAdmin && <PoolContextTabs poolId={poolId} entryId={entryId} />}
 
       {/* ── Header ────────────────────────────────────────────────────────────── */}
-      <header className="rounded-2xl border border-border/70 bg-surface/90 p-4 shadow-card-sm">
+      <header className="relative overflow-hidden rounded-2xl border border-border/70 bg-surface/90 p-4 shadow-card-sm">
+        {/* Subtle premium glow */}
+        <div
+          aria-hidden="true"
+          className="absolute right-0 top-0 -z-10 h-full w-full opacity-40 pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle at top right, hsl(var(--primary) / 0.08), transparent 45%)',
+          }}
+        />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h1 className="text-xl font-extrabold tracking-tight text-foreground">Mis predicciones</h1>
@@ -499,7 +507,7 @@ export default function EntryPredictionsPage() {
                 'w-full rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] sm:w-auto sm:text-xs',
                 'transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 pendingOnly
-                  ? 'border border-amber-400/30 bg-amber-500/15 text-amber-700'
+                  ? 'border border-primary/30 bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
             >
@@ -607,7 +615,7 @@ export default function EntryPredictionsPage() {
                     {summary?.isComplete ? (
                       <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" aria-label="Completo" />
                     ) : summary !== undefined && !summary.isComplete ? (
-                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400" aria-label="Pendiente" />
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/60" aria-label="Pendiente" />
                     ) : null}
                   </div>
                 </button>
@@ -858,7 +866,7 @@ export default function EntryPredictionsPage() {
                 </>
               ) : (
                 <Button
-                  className="w-full gap-2 cursor-not-allowed border-rose-400/40 bg-rose-500/10 text-rose-600 opacity-100 hover:bg-rose-500/10 hover:text-rose-600"
+                  className="w-full gap-2 cursor-not-allowed border-rose-400/40 bg-rose-500/10 text-rose-400 opacity-100 hover:bg-rose-500/10 hover:text-rose-400"
                   disabled
                   variant="outline"
                 >
@@ -905,12 +913,12 @@ export default function EntryPredictionsPage() {
                 )}
               </Button>
               {error ? (
-                <p className="mt-2 text-center text-xs font-semibold text-rose-600">{error}</p>
+                <p className="mt-2 text-center text-xs font-semibold text-rose-400">{error}</p>
               ) : null}
             </>
           ) : (
             <Button
-              className="w-full gap-2 cursor-not-allowed border-rose-400/40 bg-rose-500/10 text-rose-600 opacity-100 hover:bg-rose-500/10 hover:text-rose-600"
+              className="w-full gap-2 cursor-not-allowed border-rose-400/40 bg-rose-500/10 text-rose-400 opacity-100 hover:bg-rose-500/10 hover:text-rose-400"
               disabled
               variant="outline"
             >
@@ -1115,7 +1123,7 @@ function LockedMatchBanner({ kickoffAt, status }: { kickoffAt: string; status: s
           <Lock className="h-6 w-6 text-rose-500" aria-hidden="true" />
         </div>
       </div>
-      <h3 className="text-lg font-semibold text-rose-700">
+      <h3 className="text-lg font-semibold text-rose-400">
         ¡Predicciones bloqueadas!
       </h3>
       <p className="mt-1.5 text-sm text-muted-foreground">
@@ -1157,10 +1165,10 @@ function PlayerPickDropdown({
     return selectedOption ? (
       <div className="flex items-center gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
-          <Check className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+          <Check className="h-4 w-4 text-emerald-400" aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600/70">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">
             Tu respuesta guardada
           </p>
           <p className="truncate font-semibold text-foreground">{selectedOption.label}</p>
@@ -1180,10 +1188,10 @@ function PlayerPickDropdown({
       {selectedOption ? (
         <div className="mb-3 flex items-center gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
-            <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+            <Check className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600/70">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">
               Seleccionado
             </p>
             <p className="truncate text-sm font-semibold text-foreground">{selectedOption.label}</p>

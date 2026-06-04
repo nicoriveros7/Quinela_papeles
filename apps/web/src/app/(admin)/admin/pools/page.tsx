@@ -28,7 +28,9 @@ function getStatusLabel(status: string): string {
     case 'FINISHED': return 'Finalizado';
     case 'COMPLETED': return 'Completado';
     case 'CLOSED': return 'Cerrado';
+    case 'LOCKED': return 'Bloqueado';
     case 'CANCELLED': return 'Cancelado';
+    case 'ARCHIVED': return 'Archivado';
     case 'PENDING': return 'Pendiente';
     case 'DRAFT': return 'Borrador';
     default: return status;
@@ -65,7 +67,7 @@ export default function AdminPoolsPage() {
   return (
     <div className="grid gap-4">
       {/* ── Page header ───────────────────────────────────────────── */}
-      <header className="rounded-2xl border border-border/70 bg-surface p-5">
+      <header className="rounded-2xl border border-white/[0.08] bg-surface p-5">
         <h1 className="text-xl font-extrabold text-foreground">Pools</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {pools.length > 0
@@ -83,7 +85,7 @@ export default function AdminPoolsPage() {
             {pools.map((pool) => (
               <div
                 key={pool.id}
-                className="rounded-2xl border border-border/70 bg-surface p-4"
+                className="rounded-2xl border border-white/[0.08] bg-surface p-4"
               >
                 {/* Header row */}
                 <div className="flex items-start justify-between gap-3">
@@ -113,7 +115,7 @@ export default function AdminPoolsPage() {
                 {pool.joinCode && (
                   <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                     <KeyRound className="h-3.5 w-3.5 shrink-0" />
-                    <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">
+                    <code className="rounded bg-background/50 px-1.5 py-0.5 font-mono text-foreground border border-white/[0.06]">
                       {pool.joinCode}
                     </code>
                   </div>
@@ -141,7 +143,7 @@ export default function AdminPoolsPage() {
             <CardContent className="overflow-x-auto p-0">
               <table className="w-full min-w-[760px] text-sm">
                 <thead>
-                  <tr className="border-b border-border/70 bg-muted/30 text-left">
+                  <tr className="border-b border-white/[0.08] bg-background/40 text-left">
                     <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                       Pool
                     </th>
@@ -167,7 +169,7 @@ export default function AdminPoolsPage() {
                   {pools.map((pool) => (
                     <tr
                       key={pool.id}
-                      className="group border-b border-border/40 transition-colors last:border-0 hover:bg-muted/40"
+                      className="group border-b border-white/[0.06] transition-colors last:border-0 hover:bg-white/[0.02]"
                     >
                       <td className="px-5 py-3.5">
                         <p className="font-semibold text-foreground">{pool.name}</p>
@@ -189,7 +191,7 @@ export default function AdminPoolsPage() {
                       </td>
                       <td className="px-3 py-3.5">
                         {pool.joinCode ? (
-                          <code className="rounded-md bg-muted px-2 py-1 font-mono text-xs text-foreground">
+                          <code className="rounded-md bg-background/50 px-2 py-1 font-mono text-xs text-foreground border border-white/[0.06]">
                             {pool.joinCode}
                           </code>
                         ) : (
