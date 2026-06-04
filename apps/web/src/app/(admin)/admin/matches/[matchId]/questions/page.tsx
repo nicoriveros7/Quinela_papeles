@@ -367,7 +367,7 @@ export default function MatchQuestionsPage() {
           )}
 
           {/* ── New question form ─────────────────────────────────────── */}
-          <div className="grid gap-5 rounded-2xl border border-border/70 bg-gradient-to-br from-white via-white to-emerald-50/50 p-5">
+          <div className="grid gap-5 rounded-2xl border border-white/[0.08] bg-surface p-5 shadow-inner-subtle">
             <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
               Nueva pregunta
             </p>
@@ -376,18 +376,19 @@ export default function MatchQuestionsPage() {
             <FormSection label="Enunciado">
               <div className="grid gap-1.5">
                 <label htmlFor="new-question-text" className="text-sm font-medium text-foreground">
-                  Texto de la pregunta <span className="text-rose-500">*</span>
+                  Texto de la pregunta <span className="text-rose-500 font-bold">*</span>
                 </label>
                 <Input
                   id="new-question-text"
                   placeholder="Ej: ¿El partido termina con goles en ambos arcos?"
                   value={newQuestion.questionText}
                   onChange={(e) => setNewQuestion((prev) => ({ ...prev, questionText: e.target.value }))}
+                  className="bg-background/70"
                 />
               </div>
             </FormSection>
 
-            <div className="border-t border-border/40" />
+            <div className="border-t border-white/[0.08]" />
 
             {/* Section 2: Tipo de respuesta + opciones condicionales */}
             <FormSection label="Tipo de respuesta">
@@ -405,7 +406,7 @@ export default function MatchQuestionsPage() {
                       optionLabels: '',
                     }))
                   }
-                  className={SELECT_CLASS}
+                  className={cn(SELECT_CLASS, 'bg-background/70')}
                 >
                   {ANSWER_TYPES.map((type) => (
                     <option key={type} value={type}>
@@ -417,7 +418,7 @@ export default function MatchQuestionsPage() {
 
               {/* BOOLEAN hint */}
               {newQuestion.answerType === 'BOOLEAN' && (
-                <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/40 px-3 py-2.5">
+                <div className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-background/40 px-3 py-2.5">
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
                   <span className="text-sm text-muted-foreground">
                     Genera automáticamente las opciones{' '}
@@ -449,13 +450,14 @@ export default function MatchQuestionsPage() {
                     }
                     value={newQuestion.optionLabels}
                     onChange={(e) => setNewQuestion((prev) => ({ ...prev, optionLabels: e.target.value }))}
+                    className="bg-background/70"
                   />
                 </div>
               )}
 
               {/* Player pick */}
               {newQuestion.answerType === 'PLAYER_PICK' && (
-                <div className="grid gap-3 rounded-xl border border-border/70 bg-muted/20 p-3">
+                <div className="grid gap-3 rounded-xl border border-white/[0.06] bg-background/40 p-3">
                   {teamOptions.length === 0 ? (
                     <StatePanel
                       variant="empty"
@@ -572,7 +574,7 @@ export default function MatchQuestionsPage() {
               )}
             </FormSection>
 
-            <div className="border-t border-border/40" />
+            <div className="border-t border-white/[0.08]" />
 
             {/* Section 3: Configuración */}
             <FormSection label="Configuración">
@@ -588,6 +590,7 @@ export default function MatchQuestionsPage() {
                     placeholder="1"
                     value={newQuestion.points}
                     onChange={(e) => setNewQuestion((prev) => ({ ...prev, points: e.target.value }))}
+                    className="bg-background/70"
                   />
                 </div>
 
@@ -601,12 +604,13 @@ export default function MatchQuestionsPage() {
                     type="datetime-local"
                     value={newQuestion.lockAt}
                     onChange={(e) => setNewQuestion((prev) => ({ ...prev, lockAt: e.target.value }))}
+                    className="bg-background/70"
                   />
                 </div>
               </div>
             </FormSection>
 
-            <div className="border-t border-border/40" />
+            <div className="border-t border-white/[0.08]" />
 
             {/* Section 4: Publicación */}
             <FormSection label="Publicación">
@@ -631,7 +635,7 @@ export default function MatchQuestionsPage() {
             </FormSection>
 
             {/* Submit */}
-            <div className="flex justify-end border-t border-border/50 pt-3">
+            <div className="flex justify-end border-t border-white/[0.08] pt-3">
               <Button onClick={() => void createQuestion()} disabled={creating} className="gap-2">
                 {creating ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -680,8 +684,8 @@ export default function MatchQuestionsPage() {
                 key={question.id}
                 className={`grid gap-3 rounded-xl border p-4 transition-colors ${
                   question.isResolved
-                    ? 'border-emerald-200/70 bg-emerald-50/30'
-                    : 'border-border/70 bg-white'
+                    ? 'border-emerald-400/25 bg-emerald-500/10'
+                    : 'border-white/[0.08] bg-surface'
                 }`}
               >
                 {/* Row 1: status badges */}
@@ -714,6 +718,7 @@ export default function MatchQuestionsPage() {
                     onChange={(e) =>
                       setEditingPrompt((prev) => ({ ...prev, [question.id]: e.target.value }))
                     }
+                    className="bg-background/70"
                   />
                 </div>
 
@@ -725,7 +730,7 @@ export default function MatchQuestionsPage() {
                         key={opt.id}
                         className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
                           opt.id === question.correctOptionId
-                            ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300'
+                            ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/30'
                             : 'bg-muted text-muted-foreground'
                         }`}
                       >
@@ -740,10 +745,10 @@ export default function MatchQuestionsPage() {
 
                 {/* Row 4: resolved answer banner */}
                 {question.isResolved && correctOption && (
-                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                    <span className="text-xs font-semibold text-emerald-700">Respuesta correcta:</span>
-                    <span className="font-bold text-emerald-800">{correctOption.label}</span>
+                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    <span className="text-xs font-semibold text-emerald-300">Respuesta correcta:</span>
+                    <span className="font-bold text-emerald-200">{correctOption.label}</span>
                   </div>
                 )}
 
@@ -758,7 +763,7 @@ export default function MatchQuestionsPage() {
                       onChange={(e) =>
                         setSelectedOption((prev) => ({ ...prev, [question.id]: e.target.value }))
                       }
-                      className={SELECT_CLASS}
+                      className={cn(SELECT_CLASS, 'bg-background/70')}
                     >
                       {question.options.map((option) => (
                         <option key={option.id} value={option.id}>
@@ -770,7 +775,7 @@ export default function MatchQuestionsPage() {
                 )}
 
                 {/* Row 6: action buttons */}
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.08] pt-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <Button
                       size="sm"
@@ -815,14 +820,14 @@ export default function MatchQuestionsPage() {
                         title="Eliminar pregunta"
                         description="Se eliminará la pregunta y todas las respuestas de los usuarios. Esta acción no se puede deshacer."
                         onConfirm={() => deleteQuestion(question.id)}
-                        buttonClassName="gap-1.5 border-rose-200 text-rose-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
+                        buttonClassName="gap-1.5 border-rose-400/30 text-rose-400 hover:border-rose-400/50 hover:bg-rose-500/10 hover:text-rose-300"
                         panelClassName="w-full sm:max-w-[400px]"
                       />
                     )}
                   </div>
 
                   {question.isResolved ? (
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Resuelta — no se puede cambiar
                     </div>

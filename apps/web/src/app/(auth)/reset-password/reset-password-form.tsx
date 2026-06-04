@@ -93,7 +93,7 @@ export function ResetPasswordForm() {
             {!token && (
               <div
                 role="alert"
-                className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
+                className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm font-medium text-rose-300"
               >
                 El enlace de recuperación no es válido. Solicita uno nuevo.
               </div>
@@ -145,7 +145,7 @@ export function ResetPasswordForm() {
             {error && (
               <div
                 role="alert"
-                className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
+                className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm font-medium text-rose-300"
               >
                 {error}
               </div>

@@ -196,12 +196,12 @@ export type TournamentPredictionScoreConfig = {
 };
 
 export const DEFAULT_TOURNAMENT_PREDICTION_CONFIG: TournamentPredictionScoreConfig = {
-  pointsChampion: 10,
-  pointsRunnerUp: 10,
-  pointsThirdPlace: 10,
-  pointsTopScorer: 5,
-  pointsGoldenBall: 5,
-  pointsGoldenGlove: 5,
+  pointsChampion: 15,
+  pointsRunnerUp: 15,
+  pointsThirdPlace: 15,
+  pointsTopScorer: 10,
+  pointsGoldenBall: 10,
+  pointsGoldenGlove: 10,
 };
 
 export function calculateTournamentPredictionPoints(

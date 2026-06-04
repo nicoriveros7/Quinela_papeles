@@ -163,7 +163,7 @@ export default function PoolMatchesPage() {
             <article
               key={match.id}
               className={`grid gap-2 rounded-xl border p-3 text-sm transition-colors ${
-                isFinished ? 'border-emerald-200/60 bg-emerald-50/20' : 'border-border/70 bg-white'
+                isFinished ? 'border-emerald-400/25 bg-emerald-500/10' : 'border-white/[0.08] bg-surface'
               }`}
             >
               {/* Top row: status + date */}
@@ -197,11 +197,11 @@ export default function PoolMatchesPage() {
                 <span className="shrink-0 font-bold tabular-nums text-foreground">
                   {hasScore ? (
                     <>
-                      <span className={isFinished ? 'text-emerald-700' : ''}>
+                      <span className={isFinished ? 'text-emerald-400' : ''}>
                         {match.homeScore}
                       </span>
                       <span className="mx-1 text-muted-foreground">–</span>
-                      <span className={isFinished ? 'text-emerald-700' : ''}>
+                      <span className={isFinished ? 'text-emerald-400' : ''}>
                         {match.awayScore}
                       </span>
                     </>

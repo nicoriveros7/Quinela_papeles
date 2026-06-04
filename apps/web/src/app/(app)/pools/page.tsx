@@ -54,7 +54,15 @@ export default function PoolsPage() {
 
   return (
     <div className="grid gap-4">
-      <header className="flex items-center justify-between gap-2 rounded-2xl border border-border/70 bg-surface p-4">
+      <header className="relative overflow-hidden flex items-center justify-between gap-2 rounded-2xl border border-border/70 bg-surface p-4 shadow-card-sm">
+        {/* Subtle premium glow */}
+        <div
+          aria-hidden="true"
+          className="absolute right-0 top-0 -z-10 h-full w-full opacity-40 pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle at top right, hsl(var(--primary) / 0.08), transparent 45%)',
+          }}
+        />
         <div>
           <h1 className="text-xl font-extrabold">Mis Pools</h1>
           <p className="text-sm text-muted-foreground">Administra tus pools, entries y predicciones.</p>
@@ -102,7 +110,7 @@ export default function PoolsPage() {
                   <Button size="sm">Entrar</Button>
                 </Link>
                 <Link href={`/pools/${pool.id}/leaderboard`} className="inline-flex">
-                  <Button size="sm" variant="outline">Leaderboard</Button>
+                  <Button size="sm" variant="outline">Ranking</Button>
                 </Link>
               </div>
             </CardContent>

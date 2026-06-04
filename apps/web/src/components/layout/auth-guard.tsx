@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  CalendarDays,
   Globe,
   LayoutList,
   ListChecks,
@@ -11,7 +12,6 @@ import {
   ShieldCheck,
   ShieldUser,
   Star,
-  Swords,
   Trophy,
 } from 'lucide-react';
 
@@ -48,7 +48,7 @@ const pollaLinks: NavLink[] = [
   {
     href: '/polla/partidos',
     label: 'Partidos',
-    icon: Swords,
+    icon: CalendarDays,
   },
   {
     href: '/polla/predicciones',
@@ -105,7 +105,7 @@ function SidebarLink({ link, pathname }: { link: NavLink; pathname: string }) {
         'inline-flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold',
         'transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
         active
-          ? 'bg-primary text-primary-foreground shadow-card-sm'
+          ? 'bg-primary/15 text-primary border border-primary/35 shadow-glow-primary'
           : 'text-muted-foreground hover:bg-muted hover:text-foreground',
       )}
     >
@@ -166,7 +166,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isAdmin = user?.systemRole === 'ADMIN' || user?.systemRole === 'SUPER_ADMIN';
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="relative isolate min-h-screen bg-background text-foreground">
+      <div className="fixed inset-0 -z-20 pointer-events-none">
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-[0.20] blur-[2px] sm:opacity-[0.30]"
+          style={{ backgroundImage: "url('/backgrounds/fifa-2026-dark-portrait.jpeg')" }}
+        />
+        {/* Central mask to ensure readability by fading the image in the middle */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,hsl(var(--background))_0%,hsl(var(--background))_30%,transparent_100%)]" />
+        {/* Subtle base overlay to blend the image with the theme */}
+        <div className="absolute inset-0 bg-background/40" />
+      </div>
 
       {/* ── Mobile sticky header ────────────────────────────────────────────
           Visible only on < lg. Shows brand + logout. Nav lives in bottom bar. */}
@@ -255,7 +265,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 )}
               >
                 <ShieldUser className="h-4 w-4 shrink-0" aria-hidden="true" />
-                Admin Console
+                <span className="truncate">Admin Console</span>
               </Link>
             </nav>
           ) : null}

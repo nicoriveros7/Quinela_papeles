@@ -34,10 +34,17 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
-      <div className="absolute inset-0 -z-10 bg-stadium" />
+    <main className="relative isolate flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
+      {/* Layer 1 — FIFA artwork texture (lowest) */}
+      <div
+        aria-hidden="true"
+        className="absolute -inset-2 -z-20 bg-cover bg-center opacity-[0.16] blur-[4px] pointer-events-none"
+        style={{ backgroundImage: "url('/backgrounds/fifa-2026-dark-portrait.jpeg')" }}
+      />
+      {/* Layer 2 — stadium gradient overlay */}
+      <div className="absolute inset-0 -z-10 bg-stadium opacity-[0.85]" />
 
-      <div className="w-full max-w-md animate-scale-in px-1">
+      <div className="relative z-10 w-full max-w-md animate-scale-in px-1">
         {/* Brand + heading */}
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary">
@@ -89,7 +96,7 @@ export default function ForgotPasswordPage() {
               {error && (
                 <div
                   role="alert"
-                  className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
+                  className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm font-medium text-rose-300"
                 >
                   {error}
                 </div>

@@ -67,8 +67,8 @@ export default function JoinPoolPage() {
               placeholder="Ej: ABCD1234"
               required
             />
-            {error ? <p className="text-sm font-medium text-rose-600">{error}</p> : null}
-            {success ? <p className="text-sm font-medium text-emerald-700">{success}</p> : null}
+            {error ? <p className="text-sm font-medium text-rose-400">{error}</p> : null}
+            {success ? <p className="text-sm font-medium text-emerald-400">{success}</p> : null}
             <Button type="submit" disabled={loading}>
               {loading ? 'Uniendo...' : 'Unirme'}
             </Button>

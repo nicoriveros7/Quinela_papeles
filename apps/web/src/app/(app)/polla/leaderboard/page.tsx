@@ -59,10 +59,18 @@ export default function PollaLeaderboardPage() {
       <div className="grid gap-4 animate-fade-in">
 
         {/* ── Header ──────────────────────────────────────────────────────────── */}
-        <header className="rounded-2xl border border-border/70 bg-surface/90 p-4 shadow-card-sm">
+        <header className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-surface p-4 shadow-card-sm shadow-inner-subtle">
+          {/* Subtle premium glow */}
+          <div
+            aria-hidden="true"
+            className="absolute right-0 top-0 -z-10 h-full w-full opacity-40 pointer-events-none"
+            style={{
+              background: 'radial-gradient(circle at top right, hsl(var(--primary) / 0.08), transparent 45%)',
+            }}
+          />
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Ranking</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {mainPool.pool.tournament?.name ?? 'FIFA World Cup 2026'} · {leaderboard.leaderboard.length} participantes
+            {mainPool.pool.tournament?.name ?? 'FIFA World Cup 2026'} · {leaderboard.leaderboard.length} participante{leaderboard.leaderboard.length !== 1 ? 's' : ''}
           </p>
         </header>
 
@@ -139,11 +147,11 @@ function LeaderboardRow({
       aria-label={`Ver detalle de ${displayName}`}
       className={cn(
         'flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left shadow-card-sm transition-all duration-150 active:scale-[0.99]',
-        isTop1 && 'border-amber-300/50 bg-amber-50/60 hover:border-amber-400/60',
-        isTop2 && 'border-slate-300/50 bg-slate-50/50 hover:border-slate-400/50',
-        isTop3 && 'border-orange-300/40 bg-orange-50/40 hover:border-orange-400/40',
-        !isTop1 && !isTop2 && !isTop3 && 'border-border/60 bg-surface/90 hover:border-primary/30 hover:shadow-card',
-        isMe && !isTop1 && !isTop2 && !isTop3 && 'border-primary/30 bg-primary/5',
+        isTop1 && 'border-primary/30 bg-primary/8 hover:border-primary/50',
+        isTop2 && 'border-slate-500/30 bg-slate-500/10 hover:border-slate-400/40',
+        isTop3 && 'border-orange-400/30 bg-orange-500/10 hover:border-orange-400/40',
+        !isTop1 && !isTop2 && !isTop3 && 'border-white/[0.08] bg-surface hover:border-primary/30 hover:shadow-card',
+        isMe && !isTop1 && !isTop2 && !isTop3 && 'border-primary/40 bg-primary/10 shadow-glow-primary',
       )}
     >
       {/* Rank icon / number */}
@@ -154,7 +162,7 @@ function LeaderboardRow({
         <div className="flex items-center gap-1.5">
           <span className={cn(
             'truncate text-sm font-semibold',
-            isTop1 ? 'text-amber-800' : isTop2 ? 'text-slate-700' : isTop3 ? 'text-orange-800' : 'text-foreground',
+            isTop1 ? 'text-primary' : isTop2 ? 'text-slate-300' : isTop3 ? 'text-orange-300' : 'text-foreground',
           )}>
             {displayName}
           </span>
@@ -172,7 +180,7 @@ function LeaderboardRow({
 
       {/* Points badge */}
       <Badge
-        variant={isTop1 ? 'warning' : isTop2 || isTop3 ? 'muted' : 'default'}
+        variant={isTop2 || isTop3 ? 'muted' : 'default'}
         className="shrink-0 tabular-nums"
       >
         {totalPoints} pts
@@ -189,22 +197,22 @@ function LeaderboardRow({
 function RankDisplay({ rank }: { rank: number }) {
   if (rank === 1) {
     return (
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400/20">
-        <Trophy className="h-5 w-5 text-amber-500" aria-label="1er lugar" />
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15">
+        <Trophy className="h-5 w-5 text-primary" aria-label="1er lugar" />
       </span>
     );
   }
   if (rank === 2) {
     return (
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-200/60">
-        <Medal className="h-5 w-5 text-slate-500" aria-label="2do lugar" />
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-500/20">
+        <Medal className="h-5 w-5 text-slate-300" aria-label="2do lugar" />
       </span>
     );
   }
   if (rank === 3) {
     return (
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-200/50">
-        <Medal className="h-5 w-5 text-orange-500" aria-label="3er lugar" />
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/15">
+        <Medal className="h-5 w-5 text-orange-400" aria-label="3er lugar" />
       </span>
     );
   }

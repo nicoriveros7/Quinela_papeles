@@ -16,9 +16,9 @@ import { cn } from '@/lib/utils';
 
 function getStatusVariant(status: string): BadgeVariant {
   const s = status.toUpperCase();
-  if (s === 'ACTIVE' || s === 'LIVE') return 'success';
+  if (s === 'ACTIVE' || s === 'LIVE' || s === 'IN_PROGRESS') return 'success';
   if (s === 'CANCELLED') return 'danger';
-  if (s === 'PENDING' || s === 'DRAFT' || s === 'UPCOMING') return 'warning';
+  if (s === 'PENDING' || s === 'DRAFT' || s === 'UPCOMING' || s === 'PUBLISHED') return 'warning';
   return 'muted';
 }
 
@@ -26,9 +26,12 @@ function getStatusLabel(status: string): string {
   switch (status.toUpperCase()) {
     case 'ACTIVE': return 'Activo';
     case 'LIVE': return 'En vivo';
+    case 'PUBLISHED': return 'Publicado';
+    case 'IN_PROGRESS': return 'En curso';
     case 'FINISHED': return 'Finalizado';
     case 'COMPLETED': return 'Completado';
     case 'CANCELLED': return 'Cancelado';
+    case 'ARCHIVED': return 'Archivado';
     case 'PENDING': return 'Pendiente';
     case 'DRAFT': return 'Borrador';
     case 'UPCOMING': return 'Próximo';
@@ -64,7 +67,7 @@ export default function AdminTournamentsPage() {
   return (
     <div className="grid gap-4">
       {/* ── Page header ───────────────────────────────────────────── */}
-      <header className="rounded-2xl border border-border/70 bg-surface p-5">
+      <header className="rounded-2xl border border-white/[0.08] bg-surface p-5">
         <h1 className="text-xl font-extrabold text-foreground">Torneos</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {tournaments.length > 0
@@ -82,7 +85,7 @@ export default function AdminTournamentsPage() {
             {tournaments.map((tournament) => (
               <div
                 key={tournament.id}
-                className="rounded-2xl border border-border/70 bg-surface p-4"
+                className="rounded-2xl border border-white/[0.08] bg-surface p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -132,7 +135,7 @@ export default function AdminTournamentsPage() {
             <CardContent className="overflow-x-auto p-0">
               <table className="w-full min-w-[680px] text-sm">
                 <thead>
-                  <tr className="border-b border-border/70 bg-muted/30 text-left">
+                  <tr className="border-b border-white/[0.08] bg-background/40 text-left">
                     <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                       Nombre
                     </th>
@@ -155,7 +158,7 @@ export default function AdminTournamentsPage() {
                   {tournaments.map((tournament) => (
                     <tr
                       key={tournament.id}
-                      className="group border-b border-border/40 transition-colors last:border-0 hover:bg-muted/40"
+                      className="group border-b border-white/[0.06] transition-colors last:border-0 hover:bg-white/[0.02]"
                     >
                       <td className="px-5 py-3.5">
                         <p className="font-semibold text-foreground">{tournament.name}</p>

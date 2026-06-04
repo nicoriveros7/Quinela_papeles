@@ -342,9 +342,12 @@ model Pool {
   pointsExactScore         Int            @default(3)
   pointsMatchOutcome       Int            @default(1)
   pointsBonusCorrect       Int            @default(2)
-  pointsChampionCorrect    Int            @default(10)
-  pointsRunnerUpCorrect    Int            @default(5)
-  pointsTopScorerCorrect   Int            @default(3)
+  pointsChampionCorrect    Int            @default(15)
+  pointsRunnerUpCorrect    Int            @default(15)
+  pointsThirdPlaceCorrect  Int            @default(15)
+  pointsTopScorerCorrect   Int            @default(10)
+  pointsGoldenBallCorrect  Int            @default(10)
+  pointsGoldenGloveCorrect Int            @default(10)
   pointsConfig             Json?
   createdAt                DateTime       @default(now())
   updatedAt                DateTime       @updatedAt
