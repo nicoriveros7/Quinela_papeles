@@ -175,7 +175,7 @@ export default function EntryPredictionsPage() {
     };
 
     void load();
-  }, [poolId, token]);
+  }, [poolId, token, entryId]);
 
   const visibleMatches = useMemo(() => {
     if (isOwner) return matches;
