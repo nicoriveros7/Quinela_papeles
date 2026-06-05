@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Lock } from 'lucide-react';
+import { ArrowRight, CalendarDays, Lock } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
+import { formatMatchKickoff, matchProximityLabel } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
 import { PoolMatch, WorldCupMainPool } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
@@ -194,23 +195,38 @@ function MatchRow({
   const isFinished = match.status === 'FINISHED';
   const isScheduled = match.status === 'SCHEDULED';
 
-  const kickoff = new Date(match.kickoffAt);
-  const timeStr = kickoff.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
-  const dateStr = kickoff.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
-
   const stageBadge = stageLabel(match.stage, match.group?.code);
   const statusBadgeVariant = isLive ? 'live' : isFinished ? 'muted' : 'default';
-  const statusLabel = isLive ? 'LIVE' : isFinished ? 'Final' : 'Próximo';
+  const statusBadgeLabel = isLive ? 'LIVE' : isFinished ? 'Final' : 'Próximo';
+  const proximity = isScheduled ? matchProximityLabel(match.kickoffAt) : null;
 
   return (
     <div className="rounded-xl border border-white/[0.08] bg-surface px-4 py-3.5 shadow-card-sm shadow-inner-subtle transition-all duration-150 hover:border-primary/25 hover:shadow-card">
 
-      {/* ── Top row: stage + status badge ── */}
-      <div className="mb-2.5 flex items-center justify-between gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
-          {stageBadge}
-        </span>
-        <Badge variant={statusBadgeVariant}>{statusLabel}</Badge>
+      {/* ── Top row: date (prominent) + stage/status ── */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        {/* Date — primary info */}
+        <div className="flex items-center gap-1.5 min-w-0">
+          <CalendarDays className="h-3.5 w-3.5 shrink-0 text-primary/70" aria-hidden="true" />
+          <time
+            dateTime={match.kickoffAt}
+            className="text-sm font-semibold text-foreground"
+          >
+            {formatMatchKickoff(match.kickoffAt)}
+          </time>
+          {proximity && (
+            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">
+              {proximity}
+            </span>
+          )}
+        </div>
+        {/* Stage + status — secondary */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+            {stageBadge}
+          </span>
+          <Badge variant={statusBadgeVariant}>{statusBadgeLabel}</Badge>
+        </div>
       </div>
 
       {/* ── Match: home | center | away ── */}
@@ -230,7 +246,7 @@ function MatchRow({
           </span>
         </div>
 
-        {/* Center: score or vs + time */}
+        {/* Center: score or vs */}
         <div className="flex flex-col items-center gap-0.5 px-3">
           {isFinished || isLive ? (
             <span className={cn(
@@ -240,14 +256,10 @@ function MatchRow({
               {match.homeScore ?? 0} – {match.awayScore ?? 0}
             </span>
           ) : (
-            <>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                vs
-              </span>
-              <span className="text-xs font-semibold tabular-nums text-foreground">{timeStr}</span>
-            </>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+              vs
+            </span>
           )}
-          <span className="text-[10px] text-muted-foreground">{dateStr}</span>
         </div>
 
         {/* Away */}

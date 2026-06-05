@@ -2,11 +2,11 @@
 
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Clock, Lock, Save, Search } from 'lucide-react';
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Lock, Save, Search } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
-import { formatDateTime, matchStatusLabel, questionTypeLabel } from '@/lib/format';
+import { formatMatchKickoff, matchStatusLabel, questionTypeLabel } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
 import { MatchPredictionsBundle, MatchQuestionOption, PoolDetail, PoolMatch, PoolMatchesResponse, PoolMatchQuestion } from '@/types/api';
 import { PoolContextTabs } from '@/components/layout/pool-context-tabs';
@@ -608,11 +608,23 @@ export default function EntryPredictionsPage() {
                   aria-selected={isSelected}
                   onClick={() => setSelectedMatchId(match.id)}
                   className={cn(
-                    'flex min-w-[148px] flex-col gap-1.5 rounded-xl border p-3 text-left',
+                    'flex min-w-[160px] flex-col gap-1.5 rounded-xl border p-3 text-left',
                     'transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     matchCardStateClass(match, summary, isSelected),
                   )}
                 >
+                  {/* Date — topmost, most visible */}
+                  <time
+                    dateTime={match.kickoffAt}
+                    className={cn(
+                      'flex items-center gap-1 text-[11px] font-semibold leading-none',
+                      isSelected ? 'text-primary' : 'text-foreground',
+                    )}
+                  >
+                    <CalendarDays className="h-3 w-3 shrink-0 opacity-70" aria-hidden="true" />
+                    {formatMatchKickoff(match.kickoffAt)}
+                  </time>
+
                   {/* Team codes + score */}
                   <div className="flex items-center justify-between gap-1">
                     <TeamLabel
@@ -638,10 +650,7 @@ export default function EntryPredictionsPage() {
                     />
                   </div>
 
-                  {/* Date */}
-                  <span className="text-[10px] text-muted-foreground">{formatDateTime(match.kickoffAt)}</span>
-
-                  {/* Status badge */}
+                  {/* Status badge + completion dot */}
                   <div className="flex items-center gap-1.5">
                     <Badge variant={isLive ? 'live' : 'muted'} className="px-1.5 py-0 text-[9px]">
                       {isLive ? 'LIVE' : stageTag}
@@ -688,10 +697,13 @@ export default function EntryPredictionsPage() {
                 <p className="truncate text-sm font-extrabold text-foreground">
                   {getMatchNameLabel(selectedMatch, 'home')} vs {getMatchNameLabel(selectedMatch, 'away')}
                 </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {formatDateTime(selectedMatch.kickoffAt)}
+                <p className="mt-1 flex items-center justify-center gap-1.5">
+                  <CalendarDays className="h-4 w-4 shrink-0 text-primary/70" aria-hidden="true" />
+                  <time dateTime={selectedMatch.kickoffAt} className="text-sm font-bold text-foreground">
+                    {formatMatchKickoff(selectedMatch.kickoffAt)}
+                  </time>
                   {filteredMatches.length > 1 && (
-                    <span className="ml-1.5 tabular-nums opacity-50">
+                    <span className="tabular-nums text-xs text-muted-foreground/50">
                       · {currentMatchIndex + 1}/{filteredMatches.length}
                     </span>
                   )}
@@ -1156,9 +1168,8 @@ function LockedMatchBanner({
   const isTimeLocked  = status === 'SCHEDULED'; // locked by window, not yet started
   const isLive        = status === 'LIVE';
 
-  const closedAt  = lockAt ?? new Date(kickoffAt);
-  const closedStr = closedAt.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
-  const closedDateStr = closedAt.toLocaleDateString('es-CO', { day: 'numeric', month: 'long' });
+  const closedAt = lockAt ?? new Date(kickoffAt);
+  const closedStr = formatMatchKickoff(closedAt.toISOString());
 
   let body: string;
   if (isTimeLocked) {
@@ -1184,9 +1195,7 @@ function LockedMatchBanner({
       <p className="mt-1.5 text-sm text-muted-foreground">{body}</p>
       <p className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <Clock className="h-3.5 w-3.5 text-rose-400" aria-hidden="true" />
-        {isTimeLocked
-          ? `Cerró el ${closedDateStr} a las ${closedStr}`
-          : `El partido inició el ${closedDateStr} a las ${closedStr}`}
+        {isTimeLocked ? `Cerró: ${closedStr}` : `Inició: ${closedStr}`}
       </p>
     </div>
   );

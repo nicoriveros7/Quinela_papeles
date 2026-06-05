@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Calendar, CheckCircle2, Check, HelpCircle, Replace, Search, Trophy, Users, X } from 'lucide-react';
+import { ArrowLeft, Calendar, CalendarDays, CheckCircle2, Check, HelpCircle, Replace, Search, Trophy, Users, X } from 'lucide-react';
 
 import { api, ApiError } from '@/lib/api';
-import { formatDateTime } from '@/lib/format';
+import { formatMatchKickoff } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/providers/auth-provider';
 import { AdminMatch, AdminTournamentPlayer } from '@/types/api';
@@ -658,8 +658,9 @@ export default function TournamentMatchesPage() {
                     </Badge>
                   )}
                 </div>
-                <time className="text-xs text-muted-foreground" dateTime={match.kickoffAt}>
-                  {formatDateTime(match.kickoffAt)}
+                <time className="flex items-center gap-1.5 text-sm font-semibold text-foreground" dateTime={match.kickoffAt}>
+                  <CalendarDays className="h-4 w-4 shrink-0 text-primary/60" aria-hidden="true" />
+                  {formatMatchKickoff(match.kickoffAt)}
                 </time>
               </div>
 

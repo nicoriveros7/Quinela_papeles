@@ -14,6 +14,7 @@ import {
 
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
+import { formatMatchKickoff, matchProximityLabel } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
 import { PoolMatch, WorldCupMainPool } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
@@ -231,7 +232,7 @@ function StatCard({
   );
 }
 
-/** Upcoming match row — sport-style: home code | vs + time | away code */
+/** Upcoming match row — date first, then teams */
 function UpcomingMatchRow({ match }: { match: PoolMatch }) {
   const home = match.homeTournamentTeam?.team;
   const away = match.awayTournamentTeam?.team;
@@ -239,69 +240,72 @@ function UpcomingMatchRow({ match }: { match: PoolMatch }) {
   const awayCode = away?.code ?? match.awaySlotLabel ?? 'TBD';
   const homeName = home?.name ?? match.homeSlotLabel ?? 'Por definir';
   const awayName = away?.name ?? match.awaySlotLabel ?? 'Por definir';
-  const kickoff = new Date(match.kickoffAt);
-  const timeStr = kickoff.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
-  const dateStr = kickoff.toLocaleDateString('es', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
   const stageStr =
     match.stage === 'GROUP' && match.group
       ? `Grupo ${match.group.code}`
       : match.stage;
+  const proximity = matchProximityLabel(match.kickoffAt);
 
   return (
     <Link
       href="/polla/predicciones"
-      className="group flex items-center gap-2 rounded-xl border border-white/[0.08] bg-surface px-4 py-3.5 shadow-card-sm shadow-inner-subtle transition-all duration-150 hover:border-primary/30 hover:shadow-card"
+      className="group flex flex-col gap-2 rounded-xl border border-white/[0.08] bg-surface px-4 py-3 shadow-card-sm shadow-inner-subtle transition-all duration-150 hover:border-primary/30 hover:shadow-card"
     >
-      {/* Home */}
-      <div className="flex min-w-0 flex-1 flex-col items-end">
-        <TeamLabel
-          name={homeName}
-          code={homeCode}
-          flagEmoji={home?.flagEmoji}
-          format="compact"
-          className="text-sm font-extrabold leading-none text-foreground"
-        />
-        <span className="mt-0.5 max-w-[80px] truncate text-[11px] text-muted-foreground">
-          {home?.name ?? ''}
-        </span>
-      </div>
-
-      {/* Center: vs + time + date */}
-      <div className="flex flex-col items-center gap-0.5 px-2">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-          vs
-        </span>
-        <span className="text-xs font-semibold tabular-nums text-foreground">{timeStr}</span>
-        <span className="text-[10px] text-muted-foreground">{dateStr}</span>
-      </div>
-
-      {/* Away */}
-      <div className="flex min-w-0 flex-1 flex-col items-start">
-        <TeamLabel
-          name={awayName}
-          code={awayCode}
-          flagEmoji={away?.flagEmoji}
-          format="compact"
-          className="text-sm font-extrabold leading-none text-foreground"
-        />
-        <span className="mt-0.5 max-w-[80px] truncate text-[11px] text-muted-foreground">
-          {away?.name ?? ''}
-        </span>
-      </div>
-
-      {/* Stage + arrow */}
-      <div className="flex shrink-0 flex-col items-end gap-1 pl-1">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {stageStr}
-        </span>
+      {/* Date row — primary, topmost */}
+      <div className="flex items-center gap-1.5">
+        <CalendarDays className="h-3.5 w-3.5 shrink-0 text-primary/70" aria-hidden="true" />
+        <time dateTime={match.kickoffAt} className="text-sm font-semibold text-foreground">
+          {formatMatchKickoff(match.kickoffAt)}
+        </time>
+        {proximity && (
+          <span className="ml-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">
+            {proximity}
+          </span>
+        )}
         <ArrowRight
-          className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5"
+          className="ml-auto h-3.5 w-3.5 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5"
           aria-hidden="true"
         />
+      </div>
+
+      {/* Teams row */}
+      <div className="flex items-center gap-2">
+        {/* Home */}
+        <div className="flex min-w-0 flex-1 flex-col items-end">
+          <TeamLabel
+            name={homeName}
+            code={homeCode}
+            flagEmoji={home?.flagEmoji}
+            format="compact"
+            className="text-sm font-extrabold leading-none text-foreground"
+          />
+          <span className="mt-0.5 max-w-[80px] truncate text-[11px] text-muted-foreground">
+            {home?.name ?? ''}
+          </span>
+        </div>
+
+        <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 px-1">
+          vs
+        </span>
+
+        {/* Away */}
+        <div className="flex min-w-0 flex-1 flex-col items-start">
+          <TeamLabel
+            name={awayName}
+            code={awayCode}
+            flagEmoji={away?.flagEmoji}
+            format="compact"
+            className="text-sm font-extrabold leading-none text-foreground"
+          />
+          <span className="mt-0.5 max-w-[80px] truncate text-[11px] text-muted-foreground">
+            {away?.name ?? ''}
+          </span>
+        </div>
+
+        {/* Stage */}
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground pl-1">
+          {stageStr}
+        </span>
       </div>
     </Link>
   );
