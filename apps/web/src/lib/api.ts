@@ -273,6 +273,17 @@ export const api = {
       body: JSON.stringify({ kickoffAt }),
     }, token),
 
+  adminUpdateMatchTeams: (
+    matchId: string,
+    payload: { homeTournamentTeamId: string | null; awayTournamentTeamId: string | null },
+    token: string,
+  ) =>
+    request<Pick<AdminMatch, 'id' | 'homeTournamentTeam' | 'awayTournamentTeam'>>(
+      `/admin/matches/${matchId}/teams`,
+      { method: 'PATCH', body: JSON.stringify(payload) },
+      token,
+    ),
+
   adminListMatchQuestions: (matchId: string, token: string) =>
     request<AdminMatchQuestionsResponse>(`/admin/matches/${matchId}/questions`, { method: 'GET' }, token),
 

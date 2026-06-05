@@ -626,6 +626,57 @@ export class AdminService {
     });
   }
 
+  async updateMatchTeams(
+    matchId: string,
+    payload: { homeTournamentTeamId?: string | null; awayTournamentTeamId?: string | null },
+  ) {
+    const match = await this.prisma.match.findUnique({
+      where: { id: matchId },
+      select: { id: true, tournamentId: true },
+    });
+    if (!match) throw new NotFoundException('Match not found');
+
+    // Validate that both non-null team IDs belong to this tournament
+    const idsToCheck = [payload.homeTournamentTeamId, payload.awayTournamentTeamId].filter(
+      (x): x is string => typeof x === 'string',
+    );
+    if (idsToCheck.length > 0) {
+      const found = await this.prisma.tournamentTeam.findMany({
+        where: { id: { in: idsToCheck }, tournamentId: match.tournamentId },
+        select: { id: true },
+      });
+      if (found.length !== idsToCheck.length) {
+        throw new BadRequestException('One or more teams do not belong to this tournament');
+      }
+    }
+
+    // Validate home ≠ away
+    const homeId = payload.homeTournamentTeamId ?? null;
+    const awayId = payload.awayTournamentTeamId ?? null;
+    if (homeId !== null && homeId === awayId) {
+      throw new BadRequestException('Home and away teams cannot be the same');
+    }
+
+    return this.prisma.match.update({
+      where: { id: matchId },
+      data: {
+        homeTournamentTeamId: homeId,
+        awayTournamentTeamId: awayId,
+      },
+      select: {
+        id: true,
+        homeTournamentTeamId: true,
+        awayTournamentTeamId: true,
+        homeTournamentTeam: {
+          select: { id: true, team: { select: { id: true, name: true, code: true, flagEmoji: true } } },
+        },
+        awayTournamentTeam: {
+          select: { id: true, team: { select: { id: true, name: true, code: true, flagEmoji: true } } },
+        },
+      },
+    });
+  }
+
   private normalizeQuestionKey(raw: string) {
     return raw
       .trim()

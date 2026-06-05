@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Calendar, CheckCircle2, Check, HelpCircle, Search, Trophy, Users, X } from 'lucide-react';
+import { ArrowLeft, Calendar, CheckCircle2, Check, HelpCircle, Replace, Search, Trophy, Users, X } from 'lucide-react';
 
 import { api, ApiError } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
@@ -93,6 +93,11 @@ export default function TournamentMatchesPage() {
   // ── Schedule editing state ──
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [savingScheduleId, setSavingScheduleId] = useState<string | null>(null);
+
+  // ── Team assignment state ──
+  const [teamEditingId, setTeamEditingId] = useState<string | null>(null);
+  const [teamDrafts, setTeamDrafts] = useState<Record<string, { homeId: string | null; awayId: string | null }>>({});
+  const [savingTeamsId, setSavingTeamsId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!lastSavedId) return;
@@ -239,6 +244,44 @@ export default function TournamentMatchesPage() {
       setError(err instanceof ApiError ? err.message : 'No se pudo actualizar el horario.');
     } finally {
       setSavingScheduleId(null);
+    }
+  };
+
+  const updateTeamDraft = (
+    matchId: string,
+    side: 'homeId' | 'awayId',
+    value: string | null,
+  ) => {
+    setTeamDrafts((prev) => ({
+      ...prev,
+      [matchId]: { ...(prev[matchId] ?? { homeId: null, awayId: null }), [side]: value },
+    }));
+  };
+
+  const saveMatchTeams = async (matchId: string) => {
+    if (!token) return;
+    const draft = teamDrafts[matchId] ?? { homeId: null, awayId: null };
+    setSavingTeamsId(matchId);
+    setError(null);
+    try {
+      const updated = await api.adminUpdateMatchTeams(
+        matchId,
+        { homeTournamentTeamId: draft.homeId, awayTournamentTeamId: draft.awayId },
+        token,
+      );
+      setMatches((prev) =>
+        prev.map((m) =>
+          m.id === matchId
+            ? { ...m, homeTournamentTeam: updated.homeTournamentTeam, awayTournamentTeam: updated.awayTournamentTeam }
+            : m,
+        ),
+      );
+      setTeamEditingId(null);
+      setLastSavedId(matchId);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudo asignar los equipos.');
+    } finally {
+      setSavingTeamsId(null);
     }
   };
 
@@ -665,6 +708,52 @@ export default function TournamentMatchesPage() {
                 </div>
               )}
 
+              {/* Row 3c: knockout team assignment panel */}
+              {match.stage !== 'GROUP' && teamEditingId === match.id && (
+                <div className="grid gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-1">
+                    <p className="text-xs font-bold text-primary">Asignar clasificados</p>
+                    {(match.homeSlotLabel || match.awaySlotLabel) && (
+                      <span className="text-[11px] font-mono text-muted-foreground">
+                        Slot: {match.homeSlotLabel ?? '?'} vs {match.awaySlotLabel ?? '?'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <SingleTeamPicker
+                      label="Local"
+                      value={teamDrafts[match.id]?.homeId ?? null}
+                      teams={allTournamentTeams}
+                      onChange={(ttId) => updateTeamDraft(match.id, 'homeId', ttId)}
+                      disabledIds={[teamDrafts[match.id]?.awayId].filter((x): x is string => x !== null)}
+                    />
+                    <SingleTeamPicker
+                      label="Visitante"
+                      value={teamDrafts[match.id]?.awayId ?? null}
+                      teams={allTournamentTeams}
+                      onChange={(ttId) => updateTeamDraft(match.id, 'awayId', ttId)}
+                      disabledIds={[teamDrafts[match.id]?.homeId].filter((x): x is string => x !== null)}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      disabled={savingTeamsId === match.id}
+                      onClick={() => void saveMatchTeams(match.id)}
+                    >
+                      {savingTeamsId === match.id ? 'Guardando...' : 'Guardar equipos'}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => setTeamEditingId(null)}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Row 4: score inputs with team labels */}
               <div className="grid gap-2 sm:grid-cols-[1fr_20px_1fr] sm:items-end">
                 <div className="grid gap-1">
@@ -721,6 +810,33 @@ export default function TournamentMatchesPage() {
                     <Calendar className="h-3.5 w-3.5" />
                     Editar horario
                   </Button>
+                  {match.stage !== 'GROUP' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        'gap-1.5',
+                        teamEditingId === match.id && 'border-primary/50 bg-primary/10 text-primary',
+                      )}
+                      onClick={() => {
+                        if (teamEditingId === match.id) {
+                          setTeamEditingId(null);
+                        } else {
+                          setTeamDrafts((prev) => ({
+                            ...prev,
+                            [match.id]: {
+                              homeId: match.homeTournamentTeam?.id ?? null,
+                              awayId: match.awayTournamentTeam?.id ?? null,
+                            },
+                          }));
+                          setTeamEditingId(match.id);
+                        }
+                      }}
+                    >
+                      <Replace className="h-3.5 w-3.5" />
+                      Asignar equipos
+                    </Button>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
