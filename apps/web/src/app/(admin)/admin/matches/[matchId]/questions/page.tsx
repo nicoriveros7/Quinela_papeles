@@ -326,8 +326,12 @@ export default function MatchQuestionsPage() {
     return <StatePanel variant="loading" description="Cargando bonus questions..." />;
   }
 
-  const matchTitle = matchContext
-    ? `${matchContext.homeTournamentTeam.team.name} vs ${matchContext.awayTournamentTeam.team.name}`
+  const homeTeamName = matchContext?.homeTournamentTeam?.team.name;
+  const awayTeamName = matchContext?.awayTournamentTeam?.team.name;
+  const matchTitle = homeTeamName && awayTeamName
+    ? `${homeTeamName} vs ${awayTeamName}`
+    : matchContext
+    ? 'Partido (equipos por definir)'
     : 'Partido';
 
   const backHref = playerPool?.tournamentId
@@ -561,8 +565,10 @@ export default function MatchQuestionsPage() {
                               })
                             ) : (
                               <p className="py-3 text-center text-xs text-muted-foreground">
-                                {playerScope === 'TEAM'
+                                {playerScope === 'TEAM' && !selectedPlayerTeamCode
                                   ? 'Selecciona un equipo para ver jugadores.'
+                                  : playerScope === 'TEAM' && selectedPlayerTeamCode
+                                  ? 'Este equipo no tiene jugadores registrados en el torneo.'
                                   : 'No hay jugadores disponibles para este partido.'}
                               </p>
                             )}

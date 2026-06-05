@@ -329,8 +329,8 @@ export type AdminMatchQuestionsResponse = {
     id: string;
     kickoffAt: string;
     status: string;
-    homeTournamentTeam: { team: { name: string; code: string; flagEmoji: string | null } };
-    awayTournamentTeam: { team: { name: string; code: string; flagEmoji: string | null } };
+    homeTournamentTeam: { team: { name: string; code: string; flagEmoji: string | null } } | null;
+    awayTournamentTeam: { team: { name: string; code: string; flagEmoji: string | null } } | null;
   };
   questions: AdminMatchQuestion[];
 };
