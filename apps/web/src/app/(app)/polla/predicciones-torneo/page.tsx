@@ -387,7 +387,7 @@ function BestThirdsPickerSection({
           <div className="flex items-center justify-between gap-2 pr-2">
             <p className="truncate text-sm font-bold text-foreground">Mejores terceros clasificados</p>
             <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-primary">
-              8=20 / 4-7=10 pts
+              8=20 pts / 4-7=10 pts
             </span>
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
