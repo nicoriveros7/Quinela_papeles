@@ -26,6 +26,11 @@ class UpdateMatchResultDto {
   awayScore?: number;
 }
 
+class UpdateMatchScheduleDto {
+  @IsDateString()
+  kickoffAt!: string;
+}
+
 class UpdateTournamentPredictionLockDto {
   @IsOptional()
   @IsBoolean()
@@ -104,6 +109,14 @@ export class AdminController {
     @Body() dto: UpdateMatchResultDto,
   ) {
     return this.adminService.updateMatchResult(matchId, dto);
+  }
+
+  @Patch('matches/:matchId/schedule')
+  async updateMatchSchedule(
+    @Param('matchId') matchId: string,
+    @Body() dto: UpdateMatchScheduleDto,
+  ) {
+    return this.adminService.updateMatchSchedule(matchId, new Date(dto.kickoffAt));
   }
 
   @Get('matches/:matchId/questions')

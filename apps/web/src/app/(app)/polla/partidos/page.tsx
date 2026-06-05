@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Lock } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
@@ -25,6 +25,11 @@ const FILTER_LABELS: Record<MatchFilter, string> = {
   knockout: 'Eliminatorias',
   finished: 'Finalizados',
 };
+
+function isMatchLocked(kickoffAt: string, lockMinutes: number): boolean {
+  const lockAt = new Date(new Date(kickoffAt).getTime() - lockMinutes * 60_000);
+  return Date.now() >= lockAt.getTime();
+}
 
 function stageLabel(stage: string, groupCode?: string | null) {
   if (stage === 'GROUP') return groupCode ? `Grupo ${groupCode}` : 'Grupos';
@@ -156,6 +161,7 @@ export default function PartidosPage() {
               match={match}
               poolId={poolId}
               entryId={entryId}
+              lockMinutes={mainPool.pool.lockMinutesBeforeKickoff}
             />
           ))}
         </div>
@@ -170,10 +176,12 @@ function MatchRow({
   match,
   poolId,
   entryId,
+  lockMinutes,
 }: {
   match: PoolMatch;
   poolId: string;
   entryId: string;
+  lockMinutes: number;
 }) {
   const home = match.homeTournamentTeam?.team;
   const away = match.awayTournamentTeam?.team;
@@ -259,14 +267,23 @@ function MatchRow({
 
       {/* ── Bottom: Predecir CTA (scheduled only) ── */}
       {isScheduled ? (
-        <div className="mt-3 flex justify-end">
-          <Link href={`/pools/${poolId}/entries/${entryId}`}>
-            <Button size="sm" className="gap-1.5">
-              Predecir
-              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-            </Button>
-          </Link>
-        </div>
+        isMatchLocked(match.kickoffAt, lockMinutes) ? (
+          <div className="mt-3 flex justify-end">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+              <Lock className="h-3 w-3" aria-hidden="true" />
+              Predicciones cerradas
+            </span>
+          </div>
+        ) : (
+          <div className="mt-3 flex justify-end">
+            <Link href={`/pools/${poolId}/entries/${entryId}`}>
+              <Button size="sm" className="gap-1.5">
+                Predecir
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </Button>
+            </Link>
+          </div>
+        )
       ) : null}
     </div>
   );

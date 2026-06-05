@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { formatDateTime, matchStatusLabel, questionTypeLabel } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
-import { MatchPredictionsBundle, MatchQuestionOption, PoolDetail, PoolMatch, PoolMatchesResponse } from '@/types/api';
+import { MatchPredictionsBundle, MatchQuestionOption, PoolDetail, PoolMatch, PoolMatchesResponse, PoolMatchQuestion } from '@/types/api';
 import { PoolContextTabs } from '@/components/layout/pool-context-tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -107,6 +107,20 @@ function matchCardStateClass(
   return 'border-border/60 bg-background/70 hover:border-primary/20';
 }
 
+// ── Lock helpers ─────────────────────────────────────────────────────────────
+
+function computeLockAt(kickoffAt: string, lockMinutes: number): Date {
+  return new Date(new Date(kickoffAt).getTime() - lockMinutes * 60_000);
+}
+
+function isMatchLocked(kickoffAt: string, lockMinutes: number): boolean {
+  return Date.now() >= computeLockAt(kickoffAt, lockMinutes).getTime();
+}
+
+function isQuestionLocked(question: Pick<PoolMatchQuestion, 'lockAt'>): boolean {
+  return question.lockAt !== null && Date.now() >= new Date(question.lockAt).getTime();
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function EntryPredictionsPage() {
@@ -143,6 +157,14 @@ export default function EntryPredictionsPage() {
     () => matches.find((match) => match.id === selectedMatchId) ?? null,
     [matches, selectedMatchId],
   );
+
+  // True when the selected match can no longer accept predictions:
+  // either the status is not SCHEDULED, or the lockMinutesBeforeKickoff window has passed.
+  const isSelectedMatchLocked =
+    selectedMatch !== null &&
+    pool !== null &&
+    (selectedMatch.status !== 'SCHEDULED' ||
+      isMatchLocked(selectedMatch.kickoffAt, pool.lockMinutesBeforeKickoff));
 
   const questionPredictionById = useMemo(() => {
     const rows = bundle?.questionPredictions ?? [];
@@ -367,6 +389,13 @@ export default function EntryPredictionsPage() {
 
   const saveAllPredictions = async () => {
     if (!token || !selectedMatchId) return;
+
+    // Re-check lock at save time (user may have had the page open across the deadline)
+    if (isSelectedMatchLocked) {
+      setError('Las predicciones de este partido ya están cerradas.');
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -380,7 +409,7 @@ export default function EntryPredictionsPage() {
 
     const shouldSaveMatch = homeScore !== '' && awayScore !== '';
     const questionPayloads = (bundle?.questions ?? [])
-      .filter((question) => !question.isResolved)
+      .filter((question) => !question.isResolved && !isQuestionLocked(question))
       .map((question) => ({
         questionId: question.id,
         payload: buildQuestionPayload(question, questionDrafts[question.id]),
@@ -418,7 +447,12 @@ export default function EntryPredictionsPage() {
         flashSuccess(`${questionsToSave.length} bonus guardados.`);
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudieron guardar las predicciones.');
+      const msg = err instanceof ApiError ? err.message : '';
+      if (msg.toLowerCase().includes('locked')) {
+        setError('Las predicciones de este partido ya están cerradas.');
+      } else {
+        setError(msg || 'No se pudieron guardar las predicciones.');
+      }
     } finally {
       setSaving(false);
     }
@@ -710,8 +744,12 @@ export default function EntryPredictionsPage() {
           </div>
 
           {/* ── Locked banner ── */}
-          {isOwner && selectedMatch.status !== 'SCHEDULED' ? (
-            <LockedMatchBanner kickoffAt={selectedMatch.kickoffAt} status={selectedMatch.status} />
+          {isOwner && isSelectedMatchLocked ? (
+            <LockedMatchBanner
+              kickoffAt={selectedMatch.kickoffAt}
+              status={selectedMatch.status}
+              lockAt={pool ? computeLockAt(selectedMatch.kickoffAt, pool.lockMinutesBeforeKickoff) : null}
+            />
           ) : null}
 
           {/* ── Score prediction ── */}
@@ -736,7 +774,7 @@ export default function EntryPredictionsPage() {
                 <ScoreInput
                   value={homeScore}
                   onChange={setHomeScore}
-                  disabled={!isOwner || selectedMatch.status !== 'SCHEDULED'}
+                  disabled={!isOwner || isSelectedMatchLocked}
                   ariaLabel={`Goles ${getMatchNameLabel(selectedMatch, 'home')}`}
                 />
               </div>
@@ -756,7 +794,7 @@ export default function EntryPredictionsPage() {
                 <ScoreInput
                   value={awayScore}
                   onChange={setAwayScore}
-                  disabled={!isOwner || selectedMatch.status !== 'SCHEDULED'}
+                  disabled={!isOwner || isSelectedMatchLocked}
                   ariaLabel={`Goles ${getMatchNameLabel(selectedMatch, 'away')}`}
                 />
               </div>
@@ -836,7 +874,7 @@ export default function EntryPredictionsPage() {
                 <QuestionInput
                   question={question}
                   value={questionDrafts[question.id]}
-                  readOnly={!isOwner || selectedMatch.status !== 'SCHEDULED'}
+                  readOnly={!isOwner || isSelectedMatchLocked || isQuestionLocked(question)}
                   onChange={(next) =>
                     setQuestionDrafts((prev) => ({ ...prev, [question.id]: next }))
                   }
@@ -851,7 +889,7 @@ export default function EntryPredictionsPage() {
           {/* ── Inline save — desktop only (mobile uses the sticky bar below) ── */}
           {isOwner ? (
             <div className="hidden lg:grid gap-2 pb-2">
-              {selectedMatch.status === 'SCHEDULED' ? (
+              {!isSelectedMatchLocked ? (
                 <>
                   <Button className="w-full gap-2" onClick={saveAllPredictions} disabled={saving}>
                     <Save className="h-4 w-4" aria-hidden="true" />
@@ -891,7 +929,7 @@ export default function EntryPredictionsPage() {
           className="lg:hidden fixed bottom-16 left-0 right-0 z-30 border-t border-border/70 bg-surface/95 px-4 pt-3 backdrop-blur-sm"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
-          {selectedMatch.status === 'SCHEDULED' ? (
+          {!isSelectedMatchLocked ? (
             <>
               <Button
                 className="w-full gap-2"
@@ -1106,16 +1144,35 @@ function QuestionInput({
 
 // ── LockedMatchBanner ─────────────────────────────────────────────────────────
 
-function LockedMatchBanner({ kickoffAt, status }: { kickoffAt: string; status: string }) {
-  const kickoff = new Date(kickoffAt);
-  const dateStr = kickoff.toLocaleDateString('es', { day: 'numeric', month: 'long' });
-  const timeStr = kickoff.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
-  const isLive = status === 'LIVE';
+function LockedMatchBanner({
+  kickoffAt,
+  status,
+  lockAt,
+}: {
+  kickoffAt: string;
+  status: string;
+  lockAt: Date | null;
+}) {
+  const isTimeLocked  = status === 'SCHEDULED'; // locked by window, not yet started
+  const isLive        = status === 'LIVE';
+
+  const closedAt  = lockAt ?? new Date(kickoffAt);
+  const closedStr = closedAt.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  const closedDateStr = closedAt.toLocaleDateString('es-CO', { day: 'numeric', month: 'long' });
+
+  let body: string;
+  if (isTimeLocked) {
+    body = 'El tiempo de predicción para este partido ya cerró.';
+  } else if (isLive) {
+    body = 'Este partido está en juego y las predicciones ya no pueden editarse.';
+  } else {
+    body = 'Este partido ya finalizó y las predicciones ya no pueden editarse.';
+  }
 
   return (
     <div
       role="status"
-      aria-label="Predicciones bloqueadas"
+      aria-label="Predicciones cerradas"
       className="rounded-xl border border-rose-400/30 bg-rose-500/10 p-5 text-center"
     >
       <div className="mb-3 flex justify-center">
@@ -1123,17 +1180,13 @@ function LockedMatchBanner({ kickoffAt, status }: { kickoffAt: string; status: s
           <Lock className="h-6 w-6 text-rose-500" aria-hidden="true" />
         </div>
       </div>
-      <h3 className="text-lg font-semibold text-rose-400">
-        ¡Predicciones bloqueadas!
-      </h3>
-      <p className="mt-1.5 text-sm text-muted-foreground">
-        {isLive
-          ? 'Este partido está en juego y las predicciones ya no pueden editarse.'
-          : 'Este partido ya finalizó y las predicciones ya no pueden editarse.'}
-      </p>
+      <h3 className="text-lg font-semibold text-rose-400">Predicciones cerradas</h3>
+      <p className="mt-1.5 text-sm text-muted-foreground">{body}</p>
       <p className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <Clock className="h-3.5 w-3.5 text-rose-400" aria-hidden="true" />
-        El partido inició el {dateStr} a las {timeStr}
+        {isTimeLocked
+          ? `Cerró el ${closedDateStr} a las ${closedStr}`
+          : `El partido inició el ${closedDateStr} a las ${closedStr}`}
       </p>
     </div>
   );

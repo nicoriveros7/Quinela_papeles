@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, Check, HelpCircle, Search, Users } from 'lucide-react';
+import { ArrowLeft, Calendar, CheckCircle2, Check, HelpCircle, Search, Users } from 'lucide-react';
 
 import { api, ApiError } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
@@ -14,6 +14,7 @@ import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmActionButton } from '@/components/ui/confirm-action-button';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { Input } from '@/components/ui/input';
 import { StatePanel } from '@/components/ui/state-panel';
 import { TeamLabel } from '@/components/ui/team-label';
@@ -34,6 +35,7 @@ const STATUS_LABELS: Record<AdminMatch['status'], string> = {
   POSTPONED: 'Postergado',
   CANCELLED: 'Cancelado',
 };
+
 
 function getSideLabel(match: AdminMatch, side: 'home' | 'away') {
   if (side === 'home') {
@@ -78,6 +80,10 @@ export default function TournamentMatchesPage() {
   const [actualResultsMsg, setActualResultsMsg] = useState<string | null>(null);
   const [bestThirdsSearch, setBestThirdsSearch] = useState('');
   const BEST_THIRDS_REQUIRED = 8;
+
+  // ── Schedule editing state ──
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [savingScheduleId, setSavingScheduleId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!lastSavedId) return;
@@ -197,6 +203,22 @@ export default function TournamentMatchesPage() {
       setError(err instanceof ApiError ? err.message : 'No se pudo guardar el resultado.');
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const saveSchedule = async (matchId: string, kickoffAt: string) => {
+    if (!token) return;
+    setSavingScheduleId(matchId);
+    setError(null);
+    try {
+      const updated = await api.adminUpdateMatchSchedule(matchId, kickoffAt, token);
+      setMatches((prev) => prev.map((m) => m.id === matchId ? { ...m, kickoffAt: updated.kickoffAt } : m));
+      setEditingScheduleId(null);
+      setLastSavedId(matchId);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudo actualizar el horario.');
+    } finally {
+      setSavingScheduleId(null);
     }
   };
 
@@ -557,17 +579,28 @@ export default function TournamentMatchesPage() {
 
               {/* Row 5: actions */}
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Link href={`/admin/matches/${match.id}/questions`}>
-                  <Button variant="outline" size="sm" className="gap-1.5">
-                    <HelpCircle className="h-3.5 w-3.5" />
-                    Preguntas bonus
-                    {match._count.questions > 0 && (
-                      <span className="rounded-full bg-primary/10 px-1.5 text-[10px] font-bold text-primary">
-                        {match._count.questions}
-                      </span>
-                    )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link href={`/admin/matches/${match.id}/questions`}>
+                    <Button variant="outline" size="sm" className="gap-1.5">
+                      <HelpCircle className="h-3.5 w-3.5" />
+                      Preguntas bonus
+                      {match._count.questions > 0 && (
+                        <span className="rounded-full bg-primary/10 px-1.5 text-[10px] font-bold text-primary">
+                          {match._count.questions}
+                        </span>
+                      )}
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => setEditingScheduleId(match.id)}
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
+                    Editar horario
                   </Button>
-                </Link>
+                </div>
 
                 <div className="flex flex-wrap items-center gap-2">
                   {justSaved && (
@@ -597,6 +630,17 @@ export default function TournamentMatchesPage() {
         })}
       </CardContent>
     </Card>
+
+    {/* ── DateTimePicker modal ── */}
+    {editingScheduleId !== null &&
+      matches.find((m) => m.id === editingScheduleId) != null && (
+        <DateTimePicker
+          value={matches.find((m) => m.id === editingScheduleId)!.kickoffAt}
+          saving={savingScheduleId === editingScheduleId}
+          onConfirm={(iso) => void saveSchedule(editingScheduleId, iso)}
+          onClose={() => setEditingScheduleId(null)}
+        />
+      )}
     </div>
   );
 }

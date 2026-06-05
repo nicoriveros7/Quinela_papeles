@@ -266,6 +266,12 @@ export const api = {
       body: JSON.stringify(payload),
     }, token),
 
+  adminUpdateMatchSchedule: (matchId: string, kickoffAt: string, token: string) =>
+    request<AdminMatch>(`/admin/matches/${matchId}/schedule`, {
+      method: 'PATCH',
+      body: JSON.stringify({ kickoffAt }),
+    }, token),
+
   adminListMatchQuestions: (matchId: string, token: string) =>
     request<AdminMatchQuestionsResponse>(`/admin/matches/${matchId}/questions`, { method: 'GET' }, token),
 

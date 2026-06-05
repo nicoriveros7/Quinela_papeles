@@ -579,6 +579,15 @@ export class AdminService {
     });
   }
 
+  async updateMatchSchedule(matchId: string, kickoffAt: Date) {
+    const match = await this.prisma.match.findUnique({ where: { id: matchId }, select: { id: true } });
+    if (!match) throw new NotFoundException('Match not found');
+    return this.prisma.match.update({
+      where: { id: matchId },
+      data: { kickoffAt },
+    });
+  }
+
   private normalizeQuestionKey(raw: string) {
     return raw
       .trim()
