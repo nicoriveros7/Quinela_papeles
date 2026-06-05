@@ -383,6 +383,7 @@ export type MatchBreakdown = {
   awaySlotLabel: string | null;
   homeScore: number | null;
   awayScore: number | null;
+  visibility: 'VISIBLE' | 'HIDDEN_UNTIL_LOCKED';
   predictedHomeScore: number | null;
   predictedAwayScore: number | null;
   pointsAwarded: number;

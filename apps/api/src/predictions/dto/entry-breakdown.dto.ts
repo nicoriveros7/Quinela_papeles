@@ -12,6 +12,8 @@ export interface MatchQuestionBreakdown {
   isCorrect: boolean | null;
 }
 
+export type MatchBreakdownVisibility = 'VISIBLE' | 'HIDDEN_UNTIL_LOCKED';
+
 export interface MatchBreakdown {
   matchId: string;
   kickoffAt: Date;
@@ -27,6 +29,7 @@ export interface MatchBreakdown {
   awaySlotLabel: string | null;
   homeScore: number | null;
   awayScore: number | null;
+  visibility: MatchBreakdownVisibility;
   predictedHomeScore: number | null;
   predictedAwayScore: number | null;
   pointsAwarded: number;

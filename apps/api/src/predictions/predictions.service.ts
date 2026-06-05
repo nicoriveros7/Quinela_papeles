@@ -239,6 +239,7 @@ export class PredictionsService {
         select: {
           id: true,
           poolId: true,
+          userId: true,
           entryName: true,
           rank: true,
           totalPoints: true,
@@ -249,6 +250,7 @@ export class PredictionsService {
               pointsExactScore: true,
               pointsMatchOutcome: true,
               pointsConfig: true,
+              lockMinutesBeforeKickoff: true,
             },
           },
         },
@@ -267,6 +269,7 @@ export class PredictionsService {
       throw new NotFoundException('Entry not found in this pool');
     }
 
+    const isOwner = entry.userId === currentUser.sub;
     const { pool } = entry;
     const scoringConfig = resolveMatchScoringConfig(
       pool.pointsExactScore,
@@ -354,11 +357,19 @@ export class PredictionsService {
     let totalMatchPoints = 0;
     let totalBonusPoints = 0;
 
+    const now = new Date();
+
     const matchPredictions = matches.map((match) => {
       const pred = match.predictions[0] ?? null;
 
+      const lockAt = new Date(match.kickoffAt.getTime() - pool.lockMinutesBeforeKickoff * 60_000);
+      const isLocked = now >= lockAt || match.status !== MatchStatus.SCHEDULED;
+      const visibility: 'VISIBLE' | 'HIDDEN_UNTIL_LOCKED' =
+        isOwner || isLocked ? 'VISIBLE' : 'HIDDEN_UNTIL_LOCKED';
+
       let breakdown = null;
       if (
+        visibility === 'VISIBLE' &&
         pred &&
         match.status === MatchStatus.FINISHED &&
         match.homeScore !== null &&
@@ -379,6 +390,18 @@ export class PredictionsService {
         const qPred = q.predictions[0] ?? null;
         const questionPoints = qPred?.pointsAwarded ?? 0;
         totalBonusPoints += questionPoints;
+
+        if (visibility === 'HIDDEN_UNTIL_LOCKED') {
+          return {
+            questionId: q.id,
+            questionText: q.questionText,
+            answerLabel: null,
+            correctAnswerLabel: null,
+            pointsAwarded: 0,
+            isScored: false,
+            isCorrect: null,
+          };
+        }
 
         return {
           questionId: q.id,
@@ -406,9 +429,10 @@ export class PredictionsService {
         awaySlotLabel: match.awaySlotLabel,
         homeScore: match.homeScore,
         awayScore: match.awayScore,
-        predictedHomeScore: pred?.predictedHomeScore ?? null,
-        predictedAwayScore: pred?.predictedAwayScore ?? null,
-        pointsAwarded: pred?.pointsAwarded ?? 0,
+        visibility,
+        predictedHomeScore: visibility === 'VISIBLE' ? (pred?.predictedHomeScore ?? null) : null,
+        predictedAwayScore: visibility === 'VISIBLE' ? (pred?.predictedAwayScore ?? null) : null,
+        pointsAwarded: visibility === 'VISIBLE' ? (pred?.pointsAwarded ?? 0) : 0,
         breakdown,
         questions,
       };

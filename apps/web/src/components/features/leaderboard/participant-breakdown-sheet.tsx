@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Clock, Minus, Star, X } from 'lucide-react';
+import { Check, ChevronDown, Clock, Lock, Minus, Star, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -13,9 +13,10 @@ import { TeamLabel } from '@/components/ui/team-label';
 
 // ── Prediction status helpers ────────────────────────────────────────────────
 
-type PredictionStatus = 'exacto' | 'resultado' | 'fallado' | 'pendiente' | 'sin-pick';
+type PredictionStatus = 'exacto' | 'resultado' | 'fallado' | 'pendiente' | 'sin-pick' | 'oculto';
 
 function getPredictionStatus(match: MatchBreakdown): PredictionStatus {
+  if (match.visibility === 'HIDDEN_UNTIL_LOCKED') return 'oculto';
   if (match.predictedHomeScore === null) return 'sin-pick';
   if (match.status !== 'FINISHED') return 'pendiente';
   if ((match.breakdown?.exactScore ?? 0) > 0) return 'exacto';
@@ -30,11 +31,12 @@ type StatusConfig = {
 };
 
 const STATUS_CONFIG: Record<PredictionStatus, StatusConfig> = {
-  exacto:      { label: 'Exacto',    chipClass: 'bg-emerald-500/15 text-emerald-300', Icon: Star  },
-  resultado:   { label: 'Resultado', chipClass: 'bg-muted text-muted-foreground',    Icon: Check },
-  fallado:     { label: 'Fallado',   chipClass: 'bg-rose-500/15 text-rose-300',     Icon: X     },
-  pendiente:   { label: 'Pendiente', chipClass: 'bg-primary/10 text-primary',      Icon: Clock },
-  'sin-pick':  { label: 'Sin pick',  chipClass: 'bg-muted text-muted-foreground',  Icon: Minus },
+  exacto:      { label: 'Exacto',    chipClass: 'bg-emerald-500/15 text-emerald-300',  Icon: Star  },
+  resultado:   { label: 'Resultado', chipClass: 'bg-muted text-muted-foreground',      Icon: Check },
+  fallado:     { label: 'Fallado',   chipClass: 'bg-rose-500/15 text-rose-300',        Icon: X     },
+  pendiente:   { label: 'Pendiente', chipClass: 'bg-primary/10 text-primary',          Icon: Clock },
+  'sin-pick':  { label: 'Sin pick',  chipClass: 'bg-muted text-muted-foreground',      Icon: Minus },
+  oculto:      { label: 'Oculto',    chipClass: 'bg-amber-500/15 text-amber-400',      Icon: Lock  },
 };
 
 // ── Filter types and helpers ──────────────────────────────────────────────────
@@ -267,6 +269,12 @@ export function ParticipantBreakdownSheet({
                   <h3 className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
                     Predicciones de partidos
                   </h3>
+                  {data.matchPredictions.some((m) => m.visibility === 'HIDDEN_UNTIL_LOCKED') && (
+                    <p className="mb-2 flex items-center gap-1.5 text-[11px] text-amber-400/80">
+                      <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      Algunas predicciones se revelarán cuando cierre cada partido
+                    </p>
+                  )}
 
                   {filteredMatches.length === 0 ? (
                     <EmptyFilterState onReset={() => { setPredFilter('all'); setPhaseFilter('all'); }} hasActiveFilter={hasActiveFilter} />
@@ -466,6 +474,7 @@ function MatchRow({
   const hasQuestions = match.questions.length > 0;
   const isFinished = match.status === 'FINISHED';
   const isSinPick = status === 'sin-pick';
+  const isHidden = match.visibility === 'HIDDEN_UNTIL_LOCKED';
 
   const homeLabel = match.homeTeamName ?? match.homeSlotLabel ?? '?';
   const awayLabel = match.awayTeamName ?? match.awaySlotLabel ?? '?';
@@ -495,75 +504,84 @@ function MatchRow({
         </span>
       </div>
 
-      {/* Prediction + pts */}
-      <div className="mt-0.5 flex items-center justify-between gap-2">
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {hasPrediction
-            ? `Mi predicción: ${match.predictedHomeScore}–${match.predictedAwayScore}`
-            : 'Sin predicción'}
-        </span>
-        {isFinished && hasPrediction && (
-          <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">
-            +{match.pointsAwarded} pts
-          </span>
-        )}
-      </div>
-
-      {/* Bonus toggle */}
-      {hasQuestions && (
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={expanded}
-          className="mt-1.5 flex min-h-[36px] items-center gap-1 text-xs font-medium text-primary"
-        >
-          <ChevronDown
-            className={cn(
-              'h-3.5 w-3.5 shrink-0 transition-transform duration-200',
-              expanded && 'rotate-180',
+      {/* Hidden prediction placeholder */}
+      {isHidden ? (
+        <p className="mt-1 text-xs text-muted-foreground/70 italic">
+          Disponible cuando cierren las predicciones
+        </p>
+      ) : (
+        <>
+          {/* Prediction + pts */}
+          <div className="mt-0.5 flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {hasPrediction
+                ? `Predicción: ${match.predictedHomeScore}–${match.predictedAwayScore}`
+                : 'Sin predicción'}
+            </span>
+            {isFinished && hasPrediction && (
+              <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">
+                +{match.pointsAwarded} pts
+              </span>
             )}
-            aria-hidden="true"
-          />
-          {match.questions.length}{' '}
-          {match.questions.length === 1 ? 'pregunta bonus' : 'preguntas bonus'}
-        </button>
-      )}
+          </div>
 
-      {/* Bonus questions (collapsible) */}
-      {hasQuestions && expanded && (
-        <div className="mt-1 grid gap-2 rounded-lg bg-muted/50 p-2.5 animate-fade-in">
-          {match.questions.map((q) => (
-            <div key={q.questionId}>
-              <p className="text-[11px] font-semibold leading-snug text-foreground">
-                {q.questionText}
-              </p>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                <span>
-                  Tu respuesta:{' '}
-                  <span className="font-medium text-foreground">{q.answerLabel ?? '—'}</span>
-                </span>
-                {q.correctAnswerLabel && (
-                  <span>
-                    Correcto:{' '}
-                    <span
-                      className={cn(
-                        'font-medium',
-                        q.isCorrect === true && 'text-emerald-300',
-                        q.isCorrect === false && 'text-rose-400',
-                        q.isCorrect === null && 'text-foreground',
-                      )}
-                    >
-                      {q.correctAnswerLabel}
-                    </span>
-                  </span>
+          {/* Bonus toggle */}
+          {hasQuestions && (
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-expanded={expanded}
+              className="mt-1.5 flex min-h-[36px] items-center gap-1 text-xs font-medium text-primary"
+            >
+              <ChevronDown
+                className={cn(
+                  'h-3.5 w-3.5 shrink-0 transition-transform duration-200',
+                  expanded && 'rotate-180',
                 )}
-                <span className="font-medium text-foreground tabular-nums">
-                  +{q.pointsAwarded} pts
-                </span>
-              </div>
+                aria-hidden="true"
+              />
+              {match.questions.length}{' '}
+              {match.questions.length === 1 ? 'pregunta bonus' : 'preguntas bonus'}
+            </button>
+          )}
+
+          {/* Bonus questions (collapsible) */}
+          {hasQuestions && expanded && (
+            <div className="mt-1 grid gap-2 rounded-lg bg-muted/50 p-2.5 animate-fade-in">
+              {match.questions.map((q) => (
+                <div key={q.questionId}>
+                  <p className="text-[11px] font-semibold leading-snug text-foreground">
+                    {q.questionText}
+                  </p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                    <span>
+                      Tu respuesta:{' '}
+                      <span className="font-medium text-foreground">{q.answerLabel ?? '—'}</span>
+                    </span>
+                    {q.correctAnswerLabel && (
+                      <span>
+                        Correcto:{' '}
+                        <span
+                          className={cn(
+                            'font-medium',
+                            q.isCorrect === true && 'text-emerald-300',
+                            q.isCorrect === false && 'text-rose-400',
+                            q.isCorrect === null && 'text-foreground',
+                          )}
+                        >
+                          {q.correctAnswerLabel}
+                        </span>
+                      </span>
+                    )}
+                    <span className="font-medium text-foreground tabular-nums">
+                      +{q.pointsAwarded} pts
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -607,9 +625,8 @@ function TournamentSection({
     (filter === 'with-pick' && hasBestThirds) ||
     (filter === 'no-pick'   && !hasBestThirds);
 
-  const totalWithPick  = allItems.filter((i) => i.value !== null).length + (hasBestThirds ? 1 : 0);
-  const totalWithout   = allItems.filter((i) => i.value === null).length + (!hasBestThirds ? 1 : 0);
-  const hasAnyPick     = totalWithPick > 0;
+  const totalWithPick = allItems.filter((i) => i.value !== null).length + (hasBestThirds ? 1 : 0);
+  const hasAnyPick    = totalWithPick > 0;
 
   if (!hasAnyPick && filter === 'all') return null;
 
