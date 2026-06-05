@@ -169,6 +169,11 @@ export class AdminController {
     return this.adminService.updateTournamentPredictionLock(tournamentId, dto);
   }
 
+  @Get('tournaments/:tournamentId/players')
+  async listTournamentPlayers(@Param('tournamentId') tournamentId: string) {
+    return this.adminService.listTournamentPlayers(tournamentId);
+  }
+
   @Get('tournaments/:tournamentId/actual-results')
   async getTournamentActualResults(@Param('tournamentId') tournamentId: string) {
     return this.adminService.getTournamentActualResults(tournamentId);

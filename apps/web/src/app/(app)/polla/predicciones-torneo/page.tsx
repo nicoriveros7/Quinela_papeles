@@ -145,6 +145,7 @@ export default function PrediccionesTorneoPage() {
     (p) => !isPlaceholderPlayer(p.player.fullName),
   );
   const hasRealPlayers = realPlayers.length > 0;
+  const realGoalkeepers = realPlayers.filter((p) => p.isGoalkeeper);
 
   return (
     <div className="grid gap-3 animate-fade-in">
@@ -272,7 +273,7 @@ export default function PrediccionesTorneoPage() {
       <PlayerPickerAccordion
         label="Guante de Oro · Mejor portero"
         icon={ShieldCheck}
-        players={realPlayers}
+        players={realGoalkeepers}
         selectedId={goldenGloveId}
         onSelect={(id) => { setGoldenGloveId(id); if (id) setOpenSection(null); }}
         disabled={isLocked}

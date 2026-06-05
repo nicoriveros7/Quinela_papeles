@@ -7,6 +7,7 @@ import {
   AdminPoolMatchesResponse,
   AdminTournament,
   AdminTournamentActualResults,
+  AdminTournamentPlayer,
   AdminTournamentMatchesResponse,
   AdminTournamentPredictionLock,
   AuthResponse,
@@ -327,6 +328,13 @@ export const api = {
     request<AdminTournamentPredictionLock>(
       `/admin/tournaments/${tournamentId}/prediction-lock`,
       { method: 'PATCH', body: JSON.stringify(dto) },
+      token,
+    ),
+
+  adminListTournamentPlayers: (tournamentId: string, token: string) =>
+    request<AdminTournamentPlayer[]>(
+      `/admin/tournaments/${tournamentId}/players`,
+      { method: 'GET' },
       token,
     ),
 

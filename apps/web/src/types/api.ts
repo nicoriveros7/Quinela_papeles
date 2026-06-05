@@ -175,6 +175,7 @@ export type TournamentTeamOption = {
 
 export type TournamentPlayerOption = {
   id: string;
+  isGoalkeeper: boolean;
   player: { id: string; fullName: string; shortName: string | null; nationalityCode: string | null };
 };
 
@@ -412,6 +413,18 @@ export type AdminTournamentPredictionLock = {
   isLocked: boolean;
   lockedManually: boolean;
   lockAt: string | null;
+};
+
+export type AdminTournamentPlayer = {
+  id: string; // TournamentPlayer.id
+  fullName: string;
+  shortName: string | null;
+  isGoalkeeper: boolean;
+  position: string | null;
+  shirtNumber: number | null;
+  teamCode: string | null;
+  teamName: string | null;
+  teamFlagEmoji: string | null;
 };
 
 export type AdminTournamentActualResults = {

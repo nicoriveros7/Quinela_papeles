@@ -507,6 +507,44 @@ export class AdminService {
     };
   }
 
+  async listTournamentPlayers(tournamentId: string) {
+    const teams = await this.prisma.tournamentTeam.findMany({
+      where: { tournamentId },
+      select: {
+        id: true,
+        team: { select: { code: true, name: true, flagEmoji: true } },
+        players: {
+          where: {
+            squadStatus: { in: [TournamentPlayerStatus.PROVISIONAL, TournamentPlayerStatus.FINAL] },
+          },
+          orderBy: { player: { fullName: 'asc' } },
+          select: {
+            id: true,
+            isGoalkeeper: true,
+            position: true,
+            shirtNumber: true,
+            player: { select: { fullName: true, shortName: true } },
+          },
+        },
+      },
+      orderBy: { team: { code: 'asc' } },
+    });
+
+    return teams.flatMap((team) =>
+      team.players.map((p) => ({
+        id: p.id,
+        fullName: p.player.fullName,
+        shortName: p.player.shortName,
+        isGoalkeeper: p.isGoalkeeper,
+        position: p.position,
+        shirtNumber: p.shirtNumber,
+        teamCode: team.team.code,
+        teamName: team.team.name,
+        teamFlagEmoji: team.team.flagEmoji,
+      })),
+    );
+  }
+
   async getTournamentActualResults(tournamentId: string) {
     const tournament = await this.prisma.tournament.findUnique({
       where: { id: tournamentId },

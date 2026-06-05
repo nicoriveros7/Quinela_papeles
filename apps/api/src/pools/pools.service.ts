@@ -455,7 +455,11 @@ export class PoolsService {
       }),
       this.prisma.tournamentPlayer.findMany({
         where: { tournamentId: pool.tournamentId },
-        include: { player: { select: { id: true, fullName: true, shortName: true, nationalityCode: true } } },
+        select: {
+          id: true,
+          isGoalkeeper: true,
+          player: { select: { id: true, fullName: true, shortName: true, nationalityCode: true } },
+        },
         orderBy: { player: { fullName: 'asc' } },
       }),
     ]);
