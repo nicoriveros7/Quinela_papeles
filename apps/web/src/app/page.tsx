@@ -104,7 +104,7 @@ export default function HomePage() {
                   <div>
                     <h3 className="mb-1 text-xs font-bold text-primary">Partidos</h3>
                     <p className="mb-2.5 text-[10px] leading-relaxed text-muted-foreground">
-                      Los puntos se acumulan — un marcador exacto puede sumar hasta 12 pts.
+                      Los puntos se acumulan — un marcador exacto puede sumar hasta 15 pts.
                     </p>
                     <div className="grid gap-1.5">
                       <div className="flex justify-between text-xs">
@@ -120,8 +120,12 @@ export default function HomePage() {
                         <span className="font-semibold">+1 pt c/u</span>
                       </div>
                       <div className="flex justify-between text-[11px] text-muted-foreground/80">
-                        <span>Goles local / visita / total</span>
-                        <span className="font-semibold">+1-2 pts c/u</span>
+                        <span>Goles local / visita exactos</span>
+                        <span className="font-semibold">+2 pts c/u</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] text-muted-foreground/80">
+                        <span>Total de goles exacto</span>
+                        <span className="font-semibold">+1 pt</span>
                       </div>
                     </div>
                   </div>
