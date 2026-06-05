@@ -655,14 +655,14 @@ export class PredictionsService {
         : undefined;
 
       const option = optionBySelectedId ?? optionByTeam;
-      if (!option || !option.teamId) {
+      if (!option) {
         throw new BadRequestException('A valid selectedTeamId or selectedOptionId is required for TEAM_PICK');
       }
 
       return {
         selectedOptionId: option.id,
         selectedBoolean: null,
-        selectedTeamId: option.teamId,
+        selectedTeamId: option.teamId ?? null,
         selectedPlayerId: null,
         selectedTimeRangeKey: null,
       };

@@ -106,6 +106,9 @@ export default function MatchQuestionsPage() {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [playerScope, setPlayerScope] = useState<'TEAM' | 'MATCH'>('TEAM');
 
+  // Team pick state (for TEAM_PICK answer type)
+  const [selectedTeamPickIds, setSelectedTeamPickIds] = useState<string[]>([]);
+
   // Derived player pool helpers
   const selectableTeams = playerPool?.teams.filter((t) => t.matchSide) ?? [];
   const fallbackTeams = playerPool?.teams ?? [];
@@ -214,6 +217,21 @@ export default function MatchQuestionsPage() {
         label: p.shortName ?? p.fullName,
         playerId: p.playerId,
       }));
+    } else if (newQuestion.answerType === 'TEAM_PICK') {
+      if (!playerPool) {
+        setError('No se pudo cargar el pool de equipos para este partido.');
+        return;
+      }
+      if (selectedTeamPickIds.length < 2) {
+        setError('Debes seleccionar al menos 2 equipos.');
+        return;
+      }
+      const pickedTeams = teamOptions.filter((t) => selectedTeamPickIds.includes(t.teamId));
+      payload.options = pickedTeams.map((team, i) => ({
+        key: `TEAM_${i + 1}`,
+        label: team.teamName || team.teamCode,
+        teamId: team.teamId,
+      }));
     } else if (newQuestion.answerType !== 'BOOLEAN') {
       const labels = newQuestion.optionLabels
         .split(',')
@@ -243,6 +261,7 @@ export default function MatchQuestionsPage() {
         optionLabels: '',
         isPublished: true,
       });
+      setSelectedTeamPickIds([]);
       setSuccess(newQuestion.isPublished ? 'Pregunta creada y publicada.' : 'Pregunta creada como borrador.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear la pregunta.');
@@ -404,13 +423,15 @@ export default function MatchQuestionsPage() {
                 <select
                   id="new-answer-type"
                   value={newQuestion.answerType}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setNewQuestion((prev) => ({
                       ...prev,
                       answerType: e.target.value as NewQuestionForm['answerType'],
                       optionLabels: '',
-                    }))
-                  }
+                    }));
+                    setSelectedTeamPickIds([]);
+                    setSelectedPlayerIds([]);
+                  }}
                   className={cn(SELECT_CLASS, 'bg-background/70')}
                 >
                   {ANSWER_TYPES.map((type) => (
@@ -433,9 +454,8 @@ export default function MatchQuestionsPage() {
                 </div>
               )}
 
-              {/* Text options */}
+              {/* Text options — SINGLE_CHOICE / TIME_RANGE */}
               {(newQuestion.answerType === 'SINGLE_CHOICE' ||
-                newQuestion.answerType === 'TEAM_PICK' ||
                 newQuestion.answerType === 'TIME_RANGE') && (
                 <div className="grid gap-1.5">
                   <label htmlFor="new-option-labels" className="text-sm font-medium text-foreground">
@@ -447,9 +467,7 @@ export default function MatchQuestionsPage() {
                   <Input
                     id="new-option-labels"
                     placeholder={
-                      newQuestion.answerType === 'TEAM_PICK'
-                        ? 'Ej: México, Estados Unidos, Empate'
-                        : newQuestion.answerType === 'TIME_RANGE'
+                      newQuestion.answerType === 'TIME_RANGE'
                         ? 'Ej: Antes del min 45, En el segundo tiempo, En penales'
                         : 'Ej: Opción A, Opción B, Opción C'
                     }
@@ -457,6 +475,54 @@ export default function MatchQuestionsPage() {
                     onChange={(e) => setNewQuestion((prev) => ({ ...prev, optionLabels: e.target.value }))}
                     className="bg-background/70"
                   />
+                </div>
+              )}
+
+              {/* Team pick — selector visual de equipos */}
+              {newQuestion.answerType === 'TEAM_PICK' && (
+                <div className="grid gap-3 rounded-xl border border-white/[0.06] bg-background/40 p-3">
+                  {teamOptions.length === 0 ? (
+                    <StatePanel
+                      variant="empty"
+                      description="Este partido aún no tiene equipos asignados."
+                      compact
+                    />
+                  ) : (
+                    <>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Equipos como opciones{' '}
+                        <span className="font-normal">
+                          ({selectedTeamPickIds.length} seleccionados, mín. 2)
+                        </span>
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {teamOptions.map((team) => {
+                          const isSelected = selectedTeamPickIds.includes(team.teamId);
+                          return (
+                            <button
+                              key={team.teamId}
+                              type="button"
+                              onClick={() =>
+                                setSelectedTeamPickIds((prev) =>
+                                  isSelected
+                                    ? prev.filter((id) => id !== team.teamId)
+                                    : [...prev, team.teamId],
+                                )
+                              }
+                              className={cn(
+                                'rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
+                                isSelected
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-input bg-background text-foreground hover:bg-muted',
+                              )}
+                            >
+                              {formatTeamLabel(team)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
