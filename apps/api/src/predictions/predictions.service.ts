@@ -333,6 +333,24 @@ export class PredictionsService {
       }),
     ]);
 
+    // Resolve bestThirds IDs to team data
+    let resolvedBestThirds: { name: string; code: string; flagEmoji: string | null }[] | null = null;
+    if (tournamentPrediction && Array.isArray(tournamentPrediction.bestThirdsTeamIds)) {
+      const ids = tournamentPrediction.bestThirdsTeamIds as string[];
+      if (ids.length > 0) {
+        const teamRows = await this.prisma.tournamentTeam.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, team: { select: { name: true, code: true, flagEmoji: true } } },
+        });
+        const teamMap = new Map(teamRows.map((t) => [t.id, t.team]));
+        resolvedBestThirds = ids
+          .map((id) => teamMap.get(id))
+          .filter((t): t is { name: string; code: string; flagEmoji: string | null } => t != null);
+      } else {
+        resolvedBestThirds = [];
+      }
+    }
+
     let totalMatchPoints = 0;
     let totalBonusPoints = 0;
 
@@ -424,9 +442,7 @@ export class PredictionsService {
             topScorer: tournamentPrediction.topScorer?.player?.fullName ?? null,
             goldenBall: tournamentPrediction.goldenBall?.player?.fullName ?? null,
             goldenGlove: tournamentPrediction.goldenGlove?.player?.fullName ?? null,
-            bestThirds: Array.isArray(tournamentPrediction.bestThirdsTeamIds)
-              ? (tournamentPrediction.bestThirdsTeamIds as string[])
-              : null,
+            bestThirds: resolvedBestThirds,
             pointsAwarded: tournamentPoints,
             isScored: tournamentPrediction.isScored,
           }

@@ -569,66 +569,137 @@ function MatchRow({
   );
 }
 
+// ── Tournament filter ────────────────────────────────────────────────────────
+
+type TournamentFilter = 'all' | 'with-pick' | 'no-pick';
+
+const TOURNAMENT_FILTERS: { value: TournamentFilter; label: string }[] = [
+  { value: 'all',       label: 'Todos'          },
+  { value: 'with-pick', label: 'Con pick'       },
+  { value: 'no-pick',   label: 'Sin pick'       },
+];
+
 function TournamentSection({
   prediction,
 }: {
   prediction: NonNullable<EntryBreakdownResponse['tournamentPrediction']>;
 }) {
-  const items = [
-    { label: 'Campeón',      value: prediction.champion,      flagEmoji: prediction.championFlagEmoji,      code: prediction.championCode },
-    { label: 'Subcampeón',   value: prediction.runnerUp,      flagEmoji: prediction.runnerUpFlagEmoji,      code: prediction.runnerUpCode },
-    { label: 'Tercer puesto', value: prediction.thirdPlace,    flagEmoji: prediction.thirdPlaceFlagEmoji,    code: prediction.thirdPlaceCode },
-    { label: 'Goleador',     value: prediction.topScorer,     flagEmoji: null,                             code: null },
-    { label: 'Mejor jugador', value: prediction.goldenBall,    flagEmoji: null,                             code: null },
-    { label: 'Mejor arquero', value: prediction.goldenGlove,   flagEmoji: null,                             code: null },
-  ].filter((item): item is { label: string; value: string; flagEmoji: string | null; code: string | null } => item.value !== null);
+  const [filter, setFilter] = useState<TournamentFilter>('all');
+
+  const allItems = [
+    { label: 'Campeón',       value: prediction.champion,   flagEmoji: prediction.championFlagEmoji,   code: prediction.championCode },
+    { label: 'Subcampeón',    value: prediction.runnerUp,   flagEmoji: prediction.runnerUpFlagEmoji,   code: prediction.runnerUpCode },
+    { label: 'Tercer puesto', value: prediction.thirdPlace, flagEmoji: prediction.thirdPlaceFlagEmoji, code: prediction.thirdPlaceCode },
+    { label: 'Goleador',      value: prediction.topScorer,  flagEmoji: null,                           code: null },
+    { label: 'Mejor jugador', value: prediction.goldenBall, flagEmoji: null,                           code: null },
+    { label: 'Mejor arquero', value: prediction.goldenGlove, flagEmoji: null,                          code: null },
+  ];
+
+  const filteredItems = allItems.filter(({ value }) => {
+    if (filter === 'with-pick') return value !== null;
+    if (filter === 'no-pick')   return value === null;
+    return true;
+  }) as { label: string; value: string | null; flagEmoji: string | null; code: string | null }[];
 
   const hasBestThirds = prediction.bestThirds && prediction.bestThirds.length > 0;
-  const isEmpty = items.length === 0 && !hasBestThirds;
-  if (isEmpty) return null;
+  const showBestThirds =
+    filter === 'all' ||
+    (filter === 'with-pick' && hasBestThirds) ||
+    (filter === 'no-pick'   && !hasBestThirds);
+
+  const totalWithPick  = allItems.filter((i) => i.value !== null).length + (hasBestThirds ? 1 : 0);
+  const totalWithout   = allItems.filter((i) => i.value === null).length + (!hasBestThirds ? 1 : 0);
+  const hasAnyPick     = totalWithPick > 0;
+
+  if (!hasAnyPick && filter === 'all') return null;
 
   return (
     <section>
       <h3 className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
         Pre-torneo
       </h3>
+
+      {/* Filter bar */}
+      <div
+        role="tablist"
+        aria-label="Filtrar pre-torneo"
+        className="mb-2 flex gap-1"
+      >
+        {TOURNAMENT_FILTERS.map(({ value, label }) => (
+          <FilterPill
+            key={value}
+            label={label}
+            active={filter === value}
+            onClick={() => setFilter(value)}
+          />
+        ))}
+      </div>
+
       <div className="overflow-hidden rounded-xl border border-border/60 bg-surface/80">
-        {items.map(({ label, value, flagEmoji, code }) => (
+        {filteredItems.map(({ label, value, flagEmoji, code }) => (
           <div
             key={label}
             className="flex items-center justify-between gap-2 border-b border-border/50 px-4 py-3 last:border-0"
           >
             <span className="text-xs font-medium text-muted-foreground">{label}</span>
-            {flagEmoji || code ? (
-              <TeamLabel
-                name={value}
-                code={code ?? undefined}
-                flagEmoji={flagEmoji ?? undefined}
-                format="full"
-                className="text-sm font-semibold text-foreground"
-              />
+            {value !== null ? (
+              flagEmoji || code ? (
+                <TeamLabel
+                  name={value}
+                  code={code ?? undefined}
+                  flagEmoji={flagEmoji ?? undefined}
+                  format="full"
+                  className="text-sm font-semibold text-foreground"
+                />
+              ) : (
+                <span className="text-sm font-semibold text-foreground">{value}</span>
+              )
             ) : (
-              <span className="text-sm font-semibold text-foreground">{value}</span>
+              <span className="text-xs text-muted-foreground italic">Sin pick</span>
             )}
           </div>
         ))}
-        {hasBestThirds && (
+
+        {showBestThirds && (
           <div className="border-b border-border/50 px-4 py-3 last:border-0">
             <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-              Mejores terceros ({prediction.bestThirds!.length}/8)
+              Mejores terceros ({prediction.bestThirds?.length ?? 0}/8)
             </p>
-            <div className="flex flex-wrap gap-1.5">
-              {prediction.bestThirds!.map((code) => (
-                <span
-                  key={code}
-                  className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
-                >
-                  {code}
-                </span>
-              ))}
-            </div>
+            {hasBestThirds ? (
+              <div className="flex flex-wrap gap-1.5">
+                {prediction.bestThirds!.map((team) => (
+                  <span
+                    key={team.code}
+                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                  >
+                    {team.flagEmoji && <span aria-hidden="true">{team.flagEmoji}</span>}
+                    {team.name}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground italic">Sin pick</span>
+            )}
           </div>
         )}
+
+        {filteredItems.length === 0 && !showBestThirds && (
+          <div className="px-4 py-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              {filter === 'with-pick'
+                ? `No hay picks en pre-torneo.`
+                : `No hay ítems sin pick.`}
+            </p>
+            <button
+              type="button"
+              onClick={() => setFilter('all')}
+              className="mt-2 text-xs font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded"
+            >
+              Ver todos
+            </button>
+          </div>
+        )}
+
         {prediction.isScored && (
           <div className="flex items-center justify-between border-t border-border/50 px-4 py-2.5">
             <span className="text-xs text-muted-foreground">Puntos ganados</span>

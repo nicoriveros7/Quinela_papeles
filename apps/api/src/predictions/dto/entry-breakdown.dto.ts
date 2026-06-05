@@ -47,7 +47,7 @@ export interface TournamentPredictionBreakdown {
   topScorer: string | null;
   goldenBall: string | null;
   goldenGlove: string | null;
-  bestThirds: string[] | null;
+  bestThirds: { name: string; code: string; flagEmoji: string | null }[] | null;
   pointsAwarded: number;
   isScored: boolean;
 }
