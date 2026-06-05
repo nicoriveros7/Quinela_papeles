@@ -104,7 +104,7 @@ export default function HomePage() {
                   <div>
                     <h3 className="mb-1 text-xs font-bold text-primary">Partidos</h3>
                     <p className="mb-2.5 text-[10px] leading-relaxed text-muted-foreground">
-                      Cada partido suma por aciertos parciales. Mientras más cerca estés, más puntos ganas.
+                      Los puntos se acumulan — un marcador exacto puede sumar hasta 12 pts.
                     </p>
                     <div className="grid gap-1.5">
                       <div className="flex justify-between text-xs">
@@ -112,12 +112,16 @@ export default function HomePage() {
                         <span className="font-bold text-primary">+5 pts</span>
                       </div>
                       <div className="flex justify-between text-[11px] text-muted-foreground/80">
-                        <span>Dif. goles / Ganador</span>
-                        <span className="font-semibold">+1 pt</span>
+                        <span>Diferencia de goles</span>
+                        <span className="font-semibold">+3 pts</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] text-muted-foreground/80">
+                        <span>Ganador / Perdedor</span>
+                        <span className="font-semibold">+1 pt c/u</span>
                       </div>
                       <div className="flex justify-between text-[11px] text-muted-foreground/80">
                         <span>Goles local / visita / total</span>
-                        <span className="font-semibold">+1 pt c/u</span>
+                        <span className="font-semibold">+1-2 pts c/u</span>
                       </div>
                     </div>
                   </div>
@@ -127,18 +131,23 @@ export default function HomePage() {
                     <h3 className="mb-1 text-xs font-bold text-primary">Pre-torneo</h3>
                     <div className="grid gap-1.5">
                       <div className="flex justify-between text-xs">
-                        <span className="text-foreground/70">Equipos acertados</span>
-                        <span className="font-bold text-primary">+15 pts</span>
+                        <span className="text-foreground/70">Campeón / Subcampeón / 3er puesto</span>
+                        <span className="font-bold text-primary">+15 pts c/u</span>
                       </div>
-                      <p className="text-[10px] text-muted-foreground/60 leading-tight">
-                        Campeón, subcampeón y tercer puesto.
-                      </p>
                       <div className="flex justify-between text-xs">
-                        <span className="text-foreground/70">Jugadores acertados</span>
-                        <span className="font-bold text-primary">+10 pts</span>
+                        <span className="text-foreground/70">Goleador / Balón de Oro / Guante de Oro</span>
+                        <span className="font-bold text-primary">+10 pts c/u</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-foreground/70">Mejores terceros — 8 aciertos</span>
+                        <span className="font-bold text-primary">+20 pts</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] text-muted-foreground/80">
+                        <span>Mejores terceros — 4 a 7 aciertos</span>
+                        <span className="font-semibold">+10 pts</span>
                       </div>
                       <p className="text-[10px] text-muted-foreground/60 leading-tight">
-                        Goleador, MVP y mejor arquero.
+                        Máximo pre-torneo: <span className="font-bold">95 pts</span>
                       </p>
                     </div>
                   </div>

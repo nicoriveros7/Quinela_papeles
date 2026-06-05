@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
 import { MatchStatus, SystemRole } from '@prisma/client';
-import { IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 import { JwtUserPayload } from '../auth/types/jwt-user-payload.type';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -60,6 +60,12 @@ class SetTournamentActualResultsDto {
   @IsOptional()
   @IsString()
   actualGoldenGloveTournamentPlayerId?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(8)
+  actualBestThirdsTeamIds?: string[] | null;
 }
 
 @Roles(SystemRole.ADMIN, SystemRole.SUPER_ADMIN)
@@ -148,6 +154,11 @@ export class AdminController {
     @Body() dto: UpdateTournamentPredictionLockDto,
   ) {
     return this.adminService.updateTournamentPredictionLock(tournamentId, dto);
+  }
+
+  @Get('tournaments/:tournamentId/actual-results')
+  async getTournamentActualResults(@Param('tournamentId') tournamentId: string) {
+    return this.adminService.getTournamentActualResults(tournamentId);
   }
 
   @Patch('tournaments/:tournamentId/actual-results')

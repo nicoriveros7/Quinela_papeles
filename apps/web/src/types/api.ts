@@ -188,6 +188,7 @@ export type TournamentPrediction = {
   topScorerTournamentPlayerId: string | null;
   goldenBallTournamentPlayerId: string | null;
   goldenGloveTournamentPlayerId: string | null;
+  bestThirdsTeamIds: string[] | null;
   pointsAwarded: number;
   isLocked: boolean;
   isScored: boolean;
@@ -273,8 +274,8 @@ export type AdminMatch = {
   status: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'POSTPONED' | 'CANCELLED';
   homeScore: number | null;
   awayScore: number | null;
-  homeTournamentTeam: { team: { id: string; name: string; code: string; flagEmoji: string | null } } | null;
-  awayTournamentTeam: { team: { id: string; name: string; code: string; flagEmoji: string | null } } | null;
+  homeTournamentTeam: { id: string; team: { id: string; name: string; code: string; flagEmoji: string | null } } | null;
+  awayTournamentTeam: { id: string; team: { id: string; name: string; code: string; flagEmoji: string | null } } | null;
   _count: {
     questions: number;
     predictions: number;
@@ -401,6 +402,7 @@ export type TournamentPredictionBreakdown = {
   topScorer: string | null;
   goldenBall: string | null;
   goldenGlove: string | null;
+  bestThirds: string[] | null;
   pointsAwarded: number;
   isScored: boolean;
 };
@@ -420,6 +422,7 @@ export type AdminTournamentActualResults = {
   actualTopScorerTournamentPlayerId: string | null;
   actualGoldenBallTournamentPlayerId: string | null;
   actualGoldenGloveTournamentPlayerId: string | null;
+  actualBestThirdsTeamIds: string[] | null;
 };
 
 export type EntryBreakdownResponse = {

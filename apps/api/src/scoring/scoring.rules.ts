@@ -193,6 +193,8 @@ export type TournamentPredictionScoreConfig = {
   pointsTopScorer: number;
   pointsGoldenBall: number;
   pointsGoldenGlove: number;
+  pointsBestThirdsExact: number;
+  pointsBestThirdsPartial: number;
 };
 
 export const DEFAULT_TOURNAMENT_PREDICTION_CONFIG: TournamentPredictionScoreConfig = {
@@ -202,7 +204,22 @@ export const DEFAULT_TOURNAMENT_PREDICTION_CONFIG: TournamentPredictionScoreConf
   pointsTopScorer: 10,
   pointsGoldenBall: 10,
   pointsGoldenGlove: 10,
+  pointsBestThirdsExact: 20,
+  pointsBestThirdsPartial: 10,
 };
+
+export function calculateBestThirdsPoints(
+  predictedIds: string[],
+  actualIds: string[],
+  config: Pick<TournamentPredictionScoreConfig, 'pointsBestThirdsExact' | 'pointsBestThirdsPartial'>,
+): number {
+  if (actualIds.length === 0) return 0;
+  const actualSet = new Set(actualIds);
+  const hits = predictedIds.filter((id) => actualSet.has(id)).length;
+  if (hits >= 8) return config.pointsBestThirdsExact;
+  if (hits >= 4) return config.pointsBestThirdsPartial;
+  return 0;
+}
 
 export function calculateTournamentPredictionPoints(
   predicted: {
@@ -212,6 +229,7 @@ export function calculateTournamentPredictionPoints(
     topScorerPlayerId: string | null;
     goldenBallPlayerId: string | null;
     goldenGlovePlayerId: string | null;
+    bestThirdsTeamIds: string[];
   },
   actual: {
     championTeamId: string | null;
@@ -220,6 +238,7 @@ export function calculateTournamentPredictionPoints(
     topScorerPlayerId: string | null;
     goldenBallPlayerId: string | null;
     goldenGlovePlayerId: string | null;
+    bestThirdsTeamIds: string[];
   },
   config: TournamentPredictionScoreConfig = DEFAULT_TOURNAMENT_PREDICTION_CONFIG,
 ): number {
@@ -230,5 +249,8 @@ export function calculateTournamentPredictionPoints(
   if (actual.topScorerPlayerId && predicted.topScorerPlayerId === actual.topScorerPlayerId) points += config.pointsTopScorer;
   if (actual.goldenBallPlayerId && predicted.goldenBallPlayerId === actual.goldenBallPlayerId) points += config.pointsGoldenBall;
   if (actual.goldenGlovePlayerId && predicted.goldenGlovePlayerId === actual.goldenGlovePlayerId) points += config.pointsGoldenGlove;
+  if (actual.bestThirdsTeamIds.length > 0) {
+    points += calculateBestThirdsPoints(predicted.bestThirdsTeamIds, actual.bestThirdsTeamIds, config);
+  }
   return points;
 }

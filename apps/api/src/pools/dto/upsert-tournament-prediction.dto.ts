@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsOptional, IsString } from 'class-validator';
 
 export class UpsertTournamentPredictionDto {
   @IsOptional()
@@ -24,4 +24,10 @@ export class UpsertTournamentPredictionDto {
   @IsOptional()
   @IsString()
   goldenGloveTournamentPlayerId?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(8)
+  bestThirdsTeamIds?: string[] | null;
 }

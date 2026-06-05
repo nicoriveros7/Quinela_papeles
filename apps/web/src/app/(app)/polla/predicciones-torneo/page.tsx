@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Award, Check, ChevronDown, Goal, Lock, Medal, Search, ShieldCheck, Trophy } from 'lucide-react';
+import { Award, Check, ChevronDown, Goal, Lock, Medal, Search, ShieldCheck, Trophy, Users } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
@@ -44,7 +44,9 @@ function isPlaceholderPlayer(name: string): boolean {
 
 // ── Section key type ──────────────────────────────────────────────────────────
 
-type SectionKey = 'champion' | 'runnerUp' | 'thirdPlace' | 'topScorer' | 'goldenBall' | 'goldenGlove';
+const BEST_THIRDS_REQUIRED = 8;
+
+type SectionKey = 'champion' | 'runnerUp' | 'thirdPlace' | 'topScorer' | 'goldenBall' | 'goldenGlove' | 'bestThirds';
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -63,6 +65,7 @@ export default function PrediccionesTorneoPage() {
   const [topScorerId, setTopScorerId] = useState('');
   const [goldenBallId, setGoldenBallId] = useState('');
   const [goldenGloveId, setGoldenGloveId] = useState('');
+  const [bestThirdsIds, setBestThirdsIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!token) return;
@@ -79,6 +82,7 @@ export default function PrediccionesTorneoPage() {
           setTopScorerId(res.prediction.topScorerTournamentPlayerId ?? '');
           setGoldenBallId(res.prediction.goldenBallTournamentPlayerId ?? '');
           setGoldenGloveId(res.prediction.goldenGloveTournamentPlayerId ?? '');
+          setBestThirdsIds(res.prediction.bestThirdsTeamIds ?? []);
         }
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'No se pudieron cargar las predicciones');
@@ -97,12 +101,13 @@ export default function PrediccionesTorneoPage() {
     try {
       await api.upsertMainTournamentPrediction(
         {
-          championTournamentTeamId: championId || null,
-          runnerUpTournamentTeamId: runnerUpId || null,
+          championTournamentTeamId:   championId || null,
+          runnerUpTournamentTeamId:   runnerUpId || null,
           thirdPlaceTournamentTeamId: thirdPlaceId || null,
           topScorerTournamentPlayerId: topScorerId || null,
           goldenBallTournamentPlayerId: goldenBallId || null,
           goldenGloveTournamentPlayerId: goldenGloveId || null,
+          bestThirdsTeamIds: bestThirdsIds.length > 0 ? bestThirdsIds : null,
         },
         token,
       );
@@ -163,10 +168,13 @@ export default function PrediccionesTorneoPage() {
 
         <div className="mt-3 flex flex-wrap gap-2">
           <Badge variant="success" className="bg-primary/10 text-primary border-primary/20">
-            Equipos: 15 pts cada uno
+            Equipos: 15 pts c/u
           </Badge>
           <Badge variant="success" className="bg-primary/10 text-primary border-primary/20">
-            Jugadores: 10 pts cada uno
+            Jugadores: 10 pts c/u
+          </Badge>
+          <Badge variant="success" className="bg-primary/10 text-primary border-primary/20">
+            Mejores terceros: 8 aciertos=20 / 4-7=10
           </Badge>
         </div>
 
@@ -274,6 +282,24 @@ export default function PrediccionesTorneoPage() {
         hasRealPlayers={hasRealPlayers}
       />
 
+      {/* ── Mejores terceros ────────────────────────────────────────────────── */}
+      <BestThirdsPickerSection
+        teams={data.tournamentTeams}
+        selectedIds={bestThirdsIds}
+        onToggle={(id) => {
+          setBestThirdsIds((prev) =>
+            prev.includes(id)
+              ? prev.filter((x) => x !== id)
+              : prev.length < BEST_THIRDS_REQUIRED
+              ? [...prev, id]
+              : prev,
+          );
+        }}
+        disabled={isLocked}
+        isOpen={openSection === 'bestThirds'}
+        onToggleOpen={() => toggle('bestThirds')}
+      />
+
       {/* ── Save error ──────────────────────────────────────────────────────── */}
       {error && <StatePanel variant="error" description={error} compact />}
 
@@ -288,6 +314,220 @@ export default function PrediccionesTorneoPage() {
             {saving ? 'Guardando...' : 'Guardar predicciones'}
           </Button>
           <SaveFeedback saving={saving} message={savedMsg} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── BestThirdsPickerSection ───────────────────────────────────────────────────
+
+function BestThirdsPickerSection({
+  teams,
+  selectedIds,
+  onToggle,
+  disabled,
+  isOpen,
+  onToggleOpen,
+}: {
+  teams: TournamentTeamOption[];
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+  disabled: boolean;
+  isOpen: boolean;
+  onToggleOpen: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+  const count = selectedIds.length;
+  const isComplete = count === BEST_THIRDS_REQUIRED;
+
+  useEffect(() => {
+    if (isOpen && !disabled) {
+      const t = setTimeout(() => searchRef.current?.focus(), 60);
+      return () => clearTimeout(t);
+    }
+    if (!isOpen) setSearch('');
+  }, [isOpen, disabled]);
+
+  const filtered = teams.filter((t) => {
+    const q = search.toLowerCase();
+    return t.team.name.toLowerCase().includes(q) || t.team.code.toLowerCase().includes(q);
+  });
+
+  const selectedTeams = selectedIds
+    .map((id) => teams.find((t) => t.id === id))
+    .filter(Boolean) as TournamentTeamOption[];
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-surface shadow-card-sm shadow-inner-subtle">
+
+      {/* ── Accordion header ─────────────────────────────────────────────────── */}
+      <button
+        type="button"
+        onClick={disabled ? undefined : onToggleOpen}
+        disabled={disabled}
+        aria-expanded={isOpen}
+        className={cn(
+          'flex min-h-[60px] w-full items-center gap-3 px-4 py-3 text-left',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+          !disabled && 'transition-colors duration-150 hover:bg-white/[0.03]',
+          disabled && 'cursor-default',
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+        >
+          <Users className="h-4 w-4" />
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2 pr-2">
+            <p className="truncate text-sm font-bold text-foreground">Mejores terceros clasificados</p>
+            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-primary">
+              8=20 / 4-7=10 pts
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {isComplete
+              ? '8/8 equipos seleccionados'
+              : count > 0
+              ? `${count}/8 equipos seleccionados`
+              : 'Selecciona 8 equipos que crees que pasan como mejores terceros'}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2 pl-2">
+          {isComplete && (
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20">
+              <Check className="h-3 w-3 text-emerald-400" aria-hidden="true" />
+            </span>
+          )}
+          {!disabled && (
+            <ChevronDown
+              className={cn(
+                'h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200',
+                isOpen && 'rotate-180',
+              )}
+              aria-hidden="true"
+            />
+          )}
+        </div>
+      </button>
+
+      {/* ── Chips (selected) ─────────────────────────────────────────────────── */}
+      {selectedTeams.length > 0 && !isOpen && (
+        <div className="flex flex-wrap gap-1.5 border-t border-white/[0.05] px-4 py-2.5">
+          {selectedTeams.map((t) => (
+            <span
+              key={t.id}
+              className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-semibold text-primary"
+            >
+              {t.team.flagEmoji && <span className="leading-none">{t.team.flagEmoji}</span>}
+              {t.team.code}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* ── Accordion body ───────────────────────────────────────────────────── */}
+      {isOpen && (
+        <div className="border-t border-white/[0.05] px-3 pb-3 pt-2.5">
+          {/* Counter + chips */}
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-1.5">
+              {selectedTeams.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => !disabled && onToggle(t.id)}
+                  disabled={disabled}
+                  className="inline-flex items-center gap-1 rounded-full bg-primary/20 px-2.5 py-1 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/30"
+                >
+                  {t.team.flagEmoji && <span className="leading-none">{t.team.flagEmoji}</span>}
+                  {t.team.code}
+                  {!disabled && <span aria-hidden="true" className="ml-0.5 text-primary/60">×</span>}
+                </button>
+              ))}
+            </div>
+            <span
+              className={cn(
+                'shrink-0 text-xs font-bold tabular-nums',
+                isComplete ? 'text-emerald-400' : 'text-muted-foreground',
+              )}
+            >
+              {count}/{BEST_THIRDS_REQUIRED}
+            </span>
+          </div>
+
+          {/* Search */}
+          <div className="relative mb-2">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <input
+              ref={searchRef}
+              type="text"
+              placeholder="Buscar selección..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-11 w-full rounded-xl border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/25"
+            />
+          </div>
+
+          {/* List */}
+          <div className="scrollbar-sport max-h-56 overflow-y-auto [-webkit-overflow-scrolling:touch] rounded-xl border border-border/40 bg-background/60">
+            {filtered.length === 0 ? (
+              <p className="px-3 py-4 text-center text-xs text-muted-foreground">Sin resultados.</p>
+            ) : (
+              <div className="p-1">
+                {filtered.map((t) => {
+                  const isSelected = selectedIds.includes(t.id);
+                  const isDisabledItem = !isSelected && count >= BEST_THIRDS_REQUIRED;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={isSelected}
+                      disabled={disabled || isDisabledItem}
+                      onClick={() => onToggle(t.id)}
+                      className={cn(
+                        'flex min-h-[44px] w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left',
+                        'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        isSelected
+                          ? 'bg-primary text-primary-foreground shadow-card-sm'
+                          : isDisabledItem
+                          ? 'cursor-not-allowed text-muted-foreground/40'
+                          : 'text-foreground hover:bg-muted',
+                      )}
+                    >
+                      <TeamLabel
+                        name={t.team.name}
+                        code={t.team.code}
+                        flagEmoji={t.team.flagEmoji}
+                        format="compact"
+                        className={cn(
+                          'shrink-0 text-xs font-extrabold',
+                          isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground',
+                        )}
+                      />
+                      <span className="flex-1 truncate text-sm font-medium">{t.team.name}</span>
+                      {isSelected && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {!isComplete && count < BEST_THIRDS_REQUIRED && (
+            <p className="mt-2 text-center text-[11px] text-muted-foreground">
+              Selecciona {BEST_THIRDS_REQUIRED - count} equipo{BEST_THIRDS_REQUIRED - count !== 1 ? 's' : ''} más
+            </p>
+          )}
         </div>
       )}
     </div>

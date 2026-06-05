@@ -124,6 +124,7 @@ export const api = {
       topScorerTournamentPlayerId?: string | null;
       goldenBallTournamentPlayerId?: string | null;
       goldenGloveTournamentPlayerId?: string | null;
+      bestThirdsTeamIds?: string[] | null;
     },
     token: string,
   ) =>
@@ -323,6 +324,13 @@ export const api = {
       token,
     ),
 
+  adminGetTournamentActualResults: (tournamentId: string, token: string) =>
+    request<AdminTournamentActualResults>(
+      `/admin/tournaments/${tournamentId}/actual-results`,
+      { method: 'GET' },
+      token,
+    ),
+
   adminSetTournamentActualResults: (
     tournamentId: string,
     dto: {
@@ -332,6 +340,7 @@ export const api = {
       actualTopScorerTournamentPlayerId?: string | null;
       actualGoldenBallTournamentPlayerId?: string | null;
       actualGoldenGloveTournamentPlayerId?: string | null;
+      actualBestThirdsTeamIds?: string[] | null;
     },
     token: string,
   ) =>

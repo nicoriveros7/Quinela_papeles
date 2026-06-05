@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, HelpCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Check, HelpCircle, Search, Users } from 'lucide-react';
 
 import { api, ApiError } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/providers/auth-provider';
 import { AdminMatch } from '@/types/api';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
@@ -72,6 +73,11 @@ export default function TournamentMatchesPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [groupFilter, setGroupFilter] = useState('ALL');
+  const [bestThirdsActual, setBestThirdsActual] = useState<string[]>([]);
+  const [actualResultsSaving, setActualResultsSaving] = useState(false);
+  const [actualResultsMsg, setActualResultsMsg] = useState<string | null>(null);
+  const [bestThirdsSearch, setBestThirdsSearch] = useState('');
+  const BEST_THIRDS_REQUIRED = 8;
 
   useEffect(() => {
     if (!lastSavedId) return;
@@ -87,6 +93,12 @@ export default function TournamentMatchesPage() {
       const data = await api.adminListTournamentMatches(tournamentId, token);
       setTournamentName(data.tournament.name);
       setMatches(data.matches);
+      try {
+        const actualResults = await api.adminGetTournamentActualResults(tournamentId, token);
+        setBestThirdsActual(actualResults.actualBestThirdsTeamIds ?? []);
+      } catch {
+        // silently ignore — actual results may not be set yet
+      }
       setDrafts(
         Object.fromEntries(
           data.matches.map((match) => [
@@ -188,6 +200,54 @@ export default function TournamentMatchesPage() {
     }
   };
 
+  const saveBestThirdsActual = async () => {
+    if (!token) return;
+    setActualResultsSaving(true);
+    setActualResultsMsg(null);
+    try {
+      await api.adminSetTournamentActualResults(
+        tournamentId,
+        { actualBestThirdsTeamIds: bestThirdsActual.length > 0 ? bestThirdsActual : null },
+        token,
+      );
+      setActualResultsMsg('✅ Mejores terceros guardados. Recalcula el scoring para aplicar.');
+    } catch (err) {
+      setActualResultsMsg(`❌ ${err instanceof ApiError ? err.message : 'Error al guardar'}`);
+    } finally {
+      setActualResultsSaving(false);
+    }
+  };
+
+  const allTournamentTeams = useMemo(() => {
+    const map = new Map<string, { ttId: string; name: string; code: string; flagEmoji: string | null }>();
+    matches.forEach((m) => {
+      if (m.homeTournamentTeam) {
+        map.set(m.homeTournamentTeam.id, {
+          ttId: m.homeTournamentTeam.id,
+          name: m.homeTournamentTeam.team.name,
+          code: m.homeTournamentTeam.team.code,
+          flagEmoji: m.homeTournamentTeam.team.flagEmoji,
+        });
+      }
+      if (m.awayTournamentTeam) {
+        map.set(m.awayTournamentTeam.id, {
+          ttId: m.awayTournamentTeam.id,
+          name: m.awayTournamentTeam.team.name,
+          code: m.awayTournamentTeam.team.code,
+          flagEmoji: m.awayTournamentTeam.team.flagEmoji,
+        });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [matches]);
+
+  const filteredBestThirdsTeams = useMemo(() => {
+    const q = bestThirdsSearch.toLowerCase();
+    return allTournamentTeams.filter(
+      (t) => t.name.toLowerCase().includes(q) || t.code.toLowerCase().includes(q),
+    );
+  }, [allTournamentTeams, bestThirdsSearch]);
+
   if (loading) {
     return <StatePanel variant="loading" description="Cargando matches del torneo..." />;
   }
@@ -197,6 +257,107 @@ export default function TournamentMatchesPage() {
   }
 
   return (
+    <div className="grid gap-4">
+
+    {/* ── Mejores terceros reales ─────────────────────────────────────────── */}
+    {allTournamentTeams.length > 0 && (
+      <Card>
+        <CardHeader className="gap-2">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base">Mejores terceros clasificados (resultado oficial)</CardTitle>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Selecciona exactamente 8 equipos. Al guardar, recalcula el scoring para aplicar los puntos.
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          {/* Counter + chips */}
+          <div className="flex flex-wrap items-center gap-2">
+            {bestThirdsActual.map((ttId) => {
+              const t = allTournamentTeams.find((x) => x.ttId === ttId);
+              if (!t) return null;
+              return (
+                <button
+                  key={ttId}
+                  type="button"
+                  onClick={() => setBestThirdsActual((prev) => prev.filter((x) => x !== ttId))}
+                  className="inline-flex items-center gap-1 rounded-full bg-primary/20 px-2.5 py-1 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/30"
+                >
+                  {t.flagEmoji && <span>{t.flagEmoji}</span>}
+                  {t.code}
+                  <span aria-hidden="true" className="ml-0.5 text-primary/60">×</span>
+                </button>
+              );
+            })}
+            <span className={cn(
+              'ml-auto text-xs font-bold tabular-nums',
+              bestThirdsActual.length === BEST_THIRDS_REQUIRED ? 'text-emerald-400' : 'text-muted-foreground',
+            )}>
+              {bestThirdsActual.length}/{BEST_THIRDS_REQUIRED}
+            </span>
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Buscar equipo..."
+              value={bestThirdsSearch}
+              onChange={(e) => setBestThirdsSearch(e.target.value)}
+              className="h-10 w-full rounded-xl border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/25"
+            />
+          </div>
+
+          {/* Team grid */}
+          <div className="max-h-48 overflow-y-auto rounded-xl border border-border/40 bg-background/60 p-1">
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-4">
+              {filteredBestThirdsTeams.map((t) => {
+                const isSelected = bestThirdsActual.includes(t.ttId);
+                const isDisabled = !isSelected && bestThirdsActual.length >= BEST_THIRDS_REQUIRED;
+                return (
+                  <button
+                    key={t.ttId}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() => {
+                      if (isSelected) {
+                        setBestThirdsActual((prev) => prev.filter((x) => x !== t.ttId));
+                      } else if (bestThirdsActual.length < BEST_THIRDS_REQUIRED) {
+                        setBestThirdsActual((prev) => [...prev, t.ttId]);
+                      }
+                    }}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors',
+                      isSelected ? 'bg-primary text-primary-foreground' : isDisabled ? 'cursor-not-allowed text-muted-foreground/40' : 'text-foreground hover:bg-muted',
+                    )}
+                  >
+                    {t.flagEmoji && <span className="text-base leading-none">{t.flagEmoji}</span>}
+                    <span className="truncate">{t.name}</span>
+                    {isSelected && <Check className="ml-auto h-3.5 w-3.5 shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {actualResultsMsg && (
+            <p className="text-xs">{actualResultsMsg}</p>
+          )}
+
+          <Button
+            size="sm"
+            onClick={saveBestThirdsActual}
+            disabled={actualResultsSaving}
+            className="w-fit"
+          >
+            {actualResultsSaving ? 'Guardando...' : 'Guardar mejores terceros'}
+          </Button>
+        </CardContent>
+      </Card>
+    )}
+
     <Card>
       <CardHeader className="gap-3">
         <Link
@@ -436,5 +597,6 @@ export default function TournamentMatchesPage() {
         })}
       </CardContent>
     </Card>
+    </div>
   );
 }

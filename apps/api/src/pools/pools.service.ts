@@ -511,12 +511,15 @@ export class PoolsService {
     if (existing?.isLocked) throw new BadRequestException('Tournament predictions are locked');
 
     const fields = {
-      championTournamentTeamId: dto.championTournamentTeamId ?? null,
-      runnerUpTournamentTeamId: dto.runnerUpTournamentTeamId ?? null,
+      championTournamentTeamId:   dto.championTournamentTeamId ?? null,
+      runnerUpTournamentTeamId:   dto.runnerUpTournamentTeamId ?? null,
       thirdPlaceTournamentTeamId: dto.thirdPlaceTournamentTeamId ?? null,
       topScorerTournamentPlayerId: dto.topScorerTournamentPlayerId ?? null,
       goldenBallTournamentPlayerId: dto.goldenBallTournamentPlayerId ?? null,
       goldenGloveTournamentPlayerId: dto.goldenGloveTournamentPlayerId ?? null,
+      bestThirdsTeamIds: dto.bestThirdsTeamIds !== undefined
+        ? (dto.bestThirdsTeamIds !== null ? dto.bestThirdsTeamIds : Prisma.DbNull)
+        : undefined,
     };
 
     const prediction = await this.prisma.tournamentPrediction.upsert({

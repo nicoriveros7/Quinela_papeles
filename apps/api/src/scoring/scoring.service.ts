@@ -142,6 +142,8 @@ export class ScoringService {
         pointsTopScorerCorrect: true,
         pointsGoldenBallCorrect: true,
         pointsGoldenGloveCorrect: true,
+        pointsBestThirdsExact: true,
+        pointsBestThirdsPartial: true,
       },
     });
     if (!pool) throw new NotFoundException('Pool not found');
@@ -155,9 +157,14 @@ export class ScoringService {
         actualTopScorerTournamentPlayerId: true,
         actualGoldenBallTournamentPlayerId: true,
         actualGoldenGloveTournamentPlayerId: true,
+        actualBestThirdsTeamIds: true,
       },
     });
     if (!tournament) throw new NotFoundException('Tournament not found');
+
+    const actualBestThirds = Array.isArray(tournament.actualBestThirdsTeamIds)
+      ? (tournament.actualBestThirdsTeamIds as string[])
+      : [];
 
     const hasResults =
       tournament.actualChampionTournamentTeamId ||
@@ -165,7 +172,8 @@ export class ScoringService {
       tournament.actualThirdPlaceTournamentTeamId ||
       tournament.actualTopScorerTournamentPlayerId ||
       tournament.actualGoldenBallTournamentPlayerId ||
-      tournament.actualGoldenGloveTournamentPlayerId;
+      tournament.actualGoldenGloveTournamentPlayerId ||
+      actualBestThirds.length > 0;
 
     if (!hasResults) {
       await this.prisma.tournamentPrediction.updateMany({
@@ -186,6 +194,7 @@ export class ScoringService {
         topScorerTournamentPlayerId: true,
         goldenBallTournamentPlayerId: true,
         goldenGloveTournamentPlayerId: true,
+        bestThirdsTeamIds: true,
       },
     });
 
@@ -196,6 +205,7 @@ export class ScoringService {
       topScorerPlayerId: tournament.actualTopScorerTournamentPlayerId,
       goldenBallPlayerId: tournament.actualGoldenBallTournamentPlayerId,
       goldenGlovePlayerId: tournament.actualGoldenGloveTournamentPlayerId,
+      bestThirdsTeamIds: actualBestThirds,
     };
 
     const scoringConfig = {
@@ -205,11 +215,16 @@ export class ScoringService {
       pointsTopScorer: pool.pointsTopScorerCorrect,
       pointsGoldenBall: pool.pointsGoldenBallCorrect,
       pointsGoldenGlove: pool.pointsGoldenGloveCorrect,
+      pointsBestThirdsExact: pool.pointsBestThirdsExact,
+      pointsBestThirdsPartial: pool.pointsBestThirdsPartial,
     };
 
     const now = new Date();
-    const updates = predictions.map((pred) =>
-      this.prisma.tournamentPrediction.update({
+    const updates = predictions.map((pred) => {
+      const predictedBestThirds = Array.isArray(pred.bestThirdsTeamIds)
+        ? (pred.bestThirdsTeamIds as string[])
+        : [];
+      return this.prisma.tournamentPrediction.update({
         where: { id: pred.id },
         data: {
           pointsAwarded: calculateTournamentPredictionPoints(
@@ -220,6 +235,7 @@ export class ScoringService {
               topScorerPlayerId: pred.topScorerTournamentPlayerId,
               goldenBallPlayerId: pred.goldenBallTournamentPlayerId,
               goldenGlovePlayerId: pred.goldenGloveTournamentPlayerId,
+              bestThirdsTeamIds: predictedBestThirds,
             },
             actual,
             scoringConfig,
@@ -227,8 +243,8 @@ export class ScoringService {
           isScored: true,
           scoredAt: now,
         },
-      }),
-    );
+      });
+    });
 
     if (updates.length > 0) {
       await this.prisma.$transaction(updates);

@@ -18,12 +18,12 @@
  *   ADMIN_DISPLAY_NAME — Display name for the SUPER_ADMIN account
  */
 
-import { MatchStage, PrismaClient, SystemRole } from '@prisma/client';
+import { MatchStage, PrismaClient, SystemRole, TournamentPlayerStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 import { fifa2026GroupMatches } from './data/fifa-2026-group-matches.data';
 import { fifa2026KnockoutMatches } from './data/fifa-2026-knockout-matches.data';
-import { fifa2026PlayersLot1 } from './data/fifa-2026-players-lot-1.data';
+import { fifa2026SquadPlayers } from './data/fifa-2026-squad-players';
 import { fifa2026Venues } from './data/fifa-2026-venues.data';
 import {
   countryToIsoCode,
@@ -32,7 +32,6 @@ import {
   MAIN_POOL_SLUG,
   mapKnockoutStageToMatchStage,
   requireEnv,
-  seedFallbackPlayerForMissingTeams,
   seedTournamentPlayers,
   TEAM_DATA,
   TOURNAMENT_SLUG,
@@ -199,19 +198,21 @@ async function seedProduction() {
 
   console.info(`✅  Teams: ${allTeamCodes.length} teams`);
 
-  // 7. Players
-  const tournamentTeamRows = await prisma.tournamentTeam.findMany({
-    where: { tournamentId: tournament.id },
-    select: { id: true, team: { select: { code: true } } },
-  });
-  const tournamentTeamByCode = new Map(tournamentTeamRows.map((row) => [row.team.code, row]));
-  void tournamentTeamByCode; // used implicitly via seedTournamentPlayers
+  // 7. Players — official squad (1248 players, FINAL status)
+  // Clean up any existing TournamentPlayers before re-seeding
+  // (TournamentPrediction FKs use onDelete: SetNull so this is safe)
+  await prisma.tournamentPlayer.deleteMany({ where: { tournamentId: tournament.id } });
 
-  const playersLot1Stats = await seedTournamentPlayers(prisma, tournament.id, fifa2026PlayersLot1);
-  const fallbackStats    = await seedFallbackPlayerForMissingTeams(prisma, tournament.id);
+  const squadStats = await seedTournamentPlayers(
+    prisma,
+    tournament.id,
+    fifa2026SquadPlayers,
+    TournamentPlayerStatus.FINAL,
+  );
 
   console.info(
-    `✅  Players: ${playersLot1Stats.playersUpserted} upserted, ${fallbackStats.createdFallbackPlayers} fallbacks created`,
+    `✅  Players: ${squadStats.playersUpserted} upserted (${squadStats.processedTeams} teams)` +
+    (squadStats.missingTeams.length > 0 ? ` — missing: ${squadStats.missingTeams.join(', ')}` : ''),
   );
 
   // 8. Group matches

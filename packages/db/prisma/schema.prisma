@@ -162,6 +162,7 @@ model Tournament {
   actualTopScorerTournamentPlayerId   String?
   actualGoldenBallTournamentPlayerId  String?
   actualGoldenGloveTournamentPlayerId String?
+  actualBestThirdsTeamIds             Json?
 
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
@@ -200,6 +201,11 @@ model Player {
   birthDate         DateTime?
   nationalityCode   String?
   preferredPosition String?
+  firstNames        String?
+  lastNames         String?
+  nameOnShirt       String?
+  club              String?
+  heightCm          Int?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -347,8 +353,10 @@ model Pool {
   pointsThirdPlaceCorrect  Int            @default(15)
   pointsTopScorerCorrect   Int            @default(10)
   pointsGoldenBallCorrect  Int            @default(10)
-  pointsGoldenGloveCorrect Int            @default(10)
-  pointsConfig             Json?
+  pointsGoldenGloveCorrect    Int            @default(10)
+  pointsBestThirdsExact       Int            @default(20)
+  pointsBestThirdsPartial     Int            @default(10)
+  pointsConfig                Json?
   createdAt                DateTime       @default(now())
   updatedAt                DateTime       @updatedAt
 
@@ -435,6 +443,7 @@ model TournamentPrediction {
   topScorerTournamentPlayerId   String?
   goldenBallTournamentPlayerId  String?
   goldenGloveTournamentPlayerId String?
+  bestThirdsTeamIds             Json?
   pointsAwarded                 Int       @default(0)
   isLocked                      Boolean   @default(false)
   isScored                      Boolean   @default(false)

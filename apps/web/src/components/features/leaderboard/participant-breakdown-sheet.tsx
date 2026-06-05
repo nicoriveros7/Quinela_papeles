@@ -583,7 +583,9 @@ function TournamentSection({
     { label: 'Mejor arquero', value: prediction.goldenGlove,   flagEmoji: null,                             code: null },
   ].filter((item): item is { label: string; value: string; flagEmoji: string | null; code: string | null } => item.value !== null);
 
-  if (items.length === 0) return null;
+  const hasBestThirds = prediction.bestThirds && prediction.bestThirds.length > 0;
+  const isEmpty = items.length === 0 && !hasBestThirds;
+  if (isEmpty) return null;
 
   return (
     <section>
@@ -610,6 +612,23 @@ function TournamentSection({
             )}
           </div>
         ))}
+        {hasBestThirds && (
+          <div className="border-b border-border/50 px-4 py-3 last:border-0">
+            <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+              Mejores terceros ({prediction.bestThirds!.length}/8)
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {prediction.bestThirds!.map((code) => (
+                <span
+                  key={code}
+                  className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                >
+                  {code}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         {prediction.isScored && (
           <div className="flex items-center justify-between border-t border-border/50 px-4 py-2.5">
             <span className="text-xs text-muted-foreground">Puntos ganados</span>

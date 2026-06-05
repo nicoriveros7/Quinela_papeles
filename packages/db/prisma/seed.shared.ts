@@ -151,6 +151,7 @@ export async function seedTournamentPlayers(
   prisma: PrismaClient,
   tournamentId: string,
   teamsSeed: TeamPlayersSeed[],
+  squadStatus: TournamentPlayerStatus = TournamentPlayerStatus.PROVISIONAL,
 ) {
   const tournamentTeams = await prisma.tournamentTeam.findMany({
     where: { tournamentId },
@@ -161,6 +162,7 @@ export async function seedTournamentPlayers(
     tournamentTeams.map((row) => [row.team.code, row.id]),
   );
 
+  const missingTeams: string[] = [];
   let processedTeams = 0;
   let playersUpserted = 0;
   let tournamentPlayersUpserted = 0;
@@ -168,9 +170,8 @@ export async function seedTournamentPlayers(
   for (const teamSeed of teamsSeed) {
     const tournamentTeamId = tournamentTeamByCode.get(teamSeed.teamCode);
     if (!tournamentTeamId) {
-      throw new Error(
-        `Missing TournamentTeam for ${teamSeed.teamCode} while seeding players. Source: ${teamSeed.sourceNote}`,
-      );
+      missingTeams.push(teamSeed.teamCode);
+      continue;
     }
     processedTeams += 1;
 
@@ -181,17 +182,29 @@ export async function seedTournamentPlayers(
       const player = await prisma.player.upsert({
         where: { externalRef: playerSeed.externalRef },
         update: {
-          fullName: playerSeed.fullName,
-          shortName: playerSeed.shortName ?? null,
-          nationalityCode: playerSeed.nationalityCode,
+          fullName:          playerSeed.fullName,
+          shortName:         playerSeed.shortName ?? null,
+          nationalityCode:   playerSeed.nationalityCode,
           preferredPosition: playerSeed.preferredPosition,
+          firstNames:        playerSeed.firstNames ?? null,
+          lastNames:         playerSeed.lastNames ?? null,
+          nameOnShirt:       playerSeed.nameOnShirt ?? null,
+          club:              playerSeed.club ?? null,
+          heightCm:          playerSeed.heightCm ?? null,
+          birthDate:         playerSeed.birthDate ?? null,
         },
         create: {
-          fullName: playerSeed.fullName,
-          shortName: playerSeed.shortName ?? null,
-          externalRef: playerSeed.externalRef,
-          nationalityCode: playerSeed.nationalityCode,
+          fullName:          playerSeed.fullName,
+          shortName:         playerSeed.shortName ?? null,
+          externalRef:       playerSeed.externalRef,
+          nationalityCode:   playerSeed.nationalityCode,
           preferredPosition: playerSeed.preferredPosition,
+          firstNames:        playerSeed.firstNames ?? null,
+          lastNames:         playerSeed.lastNames ?? null,
+          nameOnShirt:       playerSeed.nameOnShirt ?? null,
+          club:              playerSeed.club ?? null,
+          heightCm:          playerSeed.heightCm ?? null,
+          birthDate:         playerSeed.birthDate ?? null,
         },
         select: { id: true },
       });
@@ -209,18 +222,18 @@ export async function seedTournamentPlayers(
         update: {
           shirtNumber: playerSeed.shirtNumber ?? null,
           position,
-          squadStatus: TournamentPlayerStatus.PROVISIONAL,
-          isCaptain: playerSeed.isCaptain ?? false,
+          squadStatus,
+          isCaptain:   playerSeed.isCaptain ?? false,
           isGoalkeeper,
         },
         create: {
           tournamentId,
           tournamentTeamId,
-          playerId: player.id,
+          playerId:    player.id,
           shirtNumber: playerSeed.shirtNumber ?? null,
           position,
-          squadStatus: TournamentPlayerStatus.PROVISIONAL,
-          isCaptain: playerSeed.isCaptain ?? false,
+          squadStatus,
+          isCaptain:   playerSeed.isCaptain ?? false,
           isGoalkeeper,
         },
       });
@@ -229,92 +242,9 @@ export async function seedTournamentPlayers(
     }
   }
 
-  return { processedTeams, playersUpserted, tournamentPlayersUpserted };
-}
-
-export async function seedFallbackPlayerForMissingTeams(
-  prisma: PrismaClient,
-  tournamentId: string,
-) {
-  const tournamentTeams = await prisma.tournamentTeam.findMany({
-    where: { tournamentId },
-    select: {
-      id: true,
-      team: { select: { code: true, name: true, countryCode: true } },
-      _count: { select: { players: true } },
-    },
-  });
-
-  let createdFallbackPlayers = 0;
-  let updatedFallbackPlayers = 0;
-
-  for (const tournamentTeam of tournamentTeams) {
-    const fallbackExternalRef = `wc2026-${tournamentTeam.team.code.toLowerCase()}-fallback-1`;
-    const fallbackFullName    = `${tournamentTeam.team.name} Player 1`;
-    const fallbackNationality = tournamentTeam.team.countryCode ?? tournamentTeam.team.code;
-
-    const existingFallback = await prisma.player.findUnique({
-      where: { externalRef: fallbackExternalRef },
-      select: { id: true },
-    });
-
-    if (!existingFallback && tournamentTeam._count.players > 0) continue;
-
-    const player = await prisma.player.upsert({
-      where: { externalRef: fallbackExternalRef },
-      update: {
-        fullName: fallbackFullName,
-        shortName: `${tournamentTeam.team.code} P1`,
-        nationalityCode: fallbackNationality,
-        preferredPosition: 'FW',
-      },
-      create: {
-        fullName: fallbackFullName,
-        shortName: `${tournamentTeam.team.code} P1`,
-        externalRef: fallbackExternalRef,
-        nationalityCode: fallbackNationality,
-        preferredPosition: 'FW',
-      },
-      select: { id: true },
-    });
-
-    await prisma.tournamentPlayer.upsert({
-      where: {
-        tournamentId_tournamentTeamId_playerId: {
-          tournamentId,
-          tournamentTeamId: tournamentTeam.id,
-          playerId: player.id,
-        },
-      },
-      update: {
-        shirtNumber: null,
-        position: 'FW',
-        squadStatus: TournamentPlayerStatus.PROVISIONAL,
-        isCaptain: false,
-        isGoalkeeper: false,
-      },
-      create: {
-        tournamentId,
-        tournamentTeamId: tournamentTeam.id,
-        playerId: player.id,
-        shirtNumber: null,
-        position: 'FW',
-        squadStatus: TournamentPlayerStatus.PROVISIONAL,
-        isCaptain: false,
-        isGoalkeeper: false,
-      },
-    });
-
-    if (existingFallback) {
-      updatedFallbackPlayers += 1;
-    } else {
-      createdFallbackPlayers += 1;
-    }
+  if (missingTeams.length > 0) {
+    console.warn(`⚠️   Teams in markdown not found in tournament (skipped): ${missingTeams.join(', ')}`);
   }
 
-  return {
-    createdFallbackPlayers,
-    updatedFallbackPlayers,
-    totalTournamentTeams: tournamentTeams.length,
-  };
+  return { processedTeams, playersUpserted, tournamentPlayersUpserted, missingTeams };
 }

@@ -8,6 +8,13 @@ export type TournamentPlayerSeed = {
   isGoalkeeper?: boolean;
   isCaptain?: boolean;
   shirtNumber?: number;
+  // Extended fields from official squad lists
+  firstNames?: string;
+  lastNames?: string;
+  nameOnShirt?: string;
+  club?: string;
+  heightCm?: number;
+  birthDate?: Date;
 };
 
 export type TeamPlayersSeed = {

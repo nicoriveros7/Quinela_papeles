@@ -39,12 +39,12 @@
  *   ADMIN_DISPLAY_NAME — Nombre visible del SUPER_ADMIN
  */
 
-import { MatchStage, PrismaClient, SystemRole } from '@prisma/client';
+import { MatchStage, PrismaClient, SystemRole, TournamentPlayerStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 import { fifa2026GroupMatches } from './data/fifa-2026-group-matches.data';
 import { fifa2026KnockoutMatches } from './data/fifa-2026-knockout-matches.data';
-import { fifa2026PlayersLot1 } from './data/fifa-2026-players-lot-1.data';
+import { fifa2026SquadPlayers } from './data/fifa-2026-squad-players';
 import { fifa2026Venues } from './data/fifa-2026-venues.data';
 import {
   countryToIsoCode,
@@ -53,7 +53,6 @@ import {
   MAIN_POOL_SLUG,
   mapKnockoutStageToMatchStage,
   requireEnv,
-  seedFallbackPlayerForMissingTeams,
   seedTournamentPlayers,
   TEAM_DATA,
   TOURNAMENT_SLUG,
@@ -331,14 +330,22 @@ async function seedQA() {
 
   console.info(`✅  Teams: ${QA_TEAM_CODES.size} (solo equipos de los partidos QA)`);
 
-  // 7. Players — solo jugadores de los equipos QA (del lot oficial, sin truncar)
-  const qaPlayersLot1 = fifa2026PlayersLot1.filter((t) => QA_TEAM_CODES.has(t.teamCode));
+  // 7. Players — only QA teams, official squad data (FINAL status)
+  // Clean up any existing TournamentPlayers before re-seeding
+  // (TournamentPrediction FKs use onDelete: SetNull so this is safe)
+  await prisma.tournamentPlayer.deleteMany({ where: { tournamentId: tournament.id } });
 
-  const playersLot1Stats = await seedTournamentPlayers(prisma, tournament.id, qaPlayersLot1);
-  const fallbackStats    = await seedFallbackPlayerForMissingTeams(prisma, tournament.id);
+  const qaSquadPlayers = fifa2026SquadPlayers.filter((t) => QA_TEAM_CODES.has(t.teamCode));
+  const squadStats     = await seedTournamentPlayers(
+    prisma,
+    tournament.id,
+    qaSquadPlayers,
+    TournamentPlayerStatus.FINAL,
+  );
 
   console.info(
-    `✅  Players: ${playersLot1Stats.playersUpserted} upserted, ${fallbackStats.createdFallbackPlayers} fallbacks created`,
+    `✅  Players: ${squadStats.playersUpserted} upserted (${squadStats.processedTeams} teams)` +
+    (squadStats.missingTeams.length > 0 ? ` — missing: ${squadStats.missingTeams.join(', ')}` : ''),
   );
 
   // 8. Group matches QA (9 partidos)
@@ -465,8 +472,8 @@ async function seedQA() {
         tournamentSlug: tournament.slug,
         groups: GROUP_CODES.length,
         teams: QA_TEAM_CODES.size,
-        playersFromLot1: playersLot1Stats.playersUpserted,
-        fallbackPlayers: fallbackStats.createdFallbackPlayers,
+        playersUpserted: squadStats.playersUpserted,
+        fallbackPlayers: 0,
         matches: {
           total: totalMatches,
           group: qaGroupMatches.length,

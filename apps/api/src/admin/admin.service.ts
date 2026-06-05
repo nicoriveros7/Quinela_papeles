@@ -77,6 +77,7 @@ export class AdminService {
         },
         homeTournamentTeam: {
           select: {
+            id: true,
             team: {
               select: {
                 id: true,
@@ -89,6 +90,7 @@ export class AdminService {
         },
         awayTournamentTeam: {
           select: {
+            id: true,
             team: {
               select: {
                 id: true,
@@ -505,6 +507,24 @@ export class AdminService {
     };
   }
 
+  async getTournamentActualResults(tournamentId: string) {
+    const tournament = await this.prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      select: {
+        id: true,
+        actualChampionTournamentTeamId: true,
+        actualRunnerUpTournamentTeamId: true,
+        actualThirdPlaceTournamentTeamId: true,
+        actualTopScorerTournamentPlayerId: true,
+        actualGoldenBallTournamentPlayerId: true,
+        actualGoldenGloveTournamentPlayerId: true,
+        actualBestThirdsTeamIds: true,
+      },
+    });
+    if (!tournament) throw new NotFoundException('Tournament not found');
+    return tournament;
+  }
+
   async setTournamentActualResults(
     tournamentId: string,
     payload: {
@@ -514,6 +534,7 @@ export class AdminService {
       actualTopScorerTournamentPlayerId?: string | null;
       actualGoldenBallTournamentPlayerId?: string | null;
       actualGoldenGloveTournamentPlayerId?: string | null;
+      actualBestThirdsTeamIds?: string[] | null;
     },
   ) {
     const tournament = await this.prisma.tournament.findUnique({
@@ -524,7 +545,10 @@ export class AdminService {
 
     return this.prisma.tournament.update({
       where: { id: tournamentId },
-      data: payload,
+      data: {
+        ...payload,
+        actualBestThirdsTeamIds: payload.actualBestThirdsTeamIds ?? undefined,
+      },
       select: {
         id: true,
         actualChampionTournamentTeamId: true,
@@ -533,6 +557,7 @@ export class AdminService {
         actualTopScorerTournamentPlayerId: true,
         actualGoldenBallTournamentPlayerId: true,
         actualGoldenGloveTournamentPlayerId: true,
+        actualBestThirdsTeamIds: true,
       },
     });
   }
