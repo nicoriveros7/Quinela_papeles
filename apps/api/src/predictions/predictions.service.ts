@@ -55,22 +55,28 @@ export class PredictionsService {
               match: { stage: MatchStage.GROUP, roundLabel: match.roundLabel },
             };
 
-      const existingJoker = await this.prisma.matchPrediction.findFirst({
+      const existingJokers = await this.prisma.matchPrediction.findMany({
         where: existingJokerWhere,
         select: { id: true, matchId: true, match: { select: { kickoffAt: true, status: true } } },
       });
 
-      if (existingJoker) {
-        const prevEditable =
-          existingJoker.match.status === 'SCHEDULED' &&
-          new Date() < new Date(existingJoker.match.kickoffAt.getTime() - entryContext.pool.lockMinutesBeforeKickoff * 60_000);
-        if (!prevEditable) {
-          throw new ConflictException(
-            'Ya tienes un Joker activo en este bucket en un partido que ya no es editable',
-          );
-        }
-        await this.prisma.matchPrediction.update({
-          where: { id: existingJoker.id },
+      // If ANY existing joker in the bucket is locked, reject the request
+      const lockedJoker = existingJokers.find((ej) => {
+        const notEditable =
+          ej.match.status !== 'SCHEDULED' ||
+          new Date() >= new Date(ej.match.kickoffAt.getTime() - entryContext.pool.lockMinutesBeforeKickoff * 60_000);
+        return notEditable;
+      });
+      if (lockedJoker) {
+        throw new ConflictException(
+          'Ya tienes un Joker bloqueado en esta jornada y no puedes cambiarlo.',
+        );
+      }
+
+      // Deactivate ALL existing jokers in the bucket (handles corruption with >1 joker)
+      if (existingJokers.length > 0) {
+        await this.prisma.matchPrediction.updateMany({
+          where: { id: { in: existingJokers.map((ej) => ej.id) } },
           data: { isJoker: false },
         });
       }

@@ -41,6 +41,16 @@ function stageLabel(stage: string, groupCode?: string | null) {
   return map[stage] ?? stage;
 }
 
+function jornadaLabel(match: PoolMatch): string | null {
+  if (match.stage === 'GROUP') {
+    if (match.roundLabel === 'Matchday 1') return 'Jornada 1';
+    if (match.roundLabel === 'Matchday 2') return 'Jornada 2';
+    if (match.roundLabel === 'Matchday 3') return 'Jornada 3';
+    return null;
+  }
+  return null; // knockout stage shown via stageLabel already
+}
+
 export default function PartidosPage() {
   const { token } = useAuth();
   const [mainPool, setMainPool] = useState<WorldCupMainPool | null>(null);
@@ -199,6 +209,7 @@ function MatchRow({
   const statusBadgeVariant = isLive ? 'live' : isFinished ? 'muted' : 'default';
   const statusBadgeLabel = isLive ? 'LIVE' : isFinished ? 'Final' : 'Próximo';
   const proximity = isScheduled ? matchProximityLabel(match.kickoffAt) : null;
+  const jornada = jornadaLabel(match);
 
   return (
     <div className="rounded-xl border border-white/[0.08] bg-surface px-4 py-3.5 shadow-card-sm shadow-inner-subtle transition-all duration-150 hover:border-primary/25 hover:shadow-card">
@@ -220,11 +231,16 @@ function MatchRow({
             </span>
           )}
         </div>
-        {/* Stage + status — secondary */}
+        {/* Stage + jornada + status — secondary */}
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
             {stageBadge}
           </span>
+          {jornada && (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+              {jornada}
+            </span>
+          )}
           <Badge variant={statusBadgeVariant}>{statusBadgeLabel}</Badge>
         </div>
       </div>

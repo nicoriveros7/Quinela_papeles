@@ -101,6 +101,21 @@ const BUCKET_LABELS: Record<JokerBucket, string> = {
   KNOCKOUT: 'Eliminatorias',
 };
 
+function getJornadaLabel(match: PoolMatch): string | null {
+  if (match.stage === 'GROUP') {
+    if (match.roundLabel === 'Matchday 1') return 'Jornada 1';
+    if (match.roundLabel === 'Matchday 2') return 'Jornada 2';
+    if (match.roundLabel === 'Matchday 3') return 'Jornada 3';
+    return null;
+  }
+  const stageMap: Partial<Record<string, string>> = {
+    ROUND_OF_32: 'R32', ROUND_OF_16: 'R16',
+    QUARTER_FINAL: 'Cuartos', SEMI_FINAL: 'Semifinal',
+    THIRD_PLACE: '3er puesto', FINAL: 'Final',
+  };
+  return stageMap[match.stage] ?? null;
+}
+
 /** Returns the CSS classes for a match picker card based on its state. */
 function matchCardStateClass(
   match: PoolMatch,
@@ -171,6 +186,7 @@ function EntryPredictionsPage() {
   const [jokerDraft, setJokerDraft] = useState(false);
   const [jokerToggling, setJokerToggling] = useState(false);
   const [jokerError, setJokerError] = useState<string | null>(null);
+  const [jokerConfirmPending, setJokerConfirmPending] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(false);
@@ -451,33 +467,73 @@ function EntryPredictionsPage() {
     }
   };
 
+  // Helper: clear the joker flag on the previously-active joker match in this bucket
+  const clearPrevBucketJokerSummary = (prevJokerMatchId: string | null) => {
+    if (!prevJokerMatchId || prevJokerMatchId === selectedMatchId) return;
+    setPredictionSummaryByMatch((prev) => {
+      const existing = prev[prevJokerMatchId];
+      if (!existing) return prev;
+      return { ...prev, [prevJokerMatchId]: { ...existing, isJoker: false } };
+    });
+  };
+
+  // Execute the joker API call (shared by immediate toggle and confirm-swap)
+  const doJokerApiCall = async (newState: boolean, prevJokerMatchId: string | null) => {
+    if (!bundle?.matchPrediction || !token || !selectedMatchId) return;
+    setJokerToggling(true);
+    try {
+      await api.upsertMatchPrediction(
+        poolId, entryId, selectedMatchId,
+        bundle.matchPrediction.predictedHomeScore,
+        bundle.matchPrediction.predictedAwayScore,
+        token, newState,
+      );
+      const updated = await api.getEntryMatchPredictions(poolId, entryId, selectedMatchId, token);
+      updateSummaryForMatch(updated);
+      if (newState) clearPrevBucketJokerSummary(prevJokerMatchId);
+    } catch (err) {
+      setJokerDraft(!newState);
+      setJokerError(err instanceof ApiError ? err.message : 'Error al cambiar el Joker.');
+    } finally {
+      setJokerToggling(false);
+    }
+  };
+
   const toggleJoker = async () => {
     if (!token || !selectedMatchId || isSelectedMatchLocked || jokerToggling) return;
-    const newState = !jokerDraft;
-    setJokerDraft(newState);
     setJokerError(null);
-    if (bundle?.matchPrediction) {
-      // Prediction already exists → save joker change immediately via API
-      setJokerToggling(true);
-      try {
-        await api.upsertMatchPrediction(
-          poolId, entryId, selectedMatchId,
-          bundle.matchPrediction.predictedHomeScore,
-          bundle.matchPrediction.predictedAwayScore,
-          token,
-          newState,
-        );
-        const updated = await api.getEntryMatchPredictions(poolId, entryId, selectedMatchId, token);
-        updateSummaryForMatch(updated);
-      } catch (err) {
-        setJokerDraft(!newState); // revert optimistic update
-        const msg = err instanceof ApiError ? err.message : 'Error al cambiar el Joker.';
-        setJokerError(msg);
-      } finally {
-        setJokerToggling(false);
+    setJokerConfirmPending(false);
+
+    const newState = !jokerDraft;
+
+    if (newState && bucketJokerMatchId && bucketJokerMatchId !== selectedMatchId) {
+      // There's an existing joker in the same bucket on a DIFFERENT match
+      const conflictMatch = matches.find((m) => m.id === bucketJokerMatchId);
+      const conflictLocked = conflictMatch
+        ? conflictMatch.status !== 'SCHEDULED' ||
+          isMatchLocked(conflictMatch.kickoffAt, pool?.lockMinutesBeforeKickoff ?? 0)
+        : false;
+
+      if (conflictLocked) {
+        setJokerError('Ya tienes un Joker bloqueado en esta jornada y no puedes cambiarlo.');
+        return;
       }
+      // Requires confirmation
+      setJokerConfirmPending(true);
+      return;
     }
-    // If no prediction yet, jokerDraft is just local state — it will be sent with the score save
+
+    // No conflict or deactivating → proceed immediately
+    setJokerDraft(newState);
+    await doJokerApiCall(newState, bucketJokerMatchId);
+  };
+
+  const confirmJokerSwap = async () => {
+    if (!selectedMatchId || jokerToggling) return;
+    const prevJokerMatchId = bucketJokerMatchId;
+    setJokerConfirmPending(false);
+    setJokerDraft(true);
+    await doJokerApiCall(true, prevJokerMatchId);
   };
 
   const flashSuccess = (msg: string) => {
@@ -526,6 +582,9 @@ function EntryPredictionsPage() {
       return;
     }
 
+    // Capture before async: if joker is being activated, remember which match had it before
+    const prevJokerMatchIdForSave = jokerDraft && shouldSaveMatch ? bucketJokerMatchId : null;
+
     try {
       const tasks: Promise<unknown>[] = [];
       if (shouldSaveMatch) {
@@ -540,6 +599,7 @@ function EntryPredictionsPage() {
 
       const updated = await api.getEntryMatchPredictions(poolId, entryId, selectedMatchId, token);
       updateSummaryForMatch(updated);
+      clearPrevBucketJokerSummary(prevJokerMatchIdForSave);
 
       if (shouldSaveMatch && questionsToSave.length > 0) {
         flashSuccess(`Marcador y ${questionsToSave.length} bonus guardados.`);
@@ -702,6 +762,7 @@ function EntryPredictionsPage() {
               const stageTag = match.stage === 'GROUP'
                 ? `G-${match.group?.code ?? '?'}`
                 : getStageLabel(match.stage);
+              const jornadaLabel = getJornadaLabel(match);
 
               return (
                 <button
@@ -716,7 +777,19 @@ function EntryPredictionsPage() {
                     matchCardStateClass(match, summary, isSelected),
                   )}
                 >
-                  {/* Date — topmost, most visible */}
+                  {/* Jornada label — topmost context */}
+                  {jornadaLabel && (
+                    <span className={cn(
+                      'text-[9px] font-bold uppercase tracking-widest leading-none',
+                      isSelected ? 'text-primary/80' : 'text-muted-foreground/70',
+                    )}>
+                      {match.stage === 'GROUP' && match.group?.code
+                        ? `Gr ${match.group.code} · ${jornadaLabel}`
+                        : jornadaLabel}
+                    </span>
+                  )}
+
+                  {/* Date */}
                   <time
                     dateTime={match.kickoffAt}
                     className={cn(
@@ -805,6 +878,13 @@ function EntryPredictionsPage() {
               </button>
 
               <div className="min-w-0 flex-1 px-1 text-center">
+                {getJornadaLabel(selectedMatch) && (
+                  <p className="mb-0.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                    {selectedMatch.stage === 'GROUP' && selectedMatch.group?.code
+                      ? `Grupo ${selectedMatch.group.code} · ${getJornadaLabel(selectedMatch)}`
+                      : getJornadaLabel(selectedMatch)}
+                  </p>
+                )}
                 <p className="truncate text-sm font-extrabold text-foreground">
                   {getMatchNameLabel(selectedMatch, 'home')} vs {getMatchNameLabel(selectedMatch, 'away')}
                 </p>
@@ -938,73 +1018,112 @@ function EntryPredictionsPage() {
             </div>
 
             {/* Joker x2 toggle */}
-            {isOwner && selectedMatchBucket ? (
-              <div className={cn(
-                'mt-3 rounded-xl border px-3 py-2.5',
-                jokerDraft
-                  ? 'border-amber-400/40 bg-amber-500/10'
-                  : 'border-border/40 bg-muted/30',
-              )}>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Zap
-                      className={cn('h-4 w-4 shrink-0', jokerDraft ? 'text-amber-400' : 'text-muted-foreground/40')}
-                      aria-hidden="true"
-                    />
-                    <div className="min-w-0">
-                      <p className={cn('text-xs font-bold leading-tight', jokerDraft ? 'text-amber-300' : 'text-foreground/70')}>
-                        Joker x2 — {BUCKET_LABELS[selectedMatchBucket]}
-                      </p>
-                      <p className="truncate text-[10px] text-muted-foreground">
-                        {jokerDraft && !bundle?.matchPrediction
-                          ? 'Se guardará con el marcador'
-                          : jokerDraft
-                          ? 'Activo · duplica marcador + bonus'
-                          : bucketJokerMatchId && bucketJokerMatchId !== selectedMatchId
-                          ? 'Joker activo en otro partido de esta jornada'
-                          : 'Duplica puntos de marcador + bonus'}
-                      </p>
+            {isOwner && selectedMatchBucket ? (() => {
+              const conflictMatch = bucketJokerMatchId && bucketJokerMatchId !== selectedMatchId
+                ? matches.find((m) => m.id === bucketJokerMatchId) ?? null
+                : null;
+              const conflictName = conflictMatch
+                ? `${getMatchNameLabel(conflictMatch, 'home')} vs ${getMatchNameLabel(conflictMatch, 'away')}`
+                : null;
+
+              return (
+                <div className={cn(
+                  'mt-3 rounded-xl border px-3 py-2.5',
+                  jokerDraft
+                    ? 'border-amber-400/40 bg-amber-500/10'
+                    : 'border-border/40 bg-muted/30',
+                )}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Zap
+                        className={cn('h-4 w-4 shrink-0', jokerDraft ? 'text-amber-400' : 'text-muted-foreground/40')}
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0">
+                        <p className={cn('text-xs font-bold leading-tight', jokerDraft ? 'text-amber-300' : 'text-foreground/70')}>
+                          Joker x2 — {BUCKET_LABELS[selectedMatchBucket]}
+                        </p>
+                        <p className="truncate text-[10px] text-muted-foreground">
+                          {jokerDraft && !bundle?.matchPrediction
+                            ? 'Se guardará con el marcador'
+                            : jokerDraft
+                            ? 'Activo · duplica marcador + bonus'
+                            : conflictMatch
+                            ? `Usado en: ${conflictName}`
+                            : 'Duplica puntos de marcador + bonus'}
+                        </p>
+                      </div>
                     </div>
+                    {!isSelectedMatchLocked ? (
+                      <button
+                        type="button"
+                        onClick={() => void toggleJoker()}
+                        disabled={jokerToggling}
+                        aria-pressed={jokerDraft}
+                        className={cn(
+                          'shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold',
+                          'transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                          jokerToggling && 'opacity-50 cursor-not-allowed',
+                          jokerDraft
+                            ? 'bg-amber-500/25 text-amber-300 hover:bg-amber-500/35'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground',
+                        )}
+                      >
+                        {jokerToggling ? '···' : jokerDraft ? 'Desactivar' : 'Activar'}
+                      </button>
+                    ) : jokerDraft ? (
+                      <span className="shrink-0 rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-300">
+                        Activo
+                      </span>
+                    ) : null}
                   </div>
-                  {!isSelectedMatchLocked ? (
-                    <button
-                      type="button"
-                      onClick={() => void toggleJoker()}
-                      disabled={jokerToggling}
-                      aria-pressed={jokerDraft}
-                      className={cn(
-                        'shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold',
-                        'transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        jokerToggling && 'opacity-50 cursor-not-allowed',
-                        jokerDraft
-                          ? 'bg-amber-500/25 text-amber-300 hover:bg-amber-500/35'
-                          : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground',
-                      )}
-                    >
-                      {jokerToggling ? '···' : jokerDraft ? 'Desactivar' : 'Activar'}
-                    </button>
-                  ) : jokerDraft ? (
-                    <span className="shrink-0 rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-300">
-                      Activo
-                    </span>
+
+                  {/* Confirmation: swap joker from another match in the same bucket */}
+                  {jokerConfirmPending && conflictName ? (
+                    <div className="mt-2.5 rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2.5">
+                      <p className="text-[11px] font-semibold text-amber-300">
+                        Ya tienes un Joker activo en esta jornada:
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-foreground/80">{conflictName}</p>
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        Si activas este Joker, el anterior se desactivará.
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setJokerConfirmPending(false)}
+                          className="rounded-md bg-muted px-3 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted/70"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void confirmJokerSwap()}
+                          disabled={jokerToggling}
+                          className="rounded-md bg-amber-500/25 px-3 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-500/35 disabled:opacity-50"
+                        >
+                          {jokerToggling ? '···' : 'Cambiar Joker'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Inline error for joker toggle failures */}
+                  {jokerError ? (
+                    <p className="mt-2 rounded-lg bg-rose-500/10 border border-rose-400/20 px-2.5 py-1.5 text-[11px] font-semibold text-rose-400">
+                      {jokerError}
+                    </p>
+                  ) : null}
+
+                  {/* Hint when joker is pending a score save */}
+                  {jokerDraft && !bundle?.matchPrediction && !jokerError && !jokerConfirmPending ? (
+                    <p className="mt-1.5 text-[10px] text-amber-400/70">
+                      Ingresa el marcador y presiona Guardar para aplicar el Joker.
+                    </p>
                   ) : null}
                 </div>
-
-                {/* Inline error for joker toggle failures */}
-                {jokerError ? (
-                  <p className="mt-2 rounded-lg bg-rose-500/10 border border-rose-400/20 px-2.5 py-1.5 text-[11px] font-semibold text-rose-400">
-                    {jokerError}
-                  </p>
-                ) : null}
-
-                {/* Hint when joker is pending a score save */}
-                {jokerDraft && !bundle?.matchPrediction && !jokerError ? (
-                  <p className="mt-1.5 text-[10px] text-amber-400/70">
-                    Ingresa el marcador y presiona Guardar para aplicar el Joker.
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
+              );
+            })() : null}
 
             {/* Breakdown */}
             {bundle?.matchPredictionBreakdown && bundle.matchPrediction?.isScored ? (
