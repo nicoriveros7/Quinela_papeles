@@ -37,6 +37,21 @@ export interface MatchBreakdown {
   questions: MatchQuestionBreakdown[];
 }
 
+export interface TournamentFieldScore {
+  points: number;
+  isCorrect: boolean | null; // null = actual result not set yet
+}
+
+export interface TournamentFieldBreakdown {
+  champion: TournamentFieldScore;
+  runnerUp: TournamentFieldScore;
+  thirdPlace: TournamentFieldScore;
+  topScorer: TournamentFieldScore;
+  goldenBall: TournamentFieldScore;
+  goldenGlove: TournamentFieldScore;
+  bestThirds: TournamentFieldScore & { hits: number; total: number };
+}
+
 export interface TournamentPredictionBreakdown {
   champion: string | null;
   championCode: string | null;
@@ -53,6 +68,7 @@ export interface TournamentPredictionBreakdown {
   bestThirds: { name: string; code: string; flagEmoji: string | null }[] | null;
   pointsAwarded: number;
   isScored: boolean;
+  fieldBreakdown: TournamentFieldBreakdown | null;
 }
 
 export interface EntryBreakdownResponse {
@@ -68,4 +84,5 @@ export interface EntryBreakdownResponse {
   };
   matchPredictions: MatchBreakdown[];
   tournamentPrediction: TournamentPredictionBreakdown | null;
+  tournamentPredictionHidden: boolean;
 }

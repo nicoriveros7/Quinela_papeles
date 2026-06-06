@@ -325,6 +325,14 @@ export class PredictionsService {
               pointsMatchOutcome: true,
               pointsConfig: true,
               lockMinutesBeforeKickoff: true,
+              pointsChampionCorrect: true,
+              pointsRunnerUpCorrect: true,
+              pointsThirdPlaceCorrect: true,
+              pointsTopScorerCorrect: true,
+              pointsGoldenBallCorrect: true,
+              pointsGoldenGloveCorrect: true,
+              pointsBestThirdsExact: true,
+              pointsBestThirdsPartial: true,
             },
           },
         },
@@ -351,7 +359,7 @@ export class PredictionsService {
       pool.pointsConfig,
     );
 
-    const [matches, tournamentPrediction] = await Promise.all([
+    const [matches, tournamentPrediction, tournament] = await Promise.all([
       this.prisma.match.findMany({
         where: { tournamentId: pool.tournamentId },
         orderBy: { kickoffAt: 'asc' },
@@ -404,13 +412,33 @@ export class PredictionsService {
         select: {
           pointsAwarded: true,
           isScored: true,
+          isLocked: true,
           bestThirdsTeamIds: true,
+          championTournamentTeamId: true,
+          runnerUpTournamentTeamId: true,
+          thirdPlaceTournamentTeamId: true,
+          topScorerTournamentPlayerId: true,
+          goldenBallTournamentPlayerId: true,
+          goldenGloveTournamentPlayerId: true,
           champion: { select: { team: { select: { name: true, code: true, flagEmoji: true } } } },
           runnerUp: { select: { team: { select: { name: true, code: true, flagEmoji: true } } } },
           thirdPlace: { select: { team: { select: { name: true, code: true, flagEmoji: true } } } },
           topScorer: { select: { player: { select: { fullName: true } } } },
           goldenBall: { select: { player: { select: { fullName: true } } } },
           goldenGlove: { select: { player: { select: { fullName: true } } } },
+        },
+      }),
+      this.prisma.tournament.findUnique({
+        where: { id: pool.tournamentId },
+        select: {
+          tournamentPredictionsLocked: true,
+          actualChampionTournamentTeamId: true,
+          actualRunnerUpTournamentTeamId: true,
+          actualThirdPlaceTournamentTeamId: true,
+          actualTopScorerTournamentPlayerId: true,
+          actualGoldenBallTournamentPlayerId: true,
+          actualGoldenGloveTournamentPlayerId: true,
+          actualBestThirdsTeamIds: true,
         },
       }),
     ]);
@@ -521,6 +549,58 @@ export class PredictionsService {
 
     const tournamentPoints = tournamentPrediction?.pointsAwarded ?? 0;
 
+    // Reveal tournament predictions to non-owners only once the first match starts,
+    // the entry's prediction is locked, or the pool globally locked tournament predictions.
+    const anyMatchStarted = matches.some((m) => m.status !== MatchStatus.SCHEDULED);
+    const isTournamentPredVisible =
+      isOwner ||
+      anyMatchStarted ||
+      (tournamentPrediction?.isLocked ?? false) ||
+      (tournament?.tournamentPredictionsLocked ?? false);
+
+    // Per-field score breakdown (uses actual results from tournament)
+    const computeFieldScore = (
+      actualId: string | null | undefined,
+      predictedId: string | null | undefined,
+      pts: number,
+    ): { points: number; isCorrect: boolean | null } => {
+      if (!actualId) return { points: 0, isCorrect: null };
+      const correct = actualId === predictedId;
+      return { points: correct ? pts : 0, isCorrect: correct };
+    };
+
+    let fieldBreakdown: import('./dto/entry-breakdown.dto').TournamentFieldBreakdown | null = null;
+    if (tournamentPrediction && tournament) {
+      const actualBestThirdsIds = Array.isArray(tournament.actualBestThirdsTeamIds)
+        ? (tournament.actualBestThirdsTeamIds as string[])
+        : [];
+      const predictedBestThirdsIds = Array.isArray(tournamentPrediction.bestThirdsTeamIds)
+        ? (tournamentPrediction.bestThirdsTeamIds as string[])
+        : [];
+      const actualBestThirdsSet = new Set(actualBestThirdsIds);
+      const hits = predictedBestThirdsIds.filter((id) => actualBestThirdsSet.has(id)).length;
+      const bestThirdsPoints =
+        actualBestThirdsIds.length === 0 ? 0
+        : hits >= 8 ? pool.pointsBestThirdsExact
+        : hits >= 4 ? pool.pointsBestThirdsPartial
+        : 0;
+
+      fieldBreakdown = {
+        champion:    computeFieldScore(tournament.actualChampionTournamentTeamId,   tournamentPrediction.championTournamentTeamId,   pool.pointsChampionCorrect),
+        runnerUp:    computeFieldScore(tournament.actualRunnerUpTournamentTeamId,    tournamentPrediction.runnerUpTournamentTeamId,    pool.pointsRunnerUpCorrect),
+        thirdPlace:  computeFieldScore(tournament.actualThirdPlaceTournamentTeamId,  tournamentPrediction.thirdPlaceTournamentTeamId,  pool.pointsThirdPlaceCorrect),
+        topScorer:   computeFieldScore(tournament.actualTopScorerTournamentPlayerId, tournamentPrediction.topScorerTournamentPlayerId, pool.pointsTopScorerCorrect),
+        goldenBall:  computeFieldScore(tournament.actualGoldenBallTournamentPlayerId, tournamentPrediction.goldenBallTournamentPlayerId, pool.pointsGoldenBallCorrect),
+        goldenGlove: computeFieldScore(tournament.actualGoldenGloveTournamentPlayerId, tournamentPrediction.goldenGloveTournamentPlayerId, pool.pointsGoldenGloveCorrect),
+        bestThirds: {
+          points: bestThirdsPoints,
+          isCorrect: actualBestThirdsIds.length === 0 ? null : bestThirdsPoints > 0,
+          hits,
+          total: actualBestThirdsIds.length,
+        },
+      };
+    }
+
     return {
       entryId,
       participantName: entry.entryName ?? `#${entryId.slice(-6)}`,
@@ -533,7 +613,7 @@ export class PredictionsService {
         tournamentPoints,
       },
       matchPredictions,
-      tournamentPrediction: tournamentPrediction
+      tournamentPrediction: isTournamentPredVisible && tournamentPrediction
         ? {
             champion: tournamentPrediction.champion?.team?.name ?? null,
             championCode: tournamentPrediction.champion?.team?.code ?? null,
@@ -550,8 +630,10 @@ export class PredictionsService {
             bestThirds: resolvedBestThirds,
             pointsAwarded: tournamentPoints,
             isScored: tournamentPrediction.isScored,
+            fieldBreakdown,
           }
         : null,
+      tournamentPredictionHidden: !isTournamentPredVisible && tournamentPrediction !== null,
     };
   }
 

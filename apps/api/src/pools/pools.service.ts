@@ -498,7 +498,18 @@ export class PoolsService {
 
     const pool = await this.prisma.pool.findUnique({
       where: { slug: MAIN_POOL_SLUG },
-      select: { id: true, tournamentId: true },
+      select: {
+        id: true,
+        tournamentId: true,
+        pointsChampionCorrect: true,
+        pointsRunnerUpCorrect: true,
+        pointsThirdPlaceCorrect: true,
+        pointsTopScorerCorrect: true,
+        pointsGoldenBallCorrect: true,
+        pointsGoldenGloveCorrect: true,
+        pointsBestThirdsExact: true,
+        pointsBestThirdsPartial: true,
+      },
     });
     if (!pool) throw new NotFoundException('Main pool not configured');
 
@@ -522,7 +533,17 @@ export class PoolsService {
       }),
       this.prisma.tournament.findUnique({
         where: { id: pool.tournamentId },
-        select: { tournamentPredictionsLocked: true, tournamentPredictionsLockAt: true },
+        select: {
+          tournamentPredictionsLocked: true,
+          tournamentPredictionsLockAt: true,
+          actualChampionTournamentTeamId: true,
+          actualRunnerUpTournamentTeamId: true,
+          actualThirdPlaceTournamentTeamId: true,
+          actualTopScorerTournamentPlayerId: true,
+          actualGoldenBallTournamentPlayerId: true,
+          actualGoldenGloveTournamentPlayerId: true,
+          actualBestThirdsTeamIds: true,
+        },
       }),
       this.prisma.tournamentTeam.findMany({
         where: { tournamentId: pool.tournamentId },
@@ -545,8 +566,58 @@ export class PoolsService {
       (tournament?.tournamentPredictionsLocked ?? false) ||
       (lockAt !== null && new Date() >= lockAt);
 
+    const computeFieldScore = (
+      actualId: string | null | undefined,
+      predictedId: string | null | undefined,
+      pts: number,
+    ): { points: number; isCorrect: boolean | null } => {
+      if (!actualId) return { points: 0, isCorrect: null };
+      return { points: actualId === predictedId ? pts : 0, isCorrect: actualId === predictedId };
+    };
+
+    let fieldBreakdown: {
+      champion: { points: number; isCorrect: boolean | null };
+      runnerUp: { points: number; isCorrect: boolean | null };
+      thirdPlace: { points: number; isCorrect: boolean | null };
+      topScorer: { points: number; isCorrect: boolean | null };
+      goldenBall: { points: number; isCorrect: boolean | null };
+      goldenGlove: { points: number; isCorrect: boolean | null };
+      bestThirds: { points: number; isCorrect: boolean | null; hits: number; total: number };
+    } | null = null;
+
+    if (prediction && tournament) {
+      const actualBestThirdsIds = Array.isArray(tournament.actualBestThirdsTeamIds)
+        ? (tournament.actualBestThirdsTeamIds as string[])
+        : [];
+      const predictedBestThirdsIds = Array.isArray(prediction.bestThirdsTeamIds)
+        ? (prediction.bestThirdsTeamIds as string[])
+        : [];
+      const actualBestThirdsSet = new Set(actualBestThirdsIds);
+      const hits = predictedBestThirdsIds.filter((id) => actualBestThirdsSet.has(id)).length;
+      const bestThirdsPoints =
+        actualBestThirdsIds.length === 0 ? 0
+        : hits >= 8 ? pool.pointsBestThirdsExact
+        : hits >= 4 ? pool.pointsBestThirdsPartial
+        : 0;
+
+      fieldBreakdown = {
+        champion:    computeFieldScore(tournament.actualChampionTournamentTeamId,   prediction.championTournamentTeamId,   pool.pointsChampionCorrect),
+        runnerUp:    computeFieldScore(tournament.actualRunnerUpTournamentTeamId,    prediction.runnerUpTournamentTeamId,    pool.pointsRunnerUpCorrect),
+        thirdPlace:  computeFieldScore(tournament.actualThirdPlaceTournamentTeamId,  prediction.thirdPlaceTournamentTeamId,  pool.pointsThirdPlaceCorrect),
+        topScorer:   computeFieldScore(tournament.actualTopScorerTournamentPlayerId, prediction.topScorerTournamentPlayerId, pool.pointsTopScorerCorrect),
+        goldenBall:  computeFieldScore(tournament.actualGoldenBallTournamentPlayerId, prediction.goldenBallTournamentPlayerId, pool.pointsGoldenBallCorrect),
+        goldenGlove: computeFieldScore(tournament.actualGoldenGloveTournamentPlayerId, prediction.goldenGloveTournamentPlayerId, pool.pointsGoldenGloveCorrect),
+        bestThirds: {
+          points: bestThirdsPoints,
+          isCorrect: actualBestThirdsIds.length === 0 ? null : bestThirdsPoints > 0,
+          hits,
+          total: actualBestThirdsIds.length,
+        },
+      };
+    }
+
     return {
-      prediction,
+      prediction: prediction ? { ...prediction, fieldBreakdown } : null,
       tournamentTeams,
       tournamentPlayers,
       lockInfo: {

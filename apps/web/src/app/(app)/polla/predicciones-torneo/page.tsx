@@ -7,6 +7,7 @@ import { cn, normalizeSearchText } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
 import {
+  TournamentFieldScore,
   TournamentPlayerOption,
   TournamentPredictionResponse,
   TournamentTeamOption,
@@ -40,6 +41,41 @@ function getFlagEmoji(code: string | null | undefined): string | null {
 
 function isPlaceholderPlayer(name: string): boolean {
   return /^player\s*\d*$/i.test(name.trim()) || /^tbd$/i.test(name.trim());
+}
+
+// ── FieldScoreBadge ───────────────────────────────────────────────────────────
+
+function FieldScoreBadge({ score }: { score: TournamentFieldScore | null | undefined }) {
+  if (!score || score.isCorrect === null) return null;
+  if (score.isCorrect) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-bold text-emerald-400">
+        ✓ +{score.points}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-[11px] font-bold text-rose-400/80">
+      ✗ 0
+    </span>
+  );
+}
+
+function BestThirdsScoreBadge({ score }: { score: (TournamentFieldScore & { hits: number; total: number }) | null | undefined }) {
+  if (!score || score.isCorrect === null) return null;
+  const hitsLabel = score.total > 0 ? ` · ${score.hits}/${score.total}` : '';
+  if (score.isCorrect) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-bold text-emerald-400">
+        ✓ +{score.points}{hitsLabel}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-[11px] font-bold text-rose-400/80">
+      ✗ 0{hitsLabel}
+    </span>
+  );
 }
 
 // ── Section key type ──────────────────────────────────────────────────────────
@@ -130,6 +166,8 @@ export default function PrediccionesTorneoPage() {
 
   const isLocked = data.lockInfo.isLocked || (data.prediction?.isLocked ?? false);
   const lockAt = data.lockInfo.lockAt;
+  const showFieldScores = isLocked && (data.prediction?.isScored ?? false);
+  const fb = showFieldScores ? data.prediction?.fieldBreakdown : null;
 
   const teamIds = [championId, runnerUpId, thirdPlaceId].filter(Boolean);
   const hasDuplicateTeams = new Set(teamIds).size !== teamIds.length;
@@ -203,6 +241,7 @@ export default function PrediccionesTorneoPage() {
         selectedTeam={championTeam}
         isOpen={openSection === 'champion'}
         onToggle={() => toggle('champion')}
+        fieldScore={fb?.champion}
       />
 
       {/* ── Subcampeón ──────────────────────────────────────────────────────── */}
@@ -216,6 +255,7 @@ export default function PrediccionesTorneoPage() {
         selectedTeam={runnerUpTeam}
         isOpen={openSection === 'runnerUp'}
         onToggle={() => toggle('runnerUp')}
+        fieldScore={fb?.runnerUp}
       />
 
       {/* ── Tercer puesto ───────────────────────────────────────────────────── */}
@@ -229,6 +269,7 @@ export default function PrediccionesTorneoPage() {
         selectedTeam={thirdPlaceTeam}
         isOpen={openSection === 'thirdPlace'}
         onToggle={() => toggle('thirdPlace')}
+        fieldScore={fb?.thirdPlace}
       />
 
       {/* ── Duplicate team warning ───────────────────────────────────────────── */}
@@ -253,6 +294,7 @@ export default function PrediccionesTorneoPage() {
         isOpen={openSection === 'topScorer'}
         onToggle={() => toggle('topScorer')}
         hasRealPlayers={hasRealPlayers}
+        fieldScore={fb?.topScorer}
       />
 
       {/* ── Balón de Oro ────────────────────────────────────────────────────── */}
@@ -267,6 +309,7 @@ export default function PrediccionesTorneoPage() {
         isOpen={openSection === 'goldenBall'}
         onToggle={() => toggle('goldenBall')}
         hasRealPlayers={hasRealPlayers}
+        fieldScore={fb?.goldenBall}
       />
 
       {/* ── Guante de Oro ───────────────────────────────────────────────────── */}
@@ -281,6 +324,7 @@ export default function PrediccionesTorneoPage() {
         isOpen={openSection === 'goldenGlove'}
         onToggle={() => toggle('goldenGlove')}
         hasRealPlayers={hasRealPlayers}
+        fieldScore={fb?.goldenGlove}
       />
 
       {/* ── Mejores terceros ────────────────────────────────────────────────── */}
@@ -299,6 +343,7 @@ export default function PrediccionesTorneoPage() {
         disabled={isLocked}
         isOpen={openSection === 'bestThirds'}
         onToggleOpen={() => toggle('bestThirds')}
+        fieldScore={fb?.bestThirds}
       />
 
       {/* ── Save error ──────────────────────────────────────────────────────── */}
@@ -330,6 +375,7 @@ function BestThirdsPickerSection({
   disabled,
   isOpen,
   onToggleOpen,
+  fieldScore,
 }: {
   teams: TournamentTeamOption[];
   selectedIds: string[];
@@ -337,6 +383,7 @@ function BestThirdsPickerSection({
   disabled: boolean;
   isOpen: boolean;
   onToggleOpen: () => void;
+  fieldScore?: (TournamentFieldScore & { hits: number; total: number }) | null;
 }) {
   const [search, setSearch] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
@@ -400,11 +447,13 @@ function BestThirdsPickerSection({
         </div>
 
         <div className="flex shrink-0 items-center gap-2 pl-2">
-          {isComplete && (
+          {fieldScore && fieldScore.isCorrect !== null ? (
+            <BestThirdsScoreBadge score={fieldScore} />
+          ) : isComplete ? (
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20">
               <Check className="h-3 w-3 text-emerald-400" aria-hidden="true" />
             </span>
-          )}
+          ) : null}
           {!disabled && (
             <ChevronDown
               className={cn(
@@ -547,6 +596,7 @@ function TeamPickerAccordion({
   selectedTeam,
   isOpen,
   onToggle,
+  fieldScore,
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -557,6 +607,7 @@ function TeamPickerAccordion({
   selectedTeam: TournamentTeamOption | undefined;
   isOpen: boolean;
   onToggle: () => void;
+  fieldScore?: TournamentFieldScore | null;
 }) {
   const [search, setSearch] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
@@ -615,11 +666,13 @@ function TeamPickerAccordion({
         </div>
 
         <div className="flex shrink-0 items-center gap-2 pl-2">
-          {selectedTeam && (
+          {fieldScore && fieldScore.isCorrect !== null ? (
+            <FieldScoreBadge score={fieldScore} />
+          ) : selectedTeam ? (
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20">
               <Check className="h-3 w-3 text-emerald-400" aria-hidden="true" />
             </span>
-          )}
+          ) : null}
           {!disabled && (
             <ChevronDown
               className={cn(
@@ -711,6 +764,7 @@ function PlayerPickerAccordion({
   isOpen,
   onToggle,
   hasRealPlayers,
+  fieldScore,
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -722,6 +776,7 @@ function PlayerPickerAccordion({
   isOpen: boolean;
   onToggle: () => void;
   hasRealPlayers: boolean;
+  fieldScore?: TournamentFieldScore | null;
 }) {
   const [search, setSearch] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
@@ -789,11 +844,13 @@ function PlayerPickerAccordion({
         </div>
 
         <div className="flex shrink-0 items-center gap-2 pl-2">
-          {selectedPlayer && hasRealPlayers && (
+          {fieldScore && fieldScore.isCorrect !== null ? (
+            <FieldScoreBadge score={fieldScore} />
+          ) : selectedPlayer && hasRealPlayers ? (
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20">
               <Check className="h-3 w-3 text-emerald-400" aria-hidden="true" />
             </span>
-          )}
+          ) : null}
           {canOpen && (
             <ChevronDown
               className={cn(

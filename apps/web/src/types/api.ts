@@ -214,6 +214,15 @@ export type TournamentPrediction = {
   topScorer: TournamentPlayerOption | null;
   goldenBall: TournamentPlayerOption | null;
   goldenGlove: TournamentPlayerOption | null;
+  fieldBreakdown: {
+    champion: TournamentFieldScore;
+    runnerUp: TournamentFieldScore;
+    thirdPlace: TournamentFieldScore;
+    topScorer: TournamentFieldScore;
+    goldenBall: TournamentFieldScore;
+    goldenGlove: TournamentFieldScore;
+    bestThirds: TournamentFieldScore & { hits: number; total: number };
+  } | null;
 };
 
 export type TournamentPredictionLockInfo = {
@@ -406,6 +415,11 @@ export type MatchBreakdown = {
   questions: MatchQuestionBreakdown[];
 };
 
+export type TournamentFieldScore = {
+  points: number;
+  isCorrect: boolean | null;
+};
+
 export type TournamentPredictionBreakdown = {
   champion: string | null;
   championCode: string | null;
@@ -422,6 +436,15 @@ export type TournamentPredictionBreakdown = {
   bestThirds: { name: string; code: string; flagEmoji: string | null }[] | null;
   pointsAwarded: number;
   isScored: boolean;
+  fieldBreakdown: {
+    champion: TournamentFieldScore;
+    runnerUp: TournamentFieldScore;
+    thirdPlace: TournamentFieldScore;
+    topScorer: TournamentFieldScore;
+    goldenBall: TournamentFieldScore;
+    goldenGlove: TournamentFieldScore;
+    bestThirds: TournamentFieldScore & { hits: number; total: number };
+  } | null;
 };
 
 export type AdminTournamentPredictionLock = {
@@ -467,6 +490,7 @@ export type EntryBreakdownResponse = {
   };
   matchPredictions: MatchBreakdown[];
   tournamentPrediction: TournamentPredictionBreakdown | null;
+  tournamentPredictionHidden: boolean;
 };
 
 export type CreateAdminQuestionPayload = {
