@@ -108,6 +108,7 @@ export default function MatchQuestionsPage() {
 
   // Team pick state (for TEAM_PICK answer type)
   const [selectedTeamPickIds, setSelectedTeamPickIds] = useState<string[]>([]);
+  const [includeNeitherTeam, setIncludeNeitherTeam] = useState(false);
 
   // Derived player pool helpers
   const selectableTeams = playerPool?.teams.filter((t) => t.matchSide) ?? [];
@@ -214,7 +215,7 @@ export default function MatchQuestionsPage() {
 
       payload.options = picked.map((p, i) => ({
         key: `PLAYER_${i + 1}`,
-        label: p.shortName ?? p.fullName,
+        label: p.fullName,
         playerId: p.playerId,
       }));
     } else if (newQuestion.answerType === 'TEAM_PICK') {
@@ -222,8 +223,9 @@ export default function MatchQuestionsPage() {
         setError('No se pudo cargar el pool de equipos para este partido.');
         return;
       }
-      if (selectedTeamPickIds.length < 2) {
-        setError('Debes seleccionar al menos 2 equipos.');
+      const totalTeamOptions = selectedTeamPickIds.length + (includeNeitherTeam ? 1 : 0);
+      if (totalTeamOptions < 2) {
+        setError('Debes seleccionar al menos 2 opciones de equipo.');
         return;
       }
       const pickedTeams = teamOptions.filter((t) => selectedTeamPickIds.includes(t.teamId));
@@ -232,6 +234,9 @@ export default function MatchQuestionsPage() {
         label: team.teamName || team.teamCode,
         teamId: team.teamId,
       }));
+      if (includeNeitherTeam) {
+        payload.options.push({ key: 'TEAM_NONE', label: 'Ninguno de los dos' });
+      }
     } else if (newQuestion.answerType !== 'BOOLEAN') {
       const labels = newQuestion.optionLabels
         .split(',')
@@ -262,6 +267,7 @@ export default function MatchQuestionsPage() {
         isPublished: true,
       });
       setSelectedTeamPickIds([]);
+      setIncludeNeitherTeam(false);
       setSuccess(newQuestion.isPublished ? 'Pregunta creada y publicada.' : 'Pregunta creada como borrador.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear la pregunta.');
@@ -430,6 +436,7 @@ export default function MatchQuestionsPage() {
                       optionLabels: '',
                     }));
                     setSelectedTeamPickIds([]);
+                    setIncludeNeitherTeam(false);
                     setSelectedPlayerIds([]);
                   }}
                   className={cn(SELECT_CLASS, 'bg-background/70')}
@@ -492,7 +499,7 @@ export default function MatchQuestionsPage() {
                       <span className="text-xs font-medium text-muted-foreground">
                         Equipos como opciones{' '}
                         <span className="font-normal">
-                          ({selectedTeamPickIds.length} seleccionados, mín. 2)
+                          ({selectedTeamPickIds.length + (includeNeitherTeam ? 1 : 0)} seleccionados, mín. 2)
                         </span>
                       </span>
                       <div className="flex flex-wrap gap-2">
@@ -520,6 +527,18 @@ export default function MatchQuestionsPage() {
                             </button>
                           );
                         })}
+                        <button
+                          type="button"
+                          onClick={() => setIncludeNeitherTeam((v) => !v)}
+                          className={cn(
+                            'rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
+                            includeNeitherTeam
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-input bg-background text-foreground hover:bg-muted',
+                          )}
+                        >
+                          Ninguno de los dos
+                        </button>
                       </div>
                     </>
                   )}
@@ -613,18 +632,15 @@ export default function MatchQuestionsPage() {
                                         )
                                       }
                                     />
-                                    <span>
-                                      {player.shortName ?? player.fullName}
-                                      {player.shirtNumber ? (
-                                        <span className="ml-1 text-xs text-muted-foreground">
-                                          #{player.shirtNumber}
-                                        </span>
-                                      ) : null}
-                                      {playerScope === 'MATCH' ? (
-                                        <span className="ml-1 text-xs text-muted-foreground">
-                                          · {player.teamCode}
-                                        </span>
-                                      ) : null}
+                                    <span className="flex flex-col">
+                                      <span>{player.fullName}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {[
+                                          player.shirtNumber ? `#${player.shirtNumber}` : null,
+                                          player.position ?? player.preferredPosition,
+                                          playerScope === 'MATCH' ? player.teamCode : null,
+                                        ].filter(Boolean).join(' · ')}
+                                      </span>
                                     </span>
                                   </label>
                                 );
@@ -798,30 +814,61 @@ export default function MatchQuestionsPage() {
                 {/* Row 3: options as readable pills */}
                 {question.options.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {question.options.map((opt) => (
-                      <span
-                        key={opt.id}
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
-                          opt.id === question.correctOptionId
-                            ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/30'
-                            : 'bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {opt.id === question.correctOptionId && (
-                          <CheckCircle2 className="h-3 w-3 shrink-0" />
-                        )}
-                        {opt.label}
-                      </span>
-                    ))}
+                    {question.options.map((opt) => {
+                      const displayName = opt.player?.fullName ?? opt.label;
+                      const meta = opt.player
+                        ? [
+                            opt.player.shirtNumber != null ? `#${opt.player.shirtNumber}` : null,
+                            opt.player.position ?? opt.player.preferredPosition,
+                            opt.player.teamName,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')
+                        : null;
+                      return (
+                        <span
+                          key={opt.id}
+                          className={`inline-flex flex-col rounded-xl px-2.5 py-1.5 text-xs font-medium ${
+                            opt.id === question.correctOptionId
+                              ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/30'
+                              : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          <span className="flex items-center gap-1">
+                            {opt.id === question.correctOptionId && (
+                              <CheckCircle2 className="h-3 w-3 shrink-0" />
+                            )}
+                            {displayName}
+                          </span>
+                          {meta && (
+                            <span className="text-[10px] font-normal opacity-70">{meta}</span>
+                          )}
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
 
                 {/* Row 4: resolved answer banner */}
                 {question.isResolved && correctOption && (
-                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2">
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                    <span className="text-xs font-semibold text-emerald-300">Respuesta correcta:</span>
-                    <span className="font-bold text-emerald-200">{correctOption.label}</span>
+                  <div className="flex flex-col gap-0.5 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                      <span className="text-xs font-semibold text-emerald-300">Respuesta correcta:</span>
+                      <span className="font-bold text-emerald-200">
+                        {correctOption.player?.fullName ?? correctOption.label}
+                      </span>
+                    </div>
+                    {correctOption.player && (() => {
+                      const meta = [
+                        correctOption.player.shirtNumber != null ? `#${correctOption.player.shirtNumber}` : null,
+                        correctOption.player.position ?? correctOption.player.preferredPosition,
+                        correctOption.player.teamName,
+                      ].filter(Boolean).join(' · ');
+                      return meta ? (
+                        <span className="ml-5 text-[11px] text-emerald-400/70">{meta}</span>
+                      ) : null;
+                    })()}
                   </div>
                 )}
 
@@ -840,7 +887,8 @@ export default function MatchQuestionsPage() {
                     >
                       {question.options.map((option) => (
                         <option key={option.id} value={option.id}>
-                          {option.label}
+                          {option.player?.fullName ?? option.label}
+                          {option.player?.shirtNumber != null ? ` (#${option.player.shirtNumber})` : ''}
                         </option>
                       ))}
                     </select>

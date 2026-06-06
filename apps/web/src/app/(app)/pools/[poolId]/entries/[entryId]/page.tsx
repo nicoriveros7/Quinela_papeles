@@ -891,6 +891,93 @@ export default function EntryPredictionsPage() {
                     setQuestionDrafts((prev) => ({ ...prev, [question.id]: next }))
                   }
                 />
+
+                {/* Correct answer — only shown when resolved */}
+                {question.isResolved && question.correctOptionId && (() => {
+                  const correctOpt = question.options.find((o) => o.id === question.correctOptionId);
+                  if (!correctOpt) return null;
+                  const userPred = questionPredictionById.get(question.id);
+                  const userOptionId = userPred?.selectedOptionId ?? null;
+                  const isCorrect = userPred?.isScored ? (userPred.pointsAwarded ?? 0) > 0 : null;
+                  const correctName = correctOpt.player?.fullName ?? correctOpt.label;
+                  const correctMeta = correctOpt.player
+                    ? [
+                        correctOpt.player.shirtNumber != null ? `#${correctOpt.player.shirtNumber}` : null,
+                        correctOpt.player.position ?? correctOpt.player.preferredPosition,
+                        correctOpt.player.teamName,
+                      ].filter(Boolean).join(' · ')
+                    : null;
+
+                  return (
+                    <div
+                      className={cn(
+                        'rounded-xl border px-4 py-3',
+                        isCorrect === true
+                          ? 'border-emerald-400/30 bg-emerald-500/10'
+                          : isCorrect === false
+                          ? 'border-rose-400/20 bg-rose-500/10'
+                          : 'border-primary/20 bg-primary/5',
+                      )}
+                    >
+                      {isCorrect === false && userOptionId && userOptionId !== question.correctOptionId && (() => {
+                        const userOpt = question.options.find((o) => o.id === userOptionId);
+                        if (!userOpt) return null;
+                        const userMeta = userOpt.player
+                          ? [
+                              userOpt.player.shirtNumber != null ? `#${userOpt.player.shirtNumber}` : null,
+                              userOpt.player.position ?? userOpt.player.preferredPosition,
+                              userOpt.player.teamName,
+                            ].filter(Boolean).join(' · ')
+                          : null;
+                        return (
+                          <div className="mb-2 flex flex-col gap-0.5">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-rose-400/70">
+                              Tu respuesta
+                            </p>
+                            <p className="text-sm font-semibold text-rose-300 line-through">
+                              {userOpt.player?.fullName ?? userOpt.label}
+                            </p>
+                            {userMeta && (
+                              <p className="text-[11px] text-rose-400/60 line-through">{userMeta}</p>
+                            )}
+                          </div>
+                        );
+                      })()}
+                      <div className="flex flex-col gap-0.5">
+                        <p
+                          className={cn(
+                            'text-[10px] font-bold uppercase tracking-widest',
+                            isCorrect === true
+                              ? 'text-emerald-400/70'
+                              : isCorrect === false
+                              ? 'text-emerald-400/70'
+                              : 'text-primary/70',
+                          )}
+                        >
+                          Respuesta correcta
+                        </p>
+                        <p
+                          className={cn(
+                            'text-sm font-bold',
+                            isCorrect === true ? 'text-emerald-300' : 'text-foreground',
+                          )}
+                        >
+                          {correctName}
+                        </p>
+                        {correctMeta && (
+                          <p
+                            className={cn(
+                              'text-[11px]',
+                              isCorrect === true ? 'text-emerald-400/60' : 'text-muted-foreground',
+                            )}
+                          >
+                            {correctMeta}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           ))}
@@ -1060,61 +1147,7 @@ function QuestionInput({
   readOnly?: boolean;
   onChange: (value: QuestionDraft) => void;
 }) {
-  if (question.answerType === 'BOOLEAN') {
-    return (
-      <div role="radiogroup" aria-label={question.questionText} className="flex flex-wrap gap-2">
-        <PillOption
-          selected={value?.selectedBoolean === true}
-          onClick={() => (readOnly ? undefined : onChange({ selectedBoolean: true }))}
-          disabled={readOnly}
-        >
-          Sí
-        </PillOption>
-        <PillOption
-          selected={value?.selectedBoolean === false}
-          onClick={() => (readOnly ? undefined : onChange({ selectedBoolean: false }))}
-          disabled={readOnly}
-        >
-          No
-        </PillOption>
-      </div>
-    );
-  }
-
-  if (question.answerType === 'TIME_RANGE') {
-    return (
-      <div role="radiogroup" aria-label={question.questionText} className="flex flex-wrap gap-2">
-        {question.options.map((option) => (
-          <PillOption
-            key={option.id}
-            selected={value?.selectedTimeRangeKey === option.key}
-            onClick={() => (readOnly ? undefined : onChange({ selectedTimeRangeKey: option.key }))}
-            disabled={readOnly}
-          >
-            {option.label}
-          </PillOption>
-        ))}
-      </div>
-    );
-  }
-
-  if (question.answerType === 'TEAM_PICK') {
-    return (
-      <div role="radiogroup" aria-label={question.questionText} className="flex flex-wrap gap-2">
-        {question.options.map((option) => (
-          <PillOption
-            key={option.id}
-            selected={value?.selectedOptionId === option.id}
-            onClick={() => (readOnly ? undefined : onChange({ selectedOptionId: option.id }))}
-            disabled={readOnly}
-          >
-            {option.label}
-          </PillOption>
-        ))}
-      </div>
-    );
-  }
-
+  // PLAYER_PICK handles its own readOnly confirmation internally
   if (question.answerType === 'PLAYER_PICK') {
     const selectedOption = question.options.find(
       (o) =>
@@ -1138,14 +1171,103 @@ function QuestionInput({
     );
   }
 
+  // Derive saved answer label for all other types
+  let savedLabel: string | null = null;
+  if (question.answerType === 'BOOLEAN') {
+    if (value?.selectedBoolean === true) savedLabel = 'Sí';
+    else if (value?.selectedBoolean === false) savedLabel = 'No';
+  } else if (question.answerType === 'TIME_RANGE') {
+    savedLabel = question.options.find((o) => o.key === value?.selectedTimeRangeKey)?.label ?? null;
+  } else {
+    // TEAM_PICK, SINGLE_CHOICE
+    savedLabel = question.options.find((o) => o.id === value?.selectedOptionId)?.label ?? null;
+  }
+
+  // ReadOnly: show confirmation box instead of disabled pills
+  if (readOnly) {
+    return savedLabel ? (
+      <div className="flex items-center gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+          <Check className="h-4 w-4 text-emerald-400" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">
+            Tu respuesta guardada
+          </p>
+          <p className="truncate font-semibold text-foreground">{savedLabel}</p>
+        </div>
+      </div>
+    ) : (
+      <div className="rounded-xl border border-border/40 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+        No respondiste esta pregunta.
+      </div>
+    );
+  }
+
+  // Editable: render pills
+  if (question.answerType === 'BOOLEAN') {
+    return (
+      <div role="radiogroup" aria-label={question.questionText} className="flex flex-wrap gap-2">
+        <PillOption
+          selected={value?.selectedBoolean === true}
+          onClick={() => onChange({ selectedBoolean: true })}
+          disabled={false}
+        >
+          Sí
+        </PillOption>
+        <PillOption
+          selected={value?.selectedBoolean === false}
+          onClick={() => onChange({ selectedBoolean: false })}
+          disabled={false}
+        >
+          No
+        </PillOption>
+      </div>
+    );
+  }
+
+  if (question.answerType === 'TIME_RANGE') {
+    return (
+      <div role="radiogroup" aria-label={question.questionText} className="flex flex-wrap gap-2">
+        {question.options.map((option) => (
+          <PillOption
+            key={option.id}
+            selected={value?.selectedTimeRangeKey === option.key}
+            onClick={() => onChange({ selectedTimeRangeKey: option.key })}
+            disabled={false}
+          >
+            {option.label}
+          </PillOption>
+        ))}
+      </div>
+    );
+  }
+
+  if (question.answerType === 'TEAM_PICK') {
+    return (
+      <div role="radiogroup" aria-label={question.questionText} className="flex flex-wrap gap-2">
+        {question.options.map((option) => (
+          <PillOption
+            key={option.id}
+            selected={value?.selectedOptionId === option.id}
+            onClick={() => onChange({ selectedOptionId: option.id })}
+            disabled={false}
+          >
+            {option.label}
+          </PillOption>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div role="radiogroup" aria-label={question.questionText} className="flex flex-wrap gap-2">
       {question.options.map((option) => (
         <PillOption
           key={option.id}
           selected={value?.selectedOptionId === option.id}
-          onClick={() => (readOnly ? undefined : onChange({ selectedOptionId: option.id }))}
-          disabled={readOnly}
+          onClick={() => onChange({ selectedOptionId: option.id })}
+          disabled={false}
         >
           {option.label}
         </PillOption>
@@ -1218,8 +1340,11 @@ function PlayerPickDropdown({
 }) {
   const [search, setSearch] = useState('');
 
+  const q = normalizeSearchText(search);
   const filtered = options.filter((o) =>
-    normalizeSearchText(o.label).includes(normalizeSearchText(search)),
+    normalizeSearchText(o.player?.fullName).includes(q) ||
+    normalizeSearchText(o.label).includes(q) ||
+    normalizeSearchText(o.player?.teamName).includes(q),
   );
 
   // ── readOnly: only show saved answer, no list ──────────────────────────────
@@ -1233,7 +1358,19 @@ function PlayerPickDropdown({
           <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">
             Tu respuesta guardada
           </p>
-          <p className="truncate font-semibold text-foreground">{selectedOption.label}</p>
+          <p className="truncate font-semibold text-foreground">
+            {selectedOption.player?.fullName ?? selectedOption.label}
+          </p>
+          {selectedOption.player && (() => {
+            const meta = [
+              selectedOption.player!.shirtNumber != null ? `#${selectedOption.player!.shirtNumber}` : null,
+              selectedOption.player!.position ?? selectedOption.player!.preferredPosition,
+              selectedOption.player!.teamName,
+            ].filter(Boolean).join(' · ');
+            return meta ? (
+              <p className="mt-0.5 text-[11px] text-emerald-400/60">{meta}</p>
+            ) : null;
+          })()}
         </div>
       </div>
     ) : (
@@ -1256,7 +1393,19 @@ function PlayerPickDropdown({
             <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">
               Seleccionado
             </p>
-            <p className="truncate text-sm font-semibold text-foreground">{selectedOption.label}</p>
+            <p className="truncate text-sm font-semibold text-foreground">
+              {selectedOption.player?.fullName ?? selectedOption.label}
+            </p>
+            {selectedOption.player && (() => {
+              const meta = [
+                selectedOption.player!.shirtNumber != null ? `#${selectedOption.player!.shirtNumber}` : null,
+                selectedOption.player!.position ?? selectedOption.player!.preferredPosition,
+                selectedOption.player!.teamName,
+              ].filter(Boolean).join(' · ');
+              return meta ? (
+                <p className="mt-0.5 text-[10px] text-emerald-400/60">{meta}</p>
+              ) : null;
+            })()}
           </div>
         </div>
       ) : (
@@ -1286,6 +1435,15 @@ function PlayerPickDropdown({
           <div className="p-1">
             {filtered.map((option) => {
               const isSelected = option.id === selectedOption?.id;
+              const meta = option.player
+                ? [
+                    option.player.shirtNumber != null ? `#${option.player.shirtNumber}` : null,
+                    option.player.position ?? option.player.preferredPosition,
+                    option.player.teamName,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
+                : null;
               return (
                 <button
                   key={option.id}
@@ -1301,7 +1459,21 @@ function PlayerPickDropdown({
                       : 'text-foreground hover:bg-muted',
                   )}
                 >
-                  <span className="flex-1 truncate text-sm font-medium">{option.label}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">
+                      {option.player?.fullName ?? option.label}
+                    </span>
+                    {meta && (
+                      <span
+                        className={cn(
+                          'block truncate text-[11px]',
+                          isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground',
+                        )}
+                      >
+                        {meta}
+                      </span>
+                    )}
+                  </span>
                   {isSelected && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
                 </button>
               );

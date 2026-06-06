@@ -475,9 +475,20 @@ function MatchRow({
   const isFinished = match.status === 'FINISHED';
   const isSinPick = status === 'sin-pick';
   const isHidden = match.visibility === 'HIDDEN_UNTIL_LOCKED';
+  const hasBreakdown = isFinished && hasPrediction && match.breakdown !== null;
+  const hasExpandable = hasBreakdown || hasQuestions;
 
   const homeLabel = match.homeTeamName ?? match.homeSlotLabel ?? '?';
   const awayLabel = match.awayTeamName ?? match.awaySlotLabel ?? '?';
+
+  // Derive expand button label
+  const expandLabel = (() => {
+    if (hasBreakdown && hasQuestions)
+      return `Desglose · ${match.questions.length} bonus`;
+    if (hasBreakdown)
+      return 'Ver desglose';
+    return `${match.questions.length} ${match.questions.length === 1 ? 'pregunta bonus' : 'preguntas bonus'}`;
+  })();
 
   return (
     <div className={cn('bg-background px-3 py-2.5', isSinPick && 'opacity-55')}>
@@ -525,8 +536,8 @@ function MatchRow({
             )}
           </div>
 
-          {/* Bonus toggle */}
-          {hasQuestions && (
+          {/* Expand toggle */}
+          {hasExpandable && (
             <button
               type="button"
               onClick={onToggle}
@@ -540,49 +551,121 @@ function MatchRow({
                 )}
                 aria-hidden="true"
               />
-              {match.questions.length}{' '}
-              {match.questions.length === 1 ? 'pregunta bonus' : 'preguntas bonus'}
+              {expandLabel}
             </button>
           )}
 
-          {/* Bonus questions (collapsible) */}
-          {hasQuestions && expanded && (
-            <div className="mt-1 grid gap-2 rounded-lg bg-muted/50 p-2.5 animate-fade-in">
-              {match.questions.map((q) => (
-                <div key={q.questionId}>
-                  <p className="text-[11px] font-semibold leading-snug text-foreground">
-                    {q.questionText}
-                  </p>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                    <span>
-                      Tu respuesta:{' '}
-                      <span className="font-medium text-foreground">{q.answerLabel ?? '—'}</span>
-                    </span>
-                    {q.correctAnswerLabel && (
-                      <span>
-                        Correcto:{' '}
-                        <span
-                          className={cn(
-                            'font-medium',
-                            q.isCorrect === true && 'text-emerald-300',
-                            q.isCorrect === false && 'text-rose-400',
-                            q.isCorrect === null && 'text-foreground',
-                          )}
-                        >
-                          {q.correctAnswerLabel}
+          {/* Expanded detail */}
+          {hasExpandable && expanded && (
+            <div className="mb-1 mt-1 grid gap-3 animate-fade-in">
+              {/* Score breakdown */}
+              {hasBreakdown && (
+                <ScoreBreakdown breakdown={match.breakdown!} />
+              )}
+
+              {/* Bonus questions */}
+              {hasQuestions && (
+                <div className="grid gap-2 rounded-lg bg-muted/50 p-2.5">
+                  {hasBreakdown && (
+                    <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                      Preguntas bonus
+                    </p>
+                  )}
+                  {match.questions.map((q) => (
+                    <div key={q.questionId}>
+                      <p className="text-[11px] font-semibold leading-snug text-foreground">
+                        {q.questionText}
+                      </p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                        <span>
+                          Tu respuesta:{' '}
+                          <span className="font-medium text-foreground">{q.answerLabel ?? '—'}</span>
                         </span>
-                      </span>
-                    )}
-                    <span className="font-medium text-foreground tabular-nums">
-                      +{q.pointsAwarded} pts
-                    </span>
-                  </div>
+                        {q.correctAnswerLabel && (
+                          <span>
+                            Correcto:{' '}
+                            <span
+                              className={cn(
+                                'font-medium',
+                                q.isCorrect === true && 'text-emerald-300',
+                                q.isCorrect === false && 'text-rose-400',
+                                q.isCorrect === null && 'text-foreground',
+                              )}
+                            >
+                              {q.correctAnswerLabel}
+                            </span>
+                          </span>
+                        )}
+                        <span className="font-medium text-foreground tabular-nums">
+                          +{q.pointsAwarded} pts
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// ── ScoreBreakdown ────────────────────────────────────────────────────────────
+
+import type { MatchPredictionBreakdown } from '@/types/api';
+
+const SCORE_CATEGORIES: { key: keyof Omit<MatchPredictionBreakdown, 'totalPoints'>; label: string }[] = [
+  { key: 'exactScore',     label: 'Marcador exacto'  },
+  { key: 'winner',         label: 'Equipo ganador'   },
+  { key: 'loser',          label: 'Equipo perdedor'  },
+  { key: 'goalDifference', label: 'Dif. de goles'    },
+  { key: 'homeGoals',      label: 'Goles local'      },
+  { key: 'awayGoals',      label: 'Goles visita'     },
+  { key: 'totalGoals',     label: 'Total de goles'   },
+];
+
+function ScoreBreakdown({ breakdown }: { breakdown: MatchPredictionBreakdown }) {
+  const rows = SCORE_CATEGORIES;
+
+  return (
+    <div className="rounded-lg bg-muted/50 p-2.5">
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+        Puntos del partido
+      </p>
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+        {rows.map(({ key, label }) => {
+          const pts = breakdown[key];
+          const earned = pts > 0;
+          return (
+            <div
+              key={key}
+              className={cn(
+                'flex items-center justify-between gap-1 rounded-md px-2.5 py-1.5',
+                earned ? 'bg-emerald-500/10' : 'bg-background/60',
+              )}
+            >
+              <span
+                className={cn(
+                  'truncate text-[11px]',
+                  earned ? 'text-emerald-300' : 'text-muted-foreground',
+                )}
+              >
+                {label}
+              </span>
+              <span
+                className={cn(
+                  'shrink-0 text-[11px] font-bold tabular-nums',
+                  earned ? 'text-emerald-300' : 'text-muted-foreground/50',
+                )}
+              >
+                {earned ? `+${pts}` : '—'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

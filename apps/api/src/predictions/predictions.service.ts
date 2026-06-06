@@ -180,11 +180,85 @@ export class PredictionsService {
           options: {
             where: { isActive: true },
             orderBy: { sortOrder: 'asc' },
+            include: {
+              player: {
+                select: {
+                  fullName: true,
+                  shortName: true,
+                  nameOnShirt: true,
+                  preferredPosition: true,
+                },
+              },
+            },
+          },
+          correctOption: {
+            include: {
+              player: { select: { fullName: true } },
+            },
           },
         },
         orderBy: { createdAt: 'asc' },
       }),
     ]);
+
+    // Enrich options with TournamentPlayer data (shirtNumber, position, team)
+    const playerIds = [
+      ...new Set(
+        questions.flatMap((q) =>
+          q.options.flatMap((o) => (o.playerId ? [o.playerId] : [])),
+        ),
+      ),
+    ];
+    const tpMap = new Map<string, { shirtNumber: number | null; position: string | null; teamCode: string | null; teamName: string | null; teamFlagEmoji: string | null }>();
+    if (playerIds.length > 0) {
+      const tpRows = await this.prisma.tournamentPlayer.findMany({
+        where: { playerId: { in: playerIds }, tournamentId: entryContext.pool.tournamentId },
+        select: {
+          playerId: true,
+          shirtNumber: true,
+          position: true,
+          tournamentTeam: {
+            select: {
+              team: { select: { code: true, name: true, flagEmoji: true } },
+            },
+          },
+        },
+      });
+      for (const tp of tpRows) {
+        tpMap.set(tp.playerId, {
+          shirtNumber: tp.shirtNumber,
+          position: tp.position,
+          teamCode: tp.tournamentTeam.team.code,
+          teamName: tp.tournamentTeam.team.name,
+          teamFlagEmoji: tp.tournamentTeam.team.flagEmoji,
+        });
+      }
+    }
+
+    const enrichedQuestions = questions.map((q) => ({
+      ...q,
+      correctOptionId: q.isResolved ? q.correctOptionId : null,
+      options: q.options.map((opt) => {
+        const tp = opt.playerId ? tpMap.get(opt.playerId) : undefined;
+        const base = opt.player;
+        return {
+          ...opt,
+          player: base
+            ? {
+                fullName: base.fullName,
+                shortName: base.shortName,
+                nameOnShirt: base.nameOnShirt,
+                preferredPosition: base.preferredPosition,
+                shirtNumber: tp?.shirtNumber ?? null,
+                position: tp?.position ?? null,
+                teamCode: tp?.teamCode ?? null,
+                teamName: tp?.teamName ?? null,
+                teamFlagEmoji: tp?.teamFlagEmoji ?? null,
+              }
+            : null,
+        };
+      }),
+    }));
 
     let matchPredictionBreakdown = null;
     if (
@@ -223,7 +297,7 @@ export class PredictionsService {
       },
       matchPrediction,
       matchPredictionBreakdown,
-      questions,
+      questions: enrichedQuestions,
       questionPredictions,
     };
   }
@@ -304,7 +378,12 @@ export class PredictionsService {
               questionText: true,
               answerType: true,
               isResolved: true,
-              correctOption: { select: { label: true } },
+              correctOption: {
+                select: {
+                  label: true,
+                  player: { select: { fullName: true } },
+                },
+              },
               predictions: {
                 where: { poolEntryId: entryId },
                 select: {
@@ -407,7 +486,9 @@ export class PredictionsService {
           questionId: q.id,
           questionText: q.questionText,
           answerLabel: this.resolveAnswerLabel(q.answerType, qPred),
-          correctAnswerLabel: q.isResolved ? (q.correctOption?.label ?? null) : null,
+          correctAnswerLabel: q.isResolved
+            ? (q.correctOption?.player?.fullName ?? q.correctOption?.label ?? null)
+            : null,
           pointsAwarded: questionPoints,
           isScored: qPred?.isScored ?? false,
           isCorrect: qPred?.isScored ? questionPoints > 0 : null,

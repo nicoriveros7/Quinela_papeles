@@ -178,6 +178,16 @@ export class AdminService {
         options: {
           where: { isActive: true },
           orderBy: { sortOrder: 'asc' },
+          include: {
+            player: {
+              select: {
+                fullName: true,
+                shortName: true,
+                nameOnShirt: true,
+                preferredPosition: true,
+              },
+            },
+          },
         },
         template: {
           select: {
@@ -190,9 +200,70 @@ export class AdminService {
       },
     });
 
+    // Enrich PLAYER_PICK options with TournamentPlayer data (shirtNumber, position, team)
+    const playerIds = [
+      ...new Set(
+        questions.flatMap((q) =>
+          q.options.map((o) => o.playerId).filter((id): id is string => !!id),
+        ),
+      ),
+    ];
+
+    const tpMap = new Map<
+      string,
+      { shirtNumber: number | null; position: string | null; teamCode: string; teamName: string; teamFlagEmoji: string | null }
+    >();
+
+    if (playerIds.length > 0) {
+      const tpRows = await this.prisma.tournamentPlayer.findMany({
+        where: { playerId: { in: playerIds }, tournamentId: match.tournamentId },
+        select: {
+          playerId: true,
+          shirtNumber: true,
+          position: true,
+          tournamentTeam: {
+            select: { team: { select: { code: true, name: true, flagEmoji: true } } },
+          },
+        },
+      });
+      for (const tp of tpRows) {
+        tpMap.set(tp.playerId, {
+          shirtNumber: tp.shirtNumber,
+          position: tp.position,
+          teamCode: tp.tournamentTeam.team.code,
+          teamName: tp.tournamentTeam.team.name,
+          teamFlagEmoji: tp.tournamentTeam.team.flagEmoji,
+        });
+      }
+    }
+
+    const enrichedQuestions = questions.map((q) => ({
+      ...q,
+      options: q.options.map((opt) => {
+        const tp = opt.playerId ? tpMap.get(opt.playerId) : undefined;
+        const base = opt.player;
+        return {
+          ...opt,
+          player: base
+            ? {
+                fullName: base.fullName,
+                shortName: base.shortName,
+                nameOnShirt: base.nameOnShirt,
+                preferredPosition: base.preferredPosition,
+                shirtNumber: tp?.shirtNumber ?? null,
+                position: tp?.position ?? null,
+                teamCode: tp?.teamCode ?? null,
+                teamName: tp?.teamName ?? null,
+                teamFlagEmoji: tp?.teamFlagEmoji ?? null,
+              }
+            : null,
+        };
+      }),
+    }));
+
     return {
       match,
-      questions,
+      questions: enrichedQuestions,
     };
   }
 

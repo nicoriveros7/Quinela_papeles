@@ -56,12 +56,25 @@ export type PoolEntry = {
   status: string;
 };
 
+export type MatchQuestionOptionPlayer = {
+  fullName: string;
+  shortName: string | null;
+  nameOnShirt: string | null;
+  preferredPosition: string | null;
+  shirtNumber: number | null;
+  position: string | null;
+  teamCode: string | null;
+  teamName: string | null;
+  teamFlagEmoji: string | null;
+};
+
 export type MatchQuestionOption = {
   id: string;
   key: string;
   label: string;
   teamId: string | null;
   playerId: string | null;
+  player: MatchQuestionOptionPlayer | null;
 };
 
 export type PoolMatchQuestion = {
@@ -69,6 +82,7 @@ export type PoolMatchQuestion = {
   questionText: string;
   answerType: 'BOOLEAN' | 'SINGLE_CHOICE' | 'TEAM_PICK' | 'PLAYER_PICK' | 'TIME_RANGE';
   isResolved: boolean;
+  correctOptionId: string | null;
   pointsOverride: number | null;
   lockAt: string | null;
   options: MatchQuestionOption[];
@@ -321,6 +335,7 @@ export type AdminMatchQuestion = {
     label: string;
     teamId: string | null;
     playerId: string | null;
+    player: MatchQuestionOptionPlayer | null;
   }>;
 };
 
