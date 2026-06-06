@@ -288,7 +288,7 @@ function MatchRow({
           </div>
         ) : (
           <div className="mt-3 flex justify-end">
-            <Link href={`/pools/${poolId}/entries/${entryId}`}>
+            <Link href={`/pools/${poolId}/entries/${entryId}?matchId=${match.id}`}>
               <Button size="sm" className="gap-1.5">
                 Predecir
                 <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />

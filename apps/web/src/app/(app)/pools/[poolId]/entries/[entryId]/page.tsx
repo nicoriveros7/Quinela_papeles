@@ -1,7 +1,7 @@
 'use client';
 
-import { useParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Lock, Save, Search } from 'lucide-react';
 
 import { cn, normalizeSearchText } from '@/lib/utils';
@@ -123,13 +123,17 @@ function isQuestionLocked(question: Pick<PoolMatchQuestion, 'lockAt'>): boolean 
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function EntryPredictionsPage() {
+function EntryPredictionsPage() {
   const params = useParams<{ poolId: string; entryId: string }>();
   const poolId = params.poolId;
   const entryId = params.entryId;
 
   const { token, user } = useAuth();
   const isAdmin = user?.systemRole === 'ADMIN' || user?.systemRole === 'SUPER_ADMIN';
+
+  const searchParams = useSearchParams();
+  const initialMatchId = searchParams.get('matchId');
+  const hasScrolledToInitialRef = useRef(false);
 
   const [pool, setPool] = useState<PoolDetail | null>(null);
   const [matches, setMatches] = useState<PoolMatch[]>([]);
@@ -187,7 +191,13 @@ export default function EntryPredictionsPage() {
         setPool(poolData);
         const list = (matchesData as PoolMatchesResponse).matches;
         setMatches(list);
-        setSelectedMatchId(list[0]?.id ?? null);
+        const matchFromUrl = initialMatchId ? list.find((m) => m.id === initialMatchId) : null;
+        if (matchFromUrl) {
+          if (matchFromUrl.stage !== 'GROUP') setPhaseFilter('KNOCKOUT');
+          setSelectedMatchId(matchFromUrl.id);
+        } else {
+          setSelectedMatchId(list[0]?.id ?? null);
+        }
         setIsOwner(myEntries.some((entry) => entry.id === entryId));
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'No se pudo cargar la pantalla de predicciones.');
@@ -197,7 +207,7 @@ export default function EntryPredictionsPage() {
     };
 
     void load();
-  }, [poolId, token, entryId]);
+  }, [poolId, token, entryId, initialMatchId]);
 
   const visibleMatches = useMemo(() => {
     if (isOwner) return matches;
@@ -339,6 +349,18 @@ export default function EntryPredictionsPage() {
       }
     }
   };
+
+  useEffect(() => {
+    if (hasScrolledToInitialRef.current || !initialMatchId) return;
+    if (selectedMatchId !== initialMatchId) return;
+    if (!filteredMatches.some((m) => m.id === initialMatchId)) return;
+    requestAnimationFrame(() => {
+      document.getElementById(`match-chip-${initialMatchId}`)?.scrollIntoView({
+        behavior: 'smooth', inline: 'center', block: 'nearest',
+      });
+      hasScrolledToInitialRef.current = true;
+    });
+  }, [filteredMatches, selectedMatchId, initialMatchId]);
 
   const updateSummaryForMatch = (updated: MatchPredictionsBundle) => {
     const predictedQuestionIds = new Set(updated.questionPredictions.map((p) => p.matchQuestionId));
@@ -604,6 +626,7 @@ export default function EntryPredictionsPage() {
               return (
                 <button
                   key={match.id}
+                  id={`match-chip-${match.id}`}
                   role="option"
                   aria-selected={isSelected}
                   onClick={() => setSelectedMatchId(match.id)}
@@ -1066,6 +1089,14 @@ export default function EntryPredictionsPage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+export default function EntryPredictionsPageWrapper() {
+  return (
+    <Suspense fallback={<StatePanel variant="loading" description="Cargando predicciones..." />}>
+      <EntryPredictionsPage />
+    </Suspense>
   );
 }
 
