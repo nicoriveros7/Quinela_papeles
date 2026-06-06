@@ -22,13 +22,13 @@ import { TeamLabel } from '@/components/ui/team-label';
 
 function formatLockDate(isoString: string): string {
   return new Date(isoString).toLocaleString('es-CO', {
-    timeZone: 'America/Bogota',
     day: 'numeric',
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
+    timeZoneName: 'short',
   });
 }
 

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronRight, Globe2, Lock, LockOpen, Users, type LucideIcon } from 'lucide-react';
 
 import { api, ApiError } from '@/lib/api';
+import { formatDateTime } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
 import { AdminPool, AdminTournament, AdminTournamentPredictionLock } from '@/types/api';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
@@ -365,7 +366,7 @@ function TournamentPredictionControlCard({
             <div className="flex items-center gap-2">
               <span className="text-sm text-foreground">
                 {lock.lockAt
-                  ? new Date(lock.lockAt).toLocaleString('es-CO', { timeZone: 'America/Bogota', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+                  ? formatDateTime(lock.lockAt)
                   : 'No configurada'}
               </span>
               <button

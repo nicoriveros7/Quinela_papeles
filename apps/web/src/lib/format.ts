@@ -1,8 +1,39 @@
-const TZ = 'America/Bogota';
+/**
+ * Primary match kickoff formatter for user-facing UIs.
+ * Output: "Vie 12 Jun · 2:00 PM COT" — uses the browser's local timezone.
+ *
+ * Use this everywhere a match's date/time is shown to the user.
+ * Single source of truth — do NOT inline toLocaleTimeString / toLocaleDateString calls.
+ *
+ * The timezone abbreviation (COT, EDT, PDT…) is included so users in different
+ * zones can see at a glance which timezone is being displayed.
+ */
+export function formatMatchKickoff(value: string): string {
+  const d = new Date(value);
+  const fmt = (opts: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat('es-CO', opts).format(d);
+
+  const weekday = fmt({ weekday: 'short' });   // "vie."
+  const day     = fmt({ day: 'numeric' });      // "12"
+  const month   = fmt({ month: 'short' });      // "jun."
+
+  // en-US for clean "2:00 PM COT" (es-CO gives "2:00 p. m." with dots/spaces)
+  const time = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short',
+  }).format(d);
+
+  const clean = (s: string) => s.replace(/\./g, '').trim();
+  const cap   = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  return `${cap(clean(weekday))} ${day} ${cap(clean(month))} · ${time}`;
+}
 
 /**
  * General-purpose date+time formatter for admin UI and secondary contexts.
- * Output: "12 jun, 9:00 a. m." (Colombia timezone)
+ * Output: "12 jun, 9:00 a. m." — uses the browser's local timezone.
  */
 export function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('es-CO', {
@@ -10,37 +41,7 @@ export function formatDateTime(value: string) {
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: TZ,
   }).format(new Date(value));
-}
-
-/**
- * Primary match kickoff formatter for user-facing UIs.
- * Output: "Vie 12 Jun · 7:00 PM" (Colombia timezone, always)
- *
- * Use this everywhere a match's date/time is shown to the user.
- * Single source of truth — do NOT inline toLocaleTimeString / toLocaleDateString calls.
- */
-export function formatMatchKickoff(value: string): string {
-  const d = new Date(value);
-  const fmt = (opts: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat('es-CO', { ...opts, timeZone: TZ }).format(d);
-
-  const weekday = fmt({ weekday: 'short' });          // "vie."
-  const day     = fmt({ day: 'numeric' });             // "12"
-  const month   = fmt({ month: 'short' });             // "jun."
-  // Use en-US for clean "7:00 PM" (es-CO gives "7:00 p. m." with dots/spaces)
-  const time = new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: TZ,
-  }).format(d);
-
-  const clean = (s: string) => s.replace(/\./g, '').trim();
-  const cap   = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-  return `${cap(clean(weekday))} ${day} ${cap(clean(month))} · ${time}`;
 }
 
 /**
