@@ -906,6 +906,36 @@ function EntryPredictionsPage() {
                   )}
                 </div>
 
+                {/* Saved answer banner — only shown in editable mode, non-PLAYER_PICK */}
+                {isOwner && !isSelectedMatchLocked && !isQuestionLocked(question) &&
+                  question.answerType !== 'PLAYER_PICK' && (() => {
+                  const saved = questionPredictionById.get(question.id);
+                  if (!saved) return null;
+                  let label: string | null = null;
+                  if (question.answerType === 'BOOLEAN') {
+                    if (saved.selectedBoolean === true) label = 'Sí';
+                    else if (saved.selectedBoolean === false) label = 'No';
+                  } else if (question.answerType === 'TIME_RANGE') {
+                    label = question.options.find((o) => o.key === saved.selectedTimeRangeKey)?.label ?? null;
+                  } else {
+                    label = question.options.find((o) => o.id === saved.selectedOptionId)?.label ?? null;
+                  }
+                  if (!label) return null;
+                  return (
+                    <div className="flex items-center gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+                        <Check className="h-4 w-4 text-emerald-400" aria-hidden="true" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70">
+                          Respuesta guardada
+                        </p>
+                        <p className="truncate font-semibold text-foreground">{label}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <QuestionInput
                   question={question}
                   value={questionDrafts[question.id]}

@@ -163,6 +163,8 @@ export default function DashboardPage() {
               <UpcomingMatchRow
                 key={match.id}
                 match={match}
+                poolId={mainPool.pool.id}
+                entryId={entry.id}
               />
             ))}
           </div>
@@ -233,7 +235,7 @@ function StatCard({
 }
 
 /** Upcoming match row — date first, then teams */
-function UpcomingMatchRow({ match }: { match: PoolMatch }) {
+function UpcomingMatchRow({ match, poolId, entryId }: { match: PoolMatch; poolId: string; entryId: string }) {
   const home = match.homeTournamentTeam?.team;
   const away = match.awayTournamentTeam?.team;
   const homeCode = home?.code ?? match.homeSlotLabel ?? 'TBD';
@@ -248,7 +250,7 @@ function UpcomingMatchRow({ match }: { match: PoolMatch }) {
 
   return (
     <Link
-      href="/polla/predicciones"
+      href={`/pools/${poolId}/entries/${entryId}?matchId=${match.id}`}
       className="group flex flex-col gap-2 rounded-xl border border-white/[0.08] bg-surface px-4 py-3 shadow-card-sm shadow-inner-subtle transition-all duration-150 hover:border-primary/30 hover:shadow-card"
     >
       {/* Date row — primary, topmost */}
