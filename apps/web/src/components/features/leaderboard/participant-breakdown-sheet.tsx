@@ -108,6 +108,11 @@ export function ParticipantBreakdownSheet({
   const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>('all');
 
   const panelRef = useRef<HTMLDivElement>(null);
+  const tournamentSectionRef = useRef<HTMLDivElement>(null);
+
+  const scrollToTournament = useCallback(() => {
+    tournamentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -261,7 +266,14 @@ export function ParticipantBreakdownSheet({
           {!loading && !error && data && (
             <div className="grid gap-5 animate-fade-in">
               {/* Summary pills */}
-              <SummarySection summary={data.summary} />
+              <SummarySection
+                summary={data.summary}
+                onScrollToTournament={
+                  data.tournamentPrediction ?? data.tournamentPredictionHidden
+                    ? scrollToTournament
+                    : undefined
+                }
+              />
 
               {/* Match predictions */}
               {data.matchPredictions.length > 0 && (
@@ -294,21 +306,23 @@ export function ParticipantBreakdownSheet({
               )}
 
               {/* Tournament prediction */}
-              {data.tournamentPrediction ? (
-                <TournamentSection prediction={data.tournamentPrediction} />
-              ) : data.tournamentPredictionHidden ? (
-                <section>
-                  <h3 className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
-                    Pre-torneo
-                  </h3>
-                  <div className="flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
-                    <Lock className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
-                    <p className="text-xs text-amber-300/80">
-                      Las predicciones pre-torneo se revelan cuando empiece el primer partido
-                    </p>
-                  </div>
-                </section>
-              ) : null}
+              <div ref={tournamentSectionRef}>
+                {data.tournamentPrediction ? (
+                  <TournamentSection prediction={data.tournamentPrediction} />
+                ) : data.tournamentPredictionHidden ? (
+                  <section>
+                    <h3 className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                      Pre-torneo
+                    </h3>
+                    <div className="flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+                      <Lock className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+                      <p className="text-xs text-amber-300/80">
+                        Las predicciones pre-torneo se revelan cuando empiece el primer partido
+                      </p>
+                    </div>
+                  </section>
+                ) : null}
+              </div>
             </div>
           )}
         </div>
@@ -449,25 +463,43 @@ function BreakdownSkeleton() {
   );
 }
 
-function SummarySection({ summary }: { summary: EntryBreakdownResponse['summary'] }) {
-  const pills = [
-    { label: 'Partidos', value: summary.matchPoints },
-    { label: 'Bonus',    value: summary.bonusPoints },
-    { label: 'Pre-torneo', value: summary.tournamentPoints },
+function SummarySection({
+  summary,
+  onScrollToTournament,
+}: {
+  summary: EntryBreakdownResponse['summary'];
+  onScrollToTournament?: () => void;
+}) {
+  const pills: { label: string; value: number; onClick?: () => void }[] = [
+    { label: 'Partidos',   value: summary.matchPoints },
+    { label: 'Bonus',      value: summary.bonusPoints },
+    { label: 'Pre-torneo', value: summary.tournamentPoints, onClick: onScrollToTournament },
   ];
 
   return (
     <div className="grid gap-2">
       <div className="grid grid-cols-3 gap-2">
-        {pills.map(({ label, value }) => (
-          <div
+        {pills.map(({ label, value, onClick }) =>
+        onClick ? (
+          <button
             key={label}
-            className="flex flex-col items-center justify-center rounded-xl border border-border/60 bg-surface/80 px-2 py-3 text-center"
+            type="button"
+            onClick={onClick}
+            className="flex flex-col items-center justify-center rounded-xl border border-border/60 bg-surface/80 px-2 py-3 text-center transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="tabular-nums text-xl font-extrabold text-foreground">{value}</span>
             <span className="mt-0.5 text-[11px] leading-none text-muted-foreground">{label}</span>
-          </div>
-        ))}
+          </button>
+        ) : (
+            <div
+              key={label}
+              className="flex flex-col items-center justify-center rounded-xl border border-border/60 bg-surface/80 px-2 py-3 text-center"
+            >
+              <span className="tabular-nums text-xl font-extrabold text-foreground">{value}</span>
+              <span className="mt-0.5 text-[11px] leading-none text-muted-foreground">{label}</span>
+            </div>
+          ),
+      )}
       </div>
       {summary.jokerPoints > 0 && (
         <div className="flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2">

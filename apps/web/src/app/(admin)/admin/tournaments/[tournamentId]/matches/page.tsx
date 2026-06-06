@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Calendar, CalendarDays, CheckCircle2, Check, HelpCircle, Replace, Search, Trophy, Users, X } from 'lucide-react';
+import { ArrowLeft, Calendar, CalendarDays, CheckCircle2, Check, ChevronDown, HelpCircle, Replace, Search, Trophy, Users, X } from 'lucide-react';
 
 import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff } from '@/lib/format';
@@ -90,6 +90,18 @@ export default function TournamentMatchesPage() {
   const [actualGoldenBallId, setActualGoldenBallId]  = useState<string | null>(null);
   const [actualGoldenGloveId, setActualGoldenGloveId] = useState<string | null>(null);
 
+  // ── Pre-torneo section collapse + dirty tracking ──
+  const [preTourneyExpanded, setPreTourneyExpanded] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState<{
+    championId: string | null;
+    runnerUpId: string | null;
+    thirdPlaceId: string | null;
+    topScorerId: string | null;
+    goldenBallId: string | null;
+    goldenGloveId: string | null;
+    bestThirds: string[];
+  } | null>(null);
+
   // ── Schedule editing state ──
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [savingScheduleId, setSavingScheduleId] = useState<string | null>(null);
@@ -121,13 +133,23 @@ export default function TournamentMatchesPage() {
       setPlayers(playersData);
 
       if (actualResults) {
-        setBestThirdsActual(actualResults.actualBestThirdsTeamIds ?? []);
+        const bestThirds = actualResults.actualBestThirdsTeamIds ?? [];
+        setBestThirdsActual(bestThirds);
         setActualChampionId(actualResults.actualChampionTournamentTeamId);
         setActualRunnerUpId(actualResults.actualRunnerUpTournamentTeamId);
         setActualThirdPlaceId(actualResults.actualThirdPlaceTournamentTeamId);
         setActualTopScorerId(actualResults.actualTopScorerTournamentPlayerId);
         setActualGoldenBallId(actualResults.actualGoldenBallTournamentPlayerId);
         setActualGoldenGloveId(actualResults.actualGoldenGloveTournamentPlayerId);
+        setSavedSnapshot({
+          championId:  actualResults.actualChampionTournamentTeamId,
+          runnerUpId:  actualResults.actualRunnerUpTournamentTeamId,
+          thirdPlaceId: actualResults.actualThirdPlaceTournamentTeamId,
+          topScorerId:  actualResults.actualTopScorerTournamentPlayerId,
+          goldenBallId: actualResults.actualGoldenBallTournamentPlayerId,
+          goldenGloveId: actualResults.actualGoldenGloveTournamentPlayerId,
+          bestThirds,
+        });
       }
 
       setDrafts(
@@ -312,6 +334,15 @@ export default function TournamentMatchesPage() {
         },
         token,
       );
+      setSavedSnapshot({
+        championId:   actualChampionId,
+        runnerUpId:   actualRunnerUpId,
+        thirdPlaceId: actualThirdPlaceId,
+        topScorerId:  actualTopScorerId,
+        goldenBallId: actualGoldenBallId,
+        goldenGloveId: actualGoldenGloveId,
+        bestThirds:   [...bestThirdsActual],
+      });
       setActualResultsMsg('✅ Resultados guardados. Recalcula el scoring para aplicar los puntos.');
     } catch (err) {
       setActualResultsMsg(`❌ ${err instanceof ApiError ? err.message : 'Error al guardar'}`);
@@ -362,188 +393,254 @@ export default function TournamentMatchesPage() {
     <div className="grid gap-4">
 
     {/* ── Resultados oficiales de pre-torneo ─────────────────────────────── */}
-    {allTournamentTeams.length > 0 && (
-      <Card>
-        <CardHeader className="gap-2">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-primary" />
-            <CardTitle className="text-base">Resultados oficiales de pre-torneo</CardTitle>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Define los resultados oficiales. Guarda y luego recalcula el scoring para aplicar los puntos.
-          </p>
-        </CardHeader>
+    {allTournamentTeams.length > 0 && (() => {
+      const podioCount = [actualChampionId, actualRunnerUpId, actualThirdPlaceId].filter(Boolean).length;
+      const premiosCount = [actualTopScorerId, actualGoldenBallId, actualGoldenGloveId].filter(Boolean).length;
+      const isDirty = savedSnapshot !== null && (
+        savedSnapshot.championId   !== actualChampionId   ||
+        savedSnapshot.runnerUpId   !== actualRunnerUpId   ||
+        savedSnapshot.thirdPlaceId !== actualThirdPlaceId ||
+        savedSnapshot.topScorerId  !== actualTopScorerId  ||
+        savedSnapshot.goldenBallId !== actualGoldenBallId ||
+        savedSnapshot.goldenGloveId !== actualGoldenGloveId ||
+        JSON.stringify([...savedSnapshot.bestThirds].sort()) !== JSON.stringify([...bestThirdsActual].sort())
+      );
 
-        <CardContent className="grid gap-6">
-
-          {/* ── Podio ── */}
-          <div className="grid gap-3">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Podio</p>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <SingleTeamPicker
-                label="🥇 Campeón"
-                value={actualChampionId}
-                teams={allTournamentTeams}
-                onChange={setActualChampionId}
-                disabledIds={[actualRunnerUpId, actualThirdPlaceId].filter((x): x is string => x !== null)}
-              />
-              <SingleTeamPicker
-                label="🥈 Subcampeón"
-                value={actualRunnerUpId}
-                teams={allTournamentTeams}
-                onChange={setActualRunnerUpId}
-                disabledIds={[actualChampionId, actualThirdPlaceId].filter((x): x is string => x !== null)}
-              />
-              <SingleTeamPicker
-                label="🥉 Tercer puesto"
-                value={actualThirdPlaceId}
-                teams={allTournamentTeams}
-                onChange={setActualThirdPlaceId}
-                disabledIds={[actualChampionId, actualRunnerUpId].filter((x): x is string => x !== null)}
-              />
-            </div>
-          </div>
-
-          <div className="h-px bg-border/40" />
-
-          {/* ── Premios individuales ── */}
-          <div className="grid gap-3">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Premios individuales</p>
-            {players.length === 0 ? (
-              <p className="text-xs text-muted-foreground/60 italic">
-                Sin jugadores cargados. Asegúrate de haber corrido el seed de producción.
-              </p>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-3">
-                <SinglePlayerPicker
-                  label="⚽ Goleador (Bota de Oro)"
-                  value={actualTopScorerId}
-                  players={players}
-                  onChange={setActualTopScorerId}
-                />
-                <SinglePlayerPicker
-                  label="🏅 Mejor jugador (Balón de Oro)"
-                  value={actualGoldenBallId}
-                  players={players}
-                  onChange={setActualGoldenBallId}
-                />
-                <SinglePlayerPicker
-                  label="🧤 Mejor arquero (Guante de Oro)"
-                  value={actualGoldenGloveId}
-                  players={players}
-                  onChange={setActualGoldenGloveId}
-                  onlyGk
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="h-px bg-border/40" />
-
-          {/* ── Mejores terceros ── */}
-          <div className="grid gap-3">
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
-                <Users className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
-                Mejores terceros clasificados
-              </p>
-              <span className={cn(
-                'ml-auto text-xs font-bold tabular-nums',
-                bestThirdsActual.length === BEST_THIRDS_REQUIRED ? 'text-emerald-400' : 'text-muted-foreground',
-              )}>
-                {bestThirdsActual.length}/{BEST_THIRDS_REQUIRED}
-              </span>
-            </div>
-
-            {/* Selected chips */}
-            {bestThirdsActual.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {bestThirdsActual.map((ttId) => {
-                  const t = allTournamentTeams.find((x) => x.ttId === ttId);
-                  if (!t) return null;
-                  return (
-                    <button
-                      key={ttId}
-                      type="button"
-                      onClick={() => setBestThirdsActual((prev) => prev.filter((x) => x !== ttId))}
-                      className="inline-flex items-center gap-1 rounded-full bg-primary/20 px-2.5 py-1 text-[11px] font-semibold text-primary transition-colors hover:bg-rose-500/15 hover:text-rose-400"
-                    >
-                      {t.flagEmoji && <span>{t.flagEmoji}</span>}
-                      {t.code}
-                      <X className="h-3 w-3 ml-0.5" aria-hidden="true" />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Search */}
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Buscar equipo..."
-                value={bestThirdsSearch}
-                onChange={(e) => setBestThirdsSearch(e.target.value)}
-                className="h-9 w-full rounded-xl border border-input bg-background/70 py-2 pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/25"
-              />
-            </div>
-
-            {/* Team grid */}
-            <div className="max-h-44 overflow-y-auto rounded-xl border border-border/40 bg-background/60 p-1">
-              <div className="grid grid-cols-2 gap-0.5 sm:grid-cols-3 md:grid-cols-4">
-                {filteredBestThirdsTeams.map((t) => {
-                  const isSelected = bestThirdsActual.includes(t.ttId);
-                  const isDisabled = !isSelected && bestThirdsActual.length >= BEST_THIRDS_REQUIRED;
-                  return (
-                    <button
-                      key={t.ttId}
-                      type="button"
-                      disabled={isDisabled}
-                      onClick={() => {
-                        if (isSelected) {
-                          setBestThirdsActual((prev) => prev.filter((x) => x !== t.ttId));
-                        } else if (bestThirdsActual.length < BEST_THIRDS_REQUIRED) {
-                          setBestThirdsActual((prev) => [...prev, t.ttId]);
-                        }
-                      }}
-                      className={cn(
-                        'flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors',
-                        isSelected ? 'bg-primary text-primary-foreground' :
-                        isDisabled ? 'cursor-not-allowed text-muted-foreground/30' :
-                        'text-foreground hover:bg-muted',
-                      )}
-                    >
-                      {t.flagEmoji && <span className="text-sm leading-none">{t.flagEmoji}</span>}
-                      <span className="truncate">{t.name}</span>
-                      {isSelected && <Check className="ml-auto h-3 w-3 shrink-0" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* ── Feedback + save ── */}
-          {actualResultsMsg && (
-            <p className={cn(
-              'text-xs font-medium',
-              actualResultsMsg.startsWith('✅') ? 'text-emerald-400' : 'text-rose-400',
-            )}>
-              {actualResultsMsg}
-            </p>
-          )}
-
-          <Button
-            onClick={saveActualResults}
-            disabled={actualResultsSaving}
-            className="w-fit"
+      return (
+        <Card>
+          {/* ── Compact header — always visible ── */}
+          <button
+            type="button"
+            onClick={() => setPreTourneyExpanded((v) => !v)}
+            className="w-full text-left"
+            aria-expanded={preTourneyExpanded}
           >
-            {actualResultsSaving ? 'Guardando...' : 'Guardar resultados oficiales'}
-          </Button>
-        </CardContent>
-      </Card>
-    )}
+            <CardHeader className="gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Trophy className="h-4 w-4 shrink-0 text-primary" />
+                  <CardTitle className="text-base truncate">Resultados oficiales de pre-torneo</CardTitle>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {isDirty && (
+                    <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+                      Sin guardar
+                    </span>
+                  )}
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 text-muted-foreground transition-transform duration-200',
+                      preTourneyExpanded && 'rotate-180',
+                    )}
+                    aria-hidden="true"
+                  />
+                </div>
+              </div>
+
+              {/* Summary chips — always visible */}
+              <div className="flex flex-wrap items-center gap-2">
+                <SummaryChip
+                  label="Podio"
+                  filled={podioCount}
+                  total={3}
+                />
+                <SummaryChip
+                  label="Premios"
+                  filled={premiosCount}
+                  total={3}
+                />
+                <SummaryChip
+                  label="Terceros"
+                  filled={bestThirdsActual.length}
+                  total={BEST_THIRDS_REQUIRED}
+                />
+                {isDirty && (
+                  <span className="sm:hidden inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+                    Sin guardar
+                  </span>
+                )}
+              </div>
+            </CardHeader>
+          </button>
+
+          {/* ── Expandable content ── */}
+          {preTourneyExpanded && (
+            <CardContent className="grid gap-6 border-t border-border/40 pt-6">
+
+              {/* ── Podio ── */}
+              <div className="grid gap-3">
+                <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Podio</p>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <SingleTeamPicker
+                    label="🥇 Campeón"
+                    value={actualChampionId}
+                    teams={allTournamentTeams}
+                    onChange={setActualChampionId}
+                    disabledIds={[actualRunnerUpId, actualThirdPlaceId].filter((x): x is string => x !== null)}
+                  />
+                  <SingleTeamPicker
+                    label="🥈 Subcampeón"
+                    value={actualRunnerUpId}
+                    teams={allTournamentTeams}
+                    onChange={setActualRunnerUpId}
+                    disabledIds={[actualChampionId, actualThirdPlaceId].filter((x): x is string => x !== null)}
+                  />
+                  <SingleTeamPicker
+                    label="🥉 Tercer puesto"
+                    value={actualThirdPlaceId}
+                    teams={allTournamentTeams}
+                    onChange={setActualThirdPlaceId}
+                    disabledIds={[actualChampionId, actualRunnerUpId].filter((x): x is string => x !== null)}
+                  />
+                </div>
+              </div>
+
+              <div className="h-px bg-border/40" />
+
+              {/* ── Premios individuales ── */}
+              <div className="grid gap-3">
+                <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Premios individuales</p>
+                {players.length === 0 ? (
+                  <p className="text-xs text-muted-foreground/60 italic">
+                    Sin jugadores cargados. Asegúrate de haber corrido el seed de producción.
+                  </p>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <SinglePlayerPicker
+                      label="⚽ Goleador (Bota de Oro)"
+                      value={actualTopScorerId}
+                      players={players}
+                      onChange={setActualTopScorerId}
+                    />
+                    <SinglePlayerPicker
+                      label="🏅 Mejor jugador (Balón de Oro)"
+                      value={actualGoldenBallId}
+                      players={players}
+                      onChange={setActualGoldenBallId}
+                    />
+                    <SinglePlayerPicker
+                      label="🧤 Mejor arquero (Guante de Oro)"
+                      value={actualGoldenGloveId}
+                      players={players}
+                      onChange={setActualGoldenGloveId}
+                      onlyGk
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="h-px bg-border/40" />
+
+              {/* ── Mejores terceros ── */}
+              <div className="grid gap-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                    <Users className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
+                    Mejores terceros clasificados
+                  </p>
+                  <span className={cn(
+                    'ml-auto text-xs font-bold tabular-nums',
+                    bestThirdsActual.length === BEST_THIRDS_REQUIRED ? 'text-emerald-400' : 'text-muted-foreground',
+                  )}>
+                    {bestThirdsActual.length}/{BEST_THIRDS_REQUIRED}
+                  </span>
+                </div>
+
+                {bestThirdsActual.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {bestThirdsActual.map((ttId) => {
+                      const t = allTournamentTeams.find((x) => x.ttId === ttId);
+                      if (!t) return null;
+                      return (
+                        <button
+                          key={ttId}
+                          type="button"
+                          onClick={() => setBestThirdsActual((prev) => prev.filter((x) => x !== ttId))}
+                          className="inline-flex items-center gap-1 rounded-full bg-primary/20 px-2.5 py-1 text-[11px] font-semibold text-primary transition-colors hover:bg-rose-500/15 hover:text-rose-400"
+                        >
+                          {t.flagEmoji && <span>{t.flagEmoji}</span>}
+                          {t.code}
+                          <X className="h-3 w-3 ml-0.5" aria-hidden="true" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Buscar equipo..."
+                    value={bestThirdsSearch}
+                    onChange={(e) => setBestThirdsSearch(e.target.value)}
+                    className="h-9 w-full rounded-xl border border-input bg-background/70 py-2 pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/25"
+                  />
+                </div>
+
+                <div className="max-h-44 overflow-y-auto rounded-xl border border-border/40 bg-background/60 p-1">
+                  <div className="grid grid-cols-2 gap-0.5 sm:grid-cols-3 md:grid-cols-4">
+                    {filteredBestThirdsTeams.map((t) => {
+                      const isSelected = bestThirdsActual.includes(t.ttId);
+                      const isDisabled = !isSelected && bestThirdsActual.length >= BEST_THIRDS_REQUIRED;
+                      return (
+                        <button
+                          key={t.ttId}
+                          type="button"
+                          disabled={isDisabled}
+                          onClick={() => {
+                            if (isSelected) {
+                              setBestThirdsActual((prev) => prev.filter((x) => x !== t.ttId));
+                            } else if (bestThirdsActual.length < BEST_THIRDS_REQUIRED) {
+                              setBestThirdsActual((prev) => [...prev, t.ttId]);
+                            }
+                          }}
+                          className={cn(
+                            'flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors',
+                            isSelected ? 'bg-primary text-primary-foreground' :
+                            isDisabled ? 'cursor-not-allowed text-muted-foreground/30' :
+                            'text-foreground hover:bg-muted',
+                          )}
+                        >
+                          {t.flagEmoji && <span className="text-sm leading-none">{t.flagEmoji}</span>}
+                          <span className="truncate">{t.name}</span>
+                          {isSelected && <Check className="ml-auto h-3 w-3 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Feedback + save ── */}
+              {actualResultsMsg && (
+                <p className={cn(
+                  'text-xs font-medium',
+                  actualResultsMsg.startsWith('✅') ? 'text-emerald-400' : 'text-rose-400',
+                )}>
+                  {actualResultsMsg}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={saveActualResults}
+                  disabled={actualResultsSaving}
+                  className="w-fit"
+                >
+                  {actualResultsSaving ? 'Guardando...' : 'Guardar resultados oficiales'}
+                </Button>
+                {isDirty && (
+                  <span className="text-[11px] font-medium text-amber-400">
+                    Cambios sin guardar
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      );
+    })()}
 
     <Card>
       <CardHeader className="gap-3">
@@ -1077,5 +1174,26 @@ function SinglePlayerPicker({
         )}
       </div>
     </div>
+  );
+}
+
+// ── SummaryChip ───────────────────────────────────────────────────────────────
+
+function SummaryChip({ label, filled, total }: { label: string; filled: number; total: number }) {
+  const complete = filled === total;
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold',
+        complete
+          ? 'bg-emerald-500/15 text-emerald-400'
+          : filled > 0
+          ? 'bg-primary/10 text-primary'
+          : 'bg-muted text-muted-foreground',
+      )}
+    >
+      {complete && <Check className="h-3 w-3" aria-hidden="true" />}
+      {label}: {filled}/{total}
+    </span>
   );
 }
