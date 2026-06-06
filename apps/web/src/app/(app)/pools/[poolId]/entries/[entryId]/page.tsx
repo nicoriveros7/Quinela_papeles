@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Lock, Save, Search } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
+import { cn, normalizeSearchText } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff, matchStatusLabel, questionTypeLabel } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
@@ -1219,7 +1219,7 @@ function PlayerPickDropdown({
   const [search, setSearch] = useState('');
 
   const filtered = options.filter((o) =>
-    o.label.toLowerCase().includes(search.toLowerCase()),
+    normalizeSearchText(o.label).includes(normalizeSearchText(search)),
   );
 
   // ── readOnly: only show saved answer, no list ──────────────────────────────

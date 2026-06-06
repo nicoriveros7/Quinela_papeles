@@ -7,7 +7,7 @@ import { ArrowLeft, Calendar, CalendarDays, CheckCircle2, Check, HelpCircle, Rep
 
 import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff } from '@/lib/format';
-import { cn } from '@/lib/utils';
+import { cn, normalizeSearchText } from '@/lib/utils';
 import { useAuth } from '@/providers/auth-provider';
 import { AdminMatch, AdminTournamentPlayer } from '@/types/api';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
@@ -165,7 +165,7 @@ export default function TournamentMatchesPage() {
       (a, b) => new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime(),
     );
 
-    const queryTokens = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const queryTokens = normalizeSearchText(search).split(/\s+/).filter(Boolean);
 
     return sorted.filter((match) => {
       if (groupFilter !== 'ALL') {
@@ -178,20 +178,21 @@ export default function TournamentMatchesPage() {
 
       if (queryTokens.length === 0) return true;
 
-      const tokens = [
-        match.matchNumber ? `#${match.matchNumber}` : null,
-        match.matchNumber ? String(match.matchNumber) : null,
-        match.roundLabel,
-        match.stage,
-        match.group?.code ? `Grupo ${match.group.code}` : null,
-        match.homeTournamentTeam?.team.name,
-        match.homeTournamentTeam?.team.code,
-        match.awayTournamentTeam?.team.name,
-        match.awayTournamentTeam?.team.code,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
+      const tokens = normalizeSearchText(
+        [
+          match.matchNumber ? `#${match.matchNumber}` : null,
+          match.matchNumber ? String(match.matchNumber) : null,
+          match.roundLabel,
+          match.stage,
+          match.group?.code ? `Grupo ${match.group.code}` : null,
+          match.homeTournamentTeam?.team.name,
+          match.homeTournamentTeam?.team.code,
+          match.awayTournamentTeam?.team.name,
+          match.awayTournamentTeam?.team.code,
+        ]
+          .filter(Boolean)
+          .join(' '),
+      );
 
       return queryTokens.every((token) => tokens.includes(token));
     });
@@ -343,9 +344,9 @@ export default function TournamentMatchesPage() {
   }, [matches]);
 
   const filteredBestThirdsTeams = useMemo(() => {
-    const q = bestThirdsSearch.toLowerCase();
+    const q = normalizeSearchText(bestThirdsSearch);
     return allTournamentTeams.filter(
-      (t) => t.name.toLowerCase().includes(q) || t.code.toLowerCase().includes(q),
+      (t) => normalizeSearchText(t.name).includes(q) || normalizeSearchText(t.code).includes(q),
     );
   }, [allTournamentTeams, bestThirdsSearch]);
 
@@ -903,8 +904,8 @@ function SingleTeamPicker({
   const [search, setSearch] = useState('');
   const selected = teams.find((t) => t.ttId === value);
   const filtered = teams.filter((t) => {
-    const q = search.toLowerCase();
-    return t.name.toLowerCase().includes(q) || t.code.toLowerCase().includes(q);
+    const q = normalizeSearchText(search);
+    return normalizeSearchText(t.name).includes(q) || normalizeSearchText(t.code).includes(q);
   });
 
   return (
@@ -997,12 +998,12 @@ function SinglePlayerPicker({
   const pool = onlyGk ? players.filter((p) => p.isGoalkeeper) : players;
   const selected = pool.find((p) => p.id === value);
   const filtered = pool.filter((p) => {
-    const q = search.toLowerCase();
+    const q = normalizeSearchText(search);
     return (
-      p.fullName.toLowerCase().includes(q) ||
-      (p.shortName ?? '').toLowerCase().includes(q) ||
-      (p.teamCode ?? '').toLowerCase().includes(q) ||
-      (p.teamName ?? '').toLowerCase().includes(q)
+      normalizeSearchText(p.fullName).includes(q) ||
+      normalizeSearchText(p.shortName).includes(q) ||
+      normalizeSearchText(p.teamCode).includes(q) ||
+      normalizeSearchText(p.teamName).includes(q)
     );
   });
 

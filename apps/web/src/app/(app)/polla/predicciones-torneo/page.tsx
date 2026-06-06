@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Award, Check, ChevronDown, Goal, Lock, Medal, Search, ShieldCheck, Trophy, Users } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
+import { cn, normalizeSearchText } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
 import {
@@ -352,8 +352,8 @@ function BestThirdsPickerSection({
   }, [isOpen, disabled]);
 
   const filtered = teams.filter((t) => {
-    const q = search.toLowerCase();
-    return t.team.name.toLowerCase().includes(q) || t.team.code.toLowerCase().includes(q);
+    const q = normalizeSearchText(search);
+    return normalizeSearchText(t.team.name).includes(q) || normalizeSearchText(t.team.code).includes(q);
   });
 
   const selectedTeams = selectedIds
@@ -570,8 +570,8 @@ function TeamPickerAccordion({
   }, [isOpen, disabled]);
 
   const filtered = teams.filter((t) => {
-    const q = search.toLowerCase();
-    return t.team.name.toLowerCase().includes(q) || t.team.code.toLowerCase().includes(q);
+    const q = normalizeSearchText(search);
+    return normalizeSearchText(t.team.name).includes(q) || normalizeSearchText(t.team.code).includes(q);
   });
 
   return (
@@ -737,10 +737,10 @@ function PlayerPickerAccordion({
   }, [isOpen, canOpen]);
 
   const filtered = players.filter((p) => {
-    const q = search.toLowerCase();
+    const q = normalizeSearchText(search);
     return (
-      p.player.fullName.toLowerCase().includes(q) ||
-      (p.player.shortName?.toLowerCase().includes(q) ?? false)
+      normalizeSearchText(p.player.fullName).includes(q) ||
+      normalizeSearchText(p.player.shortName).includes(q)
     );
   });
 
