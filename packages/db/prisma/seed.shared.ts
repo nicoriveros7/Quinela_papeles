@@ -38,6 +38,8 @@ export const MAIN_POOL_CONFIG = {
   pointsTopScorerCorrect:  10,
   pointsGoldenBallCorrect: 10,
   pointsGoldenGloveCorrect: 10,
+  pointsBestThirdsExact:   20,
+  pointsBestThirdsPartial: 10,
   pointsConfig: {
     match: { exactScore: 5, goalDifference: 3, winner: 1, loser: 1, homeGoals: 2, awayGoals: 2, totalGoals: 1 },
     bonus: { default: 5 },
