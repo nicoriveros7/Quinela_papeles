@@ -118,6 +118,7 @@ export type MatchPrediction = {
   predictedAwayScore: number;
   pointsAwarded: number;
   isScored: boolean;
+  isJoker: boolean;
   scoredAt: string | null;
 };
 
@@ -156,6 +157,8 @@ export type MatchPredictionsBundle = {
     id: string;
     kickoffAt: string;
     status: string;
+    stage: string;
+    roundLabel: string | null;
     homeScore: number | null;
     awayScore: number | null;
   };
@@ -392,11 +395,14 @@ export type MatchQuestionBreakdown = {
   isCorrect: boolean | null;
 };
 
+export type JokerBucket = 'GROUP_MATCHDAY_1' | 'GROUP_MATCHDAY_2' | 'GROUP_MATCHDAY_3' | 'KNOCKOUT';
+
 export type MatchBreakdown = {
   matchId: string;
   kickoffAt: string;
   status: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'POSTPONED' | 'CANCELLED';
   stage: string;
+  roundLabel: string | null;
   homeTeamName: string | null;
   homeTeamCode: string | null;
   homeTeamFlagEmoji: string | null;
@@ -411,6 +417,9 @@ export type MatchBreakdown = {
   predictedHomeScore: number | null;
   predictedAwayScore: number | null;
   pointsAwarded: number;
+  isJoker: boolean;
+  jokerBucket: JokerBucket | null;
+  jokerBonusPoints: number;
   breakdown: MatchPredictionBreakdown | null;
   questions: MatchQuestionBreakdown[];
 };
@@ -487,6 +496,7 @@ export type EntryBreakdownResponse = {
     matchPoints: number;
     bonusPoints: number;
     tournamentPoints: number;
+    jokerPoints: number;
   };
   matchPredictions: MatchBreakdown[];
   tournamentPrediction: TournamentPredictionBreakdown | null;

@@ -2,13 +2,13 @@
 
 import { useParams, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Lock, Save, Search } from 'lucide-react';
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Lock, Save, Search, Zap } from 'lucide-react';
 
 import { cn, normalizeSearchText } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff, matchStatusLabel, questionTypeLabel } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
-import { MatchPredictionsBundle, MatchQuestionOption, PoolDetail, PoolMatch, PoolMatchesResponse, PoolMatchQuestion } from '@/types/api';
+import { JokerBucket, MatchPredictionsBundle, MatchQuestionOption, PoolDetail, PoolMatch, PoolMatchesResponse, PoolMatchQuestion } from '@/types/api';
 import { PoolContextTabs } from '@/components/layout/pool-context-tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ type PredictionSummary = {
   questionsDone: number;
   questionsTotal: number;
   isComplete: boolean;
+  isJoker: boolean;
 };
 
 type PhaseFilter = 'GROUP' | 'KNOCKOUT';
@@ -82,6 +83,23 @@ function getMatchFlagEmoji(match: PoolMatch, side: 'home' | 'away'): string | nu
     ? match.homeTournamentTeam?.team.flagEmoji
     : match.awayTournamentTeam?.team.flagEmoji;
 }
+
+function getJokerBucketFromMatch(match: PoolMatch): JokerBucket | null {
+  if (match.stage === 'GROUP') {
+    if (match.roundLabel === 'Matchday 1') return 'GROUP_MATCHDAY_1';
+    if (match.roundLabel === 'Matchday 2') return 'GROUP_MATCHDAY_2';
+    if (match.roundLabel === 'Matchday 3') return 'GROUP_MATCHDAY_3';
+    return null;
+  }
+  return 'KNOCKOUT';
+}
+
+const BUCKET_LABELS: Record<JokerBucket, string> = {
+  GROUP_MATCHDAY_1: 'Jornada 1',
+  GROUP_MATCHDAY_2: 'Jornada 2',
+  GROUP_MATCHDAY_3: 'Jornada 3',
+  KNOCKOUT: 'Eliminatorias',
+};
 
 /** Returns the CSS classes for a match picker card based on its state. */
 function matchCardStateClass(
@@ -150,6 +168,10 @@ function EntryPredictionsPage() {
   const [knockoutRoundFilter, setKnockoutRoundFilter] = useState<string>('ALL');
   const [pendingOnly, setPendingOnly] = useState(false);
 
+  const [jokerDraft, setJokerDraft] = useState(false);
+  const [jokerToggling, setJokerToggling] = useState(false);
+  const [jokerError, setJokerError] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [bundleLoading, setBundleLoading] = useState(false);
@@ -169,6 +191,22 @@ function EntryPredictionsPage() {
     pool !== null &&
     (selectedMatch.status !== 'SCHEDULED' ||
       isMatchLocked(selectedMatch.kickoffAt, pool.lockMinutesBeforeKickoff));
+
+  const selectedMatchBucket = selectedMatch ? getJokerBucketFromMatch(selectedMatch) : null;
+
+  const jokerByBucket = useMemo((): Map<JokerBucket, string> => {
+    const result = new Map<JokerBucket, string>();
+    for (const [matchId, summary] of Object.entries(predictionSummaryByMatch)) {
+      if (!summary.isJoker) continue;
+      const match = matches.find((m) => m.id === matchId);
+      if (!match) continue;
+      const bucket = getJokerBucketFromMatch(match);
+      if (bucket) result.set(bucket, matchId);
+    }
+    return result;
+  }, [predictionSummaryByMatch, matches]);
+
+  const bucketJokerMatchId = selectedMatchBucket ? (jokerByBucket.get(selectedMatchBucket) ?? null) : null;
 
   const questionPredictionById = useMemo(() => {
     const rows = bundle?.questionPredictions ?? [];
@@ -239,6 +277,7 @@ function EntryPredictionsPage() {
               questionsDone,
               questionsTotal,
               isComplete: hasMatchPrediction && (questionsTotal === 0 || questionsDone === questionsTotal),
+              isJoker: data.matchPrediction?.isJoker ?? false,
             },
           };
         }),
@@ -272,6 +311,8 @@ function EntryPredictionsPage() {
         setBundle(data);
         setHomeScore(data.matchPrediction?.predictedHomeScore?.toString() ?? '');
         setAwayScore(data.matchPrediction?.predictedAwayScore?.toString() ?? '');
+        setJokerDraft(data.matchPrediction?.isJoker ?? false);
+        setJokerError(null);
 
         const drafts: Record<string, QuestionDraft> = {};
         for (const prediction of data.questionPredictions) {
@@ -367,6 +408,11 @@ function EntryPredictionsPage() {
     const questionsTotal = updated.questions.length;
     const questionsDone = updated.questions.filter((q) => predictedQuestionIds.has(q.id)).length;
     setBundle(updated);
+    // Only sync jokerDraft from DB when there IS a prediction.
+    // If prediction is null, the user may have activated the joker locally (pending score save).
+    if (updated.matchPrediction !== null) {
+      setJokerDraft(updated.matchPrediction.isJoker);
+    }
     setPredictionSummaryByMatch((prev) => ({
       ...prev,
       [updated.match.id]: {
@@ -374,6 +420,7 @@ function EntryPredictionsPage() {
         questionsTotal,
         questionsDone,
         isComplete: Boolean(updated.matchPrediction) && (questionsTotal === 0 || questionsDone === questionsTotal),
+        isJoker: updated.matchPrediction?.isJoker ?? false,
       },
     }));
   };
@@ -402,6 +449,35 @@ function EntryPredictionsPage() {
       default:
         return draft.selectedOptionId ? { selectedOptionId: draft.selectedOptionId } : null;
     }
+  };
+
+  const toggleJoker = async () => {
+    if (!token || !selectedMatchId || isSelectedMatchLocked || jokerToggling) return;
+    const newState = !jokerDraft;
+    setJokerDraft(newState);
+    setJokerError(null);
+    if (bundle?.matchPrediction) {
+      // Prediction already exists → save joker change immediately via API
+      setJokerToggling(true);
+      try {
+        await api.upsertMatchPrediction(
+          poolId, entryId, selectedMatchId,
+          bundle.matchPrediction.predictedHomeScore,
+          bundle.matchPrediction.predictedAwayScore,
+          token,
+          newState,
+        );
+        const updated = await api.getEntryMatchPredictions(poolId, entryId, selectedMatchId, token);
+        updateSummaryForMatch(updated);
+      } catch (err) {
+        setJokerDraft(!newState); // revert optimistic update
+        const msg = err instanceof ApiError ? err.message : 'Error al cambiar el Joker.';
+        setJokerError(msg);
+      } finally {
+        setJokerToggling(false);
+      }
+    }
+    // If no prediction yet, jokerDraft is just local state — it will be sent with the score save
   };
 
   const flashSuccess = (msg: string) => {
@@ -441,7 +517,11 @@ function EntryPredictionsPage() {
     const questionsToSave = questionPayloads.map((entry) => entry.questionId);
 
     if (!shouldSaveMatch && questionsToSave.length === 0) {
-      setError('No hay cambios para guardar en este partido.');
+      if (jokerDraft && !bundle?.matchPrediction) {
+        setError('Ingresa el marcador para guardar el Joker x2.');
+      } else {
+        setError('No hay cambios para guardar en este partido.');
+      }
       setSaving(false);
       return;
     }
@@ -450,7 +530,7 @@ function EntryPredictionsPage() {
       const tasks: Promise<unknown>[] = [];
       if (shouldSaveMatch) {
         tasks.push(
-          api.upsertMatchPrediction(poolId, entryId, selectedMatchId, Number(homeScore), Number(awayScore), token),
+          api.upsertMatchPrediction(poolId, entryId, selectedMatchId, Number(homeScore), Number(awayScore), token, jokerDraft),
         );
       }
       for (const entry of questionPayloads) {
@@ -673,7 +753,7 @@ function EntryPredictionsPage() {
                     />
                   </div>
 
-                  {/* Status badge + completion dot */}
+                  {/* Status badge + completion dot + joker */}
                   <div className="flex items-center gap-1.5">
                     <Badge variant={isLive ? 'live' : 'muted'} className="px-1.5 py-0 text-[9px]">
                       {isLive ? 'LIVE' : stageTag}
@@ -682,6 +762,14 @@ function EntryPredictionsPage() {
                       <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" aria-label="Completo" />
                     ) : summary !== undefined && !summary.isComplete ? (
                       <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/60" aria-label="Pendiente" />
+                    ) : null}
+                    {summary?.isJoker ? (
+                      <span
+                        aria-label="Joker x2 activo"
+                        className="inline-flex items-center gap-0.5 rounded px-1 py-0 text-[9px] font-bold bg-amber-500/20 text-amber-400"
+                      >
+                        <Zap className="h-2.5 w-2.5" aria-hidden="true" />x2
+                      </span>
                     ) : null}
                   </div>
                 </button>
@@ -848,6 +936,75 @@ function EntryPredictionsPage() {
                 <Badge variant="muted">Sin predicción</Badge>
               )}
             </div>
+
+            {/* Joker x2 toggle */}
+            {isOwner && selectedMatchBucket ? (
+              <div className={cn(
+                'mt-3 rounded-xl border px-3 py-2.5',
+                jokerDraft
+                  ? 'border-amber-400/40 bg-amber-500/10'
+                  : 'border-border/40 bg-muted/30',
+              )}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Zap
+                      className={cn('h-4 w-4 shrink-0', jokerDraft ? 'text-amber-400' : 'text-muted-foreground/40')}
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0">
+                      <p className={cn('text-xs font-bold leading-tight', jokerDraft ? 'text-amber-300' : 'text-foreground/70')}>
+                        Joker x2 — {BUCKET_LABELS[selectedMatchBucket]}
+                      </p>
+                      <p className="truncate text-[10px] text-muted-foreground">
+                        {jokerDraft && !bundle?.matchPrediction
+                          ? 'Se guardará con el marcador'
+                          : jokerDraft
+                          ? 'Activo · duplica marcador + bonus'
+                          : bucketJokerMatchId && bucketJokerMatchId !== selectedMatchId
+                          ? 'Joker activo en otro partido de esta jornada'
+                          : 'Duplica puntos de marcador + bonus'}
+                      </p>
+                    </div>
+                  </div>
+                  {!isSelectedMatchLocked ? (
+                    <button
+                      type="button"
+                      onClick={() => void toggleJoker()}
+                      disabled={jokerToggling}
+                      aria-pressed={jokerDraft}
+                      className={cn(
+                        'shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold',
+                        'transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        jokerToggling && 'opacity-50 cursor-not-allowed',
+                        jokerDraft
+                          ? 'bg-amber-500/25 text-amber-300 hover:bg-amber-500/35'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground',
+                      )}
+                    >
+                      {jokerToggling ? '···' : jokerDraft ? 'Desactivar' : 'Activar'}
+                    </button>
+                  ) : jokerDraft ? (
+                    <span className="shrink-0 rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-300">
+                      Activo
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* Inline error for joker toggle failures */}
+                {jokerError ? (
+                  <p className="mt-2 rounded-lg bg-rose-500/10 border border-rose-400/20 px-2.5 py-1.5 text-[11px] font-semibold text-rose-400">
+                    {jokerError}
+                  </p>
+                ) : null}
+
+                {/* Hint when joker is pending a score save */}
+                {jokerDraft && !bundle?.matchPrediction && !jokerError ? (
+                  <p className="mt-1.5 text-[10px] text-amber-400/70">
+                    Ingresa el marcador y presiona Guardar para aplicar el Joker.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             {/* Breakdown */}
             {bundle?.matchPredictionBreakdown && bundle.matchPrediction?.isScored ? (

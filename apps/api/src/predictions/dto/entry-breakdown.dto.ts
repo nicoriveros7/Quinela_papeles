@@ -19,6 +19,7 @@ export interface MatchBreakdown {
   kickoffAt: Date;
   status: MatchStatus;
   stage: string;
+  roundLabel: string | null;
   homeTeamName: string | null;
   homeTeamCode: string | null;
   homeTeamFlagEmoji: string | null;
@@ -33,6 +34,9 @@ export interface MatchBreakdown {
   predictedHomeScore: number | null;
   predictedAwayScore: number | null;
   pointsAwarded: number;
+  isJoker: boolean;
+  jokerBucket: 'GROUP_MATCHDAY_1' | 'GROUP_MATCHDAY_2' | 'GROUP_MATCHDAY_3' | 'KNOCKOUT' | null;
+  jokerBonusPoints: number;
   breakdown: MatchPredictionBreakdown | null;
   questions: MatchQuestionBreakdown[];
 }
@@ -81,6 +85,7 @@ export interface EntryBreakdownResponse {
     matchPoints: number;
     bonusPoints: number;
     tournamentPoints: number;
+    jokerPoints: number;
   };
   matchPredictions: MatchBreakdown[];
   tournamentPrediction: TournamentPredictionBreakdown | null;

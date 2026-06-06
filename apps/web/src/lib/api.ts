@@ -199,12 +199,17 @@ export const api = {
     predictedHomeScore: number,
     predictedAwayScore: number,
     token: string,
+    isJoker?: boolean,
   ) =>
     request(
       `/pools/${poolId}/entries/${entryId}/predictions/matches/${matchId}`,
       {
         method: 'PUT',
-        body: JSON.stringify({ predictedHomeScore, predictedAwayScore }),
+        body: JSON.stringify({
+          predictedHomeScore,
+          predictedAwayScore,
+          ...(isJoker !== undefined ? { isJoker } : {}),
+        }),
       },
       token,
     ),

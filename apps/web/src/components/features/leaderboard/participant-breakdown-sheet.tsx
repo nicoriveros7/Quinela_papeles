@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Clock, Lock, Minus, Star, X } from 'lucide-react';
+import { Check, ChevronDown, Clock, Lock, Minus, Star, X, Zap } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -477,8 +477,9 @@ function SummarySection({
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-2">
-      {pills.map(({ label, value, onClick }) =>
+    <div className="grid gap-2">
+      <div className="grid grid-cols-3 gap-2">
+        {pills.map(({ label, value, onClick }) =>
         onClick ? (
           <button
             key={label}
@@ -490,14 +491,26 @@ function SummarySection({
             <span className="mt-0.5 text-[11px] leading-none text-muted-foreground">{label}</span>
           </button>
         ) : (
-          <div
-            key={label}
-            className="flex flex-col items-center justify-center rounded-xl border border-border/60 bg-surface/80 px-2 py-3 text-center"
-          >
-            <span className="tabular-nums text-xl font-extrabold text-foreground">{value}</span>
-            <span className="mt-0.5 text-[11px] leading-none text-muted-foreground">{label}</span>
-          </div>
-        ),
+            <div
+              key={label}
+              className="flex flex-col items-center justify-center rounded-xl border border-border/60 bg-surface/80 px-2 py-3 text-center"
+            >
+              <span className="tabular-nums text-xl font-extrabold text-foreground">{value}</span>
+              <span className="mt-0.5 text-[11px] leading-none text-muted-foreground">{label}</span>
+            </div>
+          ),
+      )}
+      </div>
+      {summary.jokerPoints > 0 && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2">
+          <Zap className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+          <span className="text-xs text-amber-300">
+            Puntos extra por Joker x2:
+          </span>
+          <span className="ml-auto tabular-nums text-sm font-extrabold text-amber-300">
+            +{summary.jokerPoints}
+          </span>
+        </div>
       )}
     </div>
   );
@@ -548,6 +561,14 @@ function MatchRow({
             {match.homeScore}–{match.awayScore}
           </span>
         )}
+        {match.isJoker && (
+          <span
+            aria-label="Joker x2"
+            className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-400"
+          >
+            <Zap className="h-2.5 w-2.5" aria-hidden="true" />x2
+          </span>
+        )}
         <span
           className={cn(
             'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold',
@@ -573,11 +594,19 @@ function MatchRow({
                 ? `Predicción: ${match.predictedHomeScore}–${match.predictedAwayScore}`
                 : 'Sin predicción'}
             </span>
-            {isFinished && hasPrediction && (
-              <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">
-                +{match.pointsAwarded} pts
-              </span>
-            )}
+            {isFinished && hasPrediction && (() => {
+              const bonusBase = match.questions.reduce((sum, q) => sum + q.pointsAwarded, 0);
+              const totalWithJoker = match.pointsAwarded + bonusBase + match.jokerBonusPoints;
+              return match.isJoker && match.jokerBonusPoints > 0 ? (
+                <span className="shrink-0 tabular-nums text-xs font-bold text-amber-300">
+                  {totalWithJoker} pts <span className="text-amber-400/60 text-[10px] font-semibold">(×2)</span>
+                </span>
+              ) : (
+                <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">
+                  +{match.pointsAwarded} pts
+                </span>
+              );
+            })()}
           </div>
 
           {/* Expand toggle */}
@@ -606,6 +635,50 @@ function MatchRow({
               {hasBreakdown && (
                 <ScoreBreakdown breakdown={match.breakdown!} />
               )}
+
+              {/* Joker breakdown */}
+              {match.isJoker && match.jokerBonusPoints > 0 && (() => {
+                const bonusBase = match.questions.reduce((sum, q) => sum + q.pointsAwarded, 0);
+                const matchBase = match.pointsAwarded;
+                const subtotal = matchBase + bonusBase;
+                const jokerExtra = match.jokerBonusPoints;
+                return (
+                  <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-2.5">
+                    {/* Header */}
+                    <div className="mb-2 flex items-center gap-1.5">
+                      <Zap className="h-3.5 w-3.5 shrink-0 text-amber-400" aria-hidden="true" />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-amber-400/80">
+                        Joker ×2 aplicado
+                      </span>
+                    </div>
+
+                    {/* Base rows */}
+                    <div className="grid gap-1">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-amber-300/70">Puntos partido</span>
+                        <span className="tabular-nums font-semibold text-amber-300">+{matchBase}</span>
+                      </div>
+                      {bonusBase > 0 && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-amber-300/70">Puntos bonus</span>
+                          <span className="tabular-nums font-semibold text-amber-300">+{bonusBase}</span>
+                        </div>
+                      )}
+
+                      {/* Formula divider */}
+                      <div className="my-1 border-t border-amber-400/20" />
+
+                      {/* Formula row */}
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-amber-300/60">
+                          {subtotal} × 2 = {subtotal * 2} pts totales
+                        </span>
+                        <span className="tabular-nums font-bold text-amber-300">+{jokerExtra} extra</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Bonus questions */}
               {hasQuestions && (
