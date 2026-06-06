@@ -422,6 +422,7 @@ model MatchPrediction {
   predictedAwayScore Int
   pointsAwarded      Int       @default(0)
   isScored           Boolean   @default(false)
+  isJoker            Boolean   @default(false)
   scoredAt           DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -431,6 +432,7 @@ model MatchPrediction {
 
   @@unique([poolEntryId, matchId])
   @@index([matchId])
+  @@index([poolEntryId, isJoker])
 }
 
 model TournamentPrediction {

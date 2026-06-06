@@ -1,4 +1,4 @@
-import { IsInt, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 export class UpsertMatchPredictionDto {
   @IsInt()
@@ -10,4 +10,8 @@ export class UpsertMatchPredictionDto {
   @Min(0)
   @Max(30)
   predictedAwayScore!: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isJoker?: boolean;
 }

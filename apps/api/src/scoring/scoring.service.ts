@@ -501,7 +501,7 @@ export class ScoringService {
   }
 
   private async recalculatePoolEntryTotals(poolId: string, tournamentId: string) {
-    const [entries, matchSums, questionSums, tournamentSums] = await Promise.all([
+    const [entries, matchSums, questionSums, tournamentSums, jokerPredictions] = await Promise.all([
       this.prisma.poolEntry.findMany({
         where: { poolId },
         select: {
@@ -540,7 +540,45 @@ export class ScoringService {
           pointsAwarded: true,
         },
       }),
+      this.prisma.matchPrediction.findMany({
+        where: {
+          poolEntry: { poolId },
+          match: { tournamentId },
+          isJoker: true,
+          isScored: true,
+        },
+        select: { poolEntryId: true, matchId: true, pointsAwarded: true },
+      }),
     ]);
+
+    // Compute joker bonus: for each scored joker prediction, add (matchPts + bonusPts) extra
+    const jokerBonusByEntry = new Map<string, number>();
+    if (jokerPredictions.length > 0) {
+      const jokerMatchIds = [...new Set(jokerPredictions.map((jp) => jp.matchId))];
+      const bonusForJokerMatches = await this.prisma.matchQuestionPrediction.findMany({
+        where: {
+          poolEntry: { poolId },
+          matchQuestion: { matchId: { in: jokerMatchIds } },
+        },
+        select: {
+          poolEntryId: true,
+          pointsAwarded: true,
+          matchQuestion: { select: { matchId: true } },
+        },
+      });
+
+      const bonusMap = new Map<string, number>();
+      for (const b of bonusForJokerMatches) {
+        const key = `${b.poolEntryId}:${b.matchQuestion.matchId}`;
+        bonusMap.set(key, (bonusMap.get(key) ?? 0) + b.pointsAwarded);
+      }
+
+      for (const jp of jokerPredictions) {
+        const bonusPts = bonusMap.get(`${jp.poolEntryId}:${jp.matchId}`) ?? 0;
+        const extra = jp.pointsAwarded + bonusPts;
+        jokerBonusByEntry.set(jp.poolEntryId, (jokerBonusByEntry.get(jp.poolEntryId) ?? 0) + extra);
+      }
+    }
 
     const matchPointsByEntry = new Map(
       matchSums.map((row) => [row.poolEntryId, row._sum.pointsAwarded ?? 0]),
@@ -556,10 +594,11 @@ export class ScoringService {
       const matchPoints = matchPointsByEntry.get(entry.id) ?? 0;
       const questionPoints = questionPointsByEntry.get(entry.id) ?? 0;
       const tournamentPoints = tournamentPointsByEntry.get(entry.id) ?? 0;
+      const jokerBonus = jokerBonusByEntry.get(entry.id) ?? 0;
       return {
         entryId: entry.id,
         createdAt: entry.createdAt,
-        totalPoints: matchPoints + questionPoints + tournamentPoints,
+        totalPoints: matchPoints + questionPoints + tournamentPoints + jokerBonus,
       };
     });
 

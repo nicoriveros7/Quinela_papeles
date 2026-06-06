@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { MatchStatus, PoolMemberStatus, QuestionAnswerType } from '@prisma/client';
+import { MatchStage, MatchStatus, PoolMemberStatus, QuestionAnswerType } from '@prisma/client';
 
 import { JwtUserPayload } from '../auth/types/jwt-user-payload.type';
 import { PrismaService } from '../prisma/prisma.service';
@@ -30,6 +30,52 @@ export class PredictionsService {
 
     this.assertMatchEditable(match.kickoffAt, match.status, entryContext.pool.lockMinutesBeforeKickoff);
 
+    const wantsJoker = dto.isJoker === true;
+
+    // Joker validation
+    if (wantsJoker) {
+      const bucket = this.getJokerBucket(match.stage, match.roundLabel);
+      if (!bucket) {
+        throw new BadRequestException('Este partido no pertenece a ningún bucket de Joker válido');
+      }
+
+      // Find existing joker in same bucket to potentially swap it
+      const existingJokerWhere =
+        bucket === 'KNOCKOUT'
+          ? {
+              poolEntryId: entryId,
+              isJoker: true,
+              matchId: { not: matchId },
+              match: { stage: { not: MatchStage.GROUP } },
+            }
+          : {
+              poolEntryId: entryId,
+              isJoker: true,
+              matchId: { not: matchId },
+              match: { stage: MatchStage.GROUP, roundLabel: match.roundLabel },
+            };
+
+      const existingJoker = await this.prisma.matchPrediction.findFirst({
+        where: existingJokerWhere,
+        select: { id: true, matchId: true, match: { select: { kickoffAt: true, status: true } } },
+      });
+
+      if (existingJoker) {
+        const prevEditable =
+          existingJoker.match.status === 'SCHEDULED' &&
+          new Date() < new Date(existingJoker.match.kickoffAt.getTime() - entryContext.pool.lockMinutesBeforeKickoff * 60_000);
+        if (!prevEditable) {
+          throw new ConflictException(
+            'Ya tienes un Joker activo en este bucket en un partido que ya no es editable',
+          );
+        }
+        await this.prisma.matchPrediction.update({
+          where: { id: existingJoker.id },
+          data: { isJoker: false },
+        });
+      }
+    }
+
     return this.prisma.matchPrediction.upsert({
       where: {
         poolEntryId_matchId: {
@@ -43,12 +89,14 @@ export class PredictionsService {
         isScored: false,
         pointsAwarded: 0,
         scoredAt: null,
+        ...(dto.isJoker !== undefined ? { isJoker: dto.isJoker } : {}),
       },
       create: {
         poolEntryId: entryId,
         matchId,
         predictedHomeScore: dto.predictedHomeScore,
         predictedAwayScore: dto.predictedAwayScore,
+        isJoker: wantsJoker,
       },
     });
   }
@@ -292,6 +340,8 @@ export class PredictionsService {
         id: match.id,
         kickoffAt: match.kickoffAt,
         status: match.status,
+        stage: match.stage,
+        roundLabel: match.roundLabel,
         homeScore: match.homeScore,
         awayScore: match.awayScore,
       },
@@ -368,6 +418,7 @@ export class PredictionsService {
           kickoffAt: true,
           status: true,
           stage: true,
+          roundLabel: true,
           homeScore: true,
           awayScore: true,
           homeSlotLabel: true,
@@ -376,7 +427,7 @@ export class PredictionsService {
           awayTournamentTeam: { select: { team: { select: { name: true, code: true, flagEmoji: true } } } },
           predictions: {
             where: { poolEntryId: entryId },
-            select: { predictedHomeScore: true, predictedAwayScore: true, pointsAwarded: true },
+            select: { predictedHomeScore: true, predictedAwayScore: true, pointsAwarded: true, isScored: true, isJoker: true },
           },
           questions: {
             where: { isPublished: true },
@@ -463,6 +514,7 @@ export class PredictionsService {
 
     let totalMatchPoints = 0;
     let totalBonusPoints = 0;
+    let totalJokerBonus = 0;
 
     const now = new Date();
 
@@ -523,11 +575,22 @@ export class PredictionsService {
         };
       });
 
+      // Compute joker extra points: one additional copy of (matchPts + bonusPts)
+      const matchBonusTotal = questions.reduce((sum, q) => sum + q.pointsAwarded, 0);
+      const jokerBonusPoints =
+        pred?.isJoker && pred?.isScored
+          ? (pred.pointsAwarded + matchBonusTotal)
+          : 0;
+      if (visibility === 'VISIBLE') {
+        totalJokerBonus += jokerBonusPoints;
+      }
+
       return {
         matchId: match.id,
         kickoffAt: match.kickoffAt,
         status: match.status,
         stage: match.stage,
+        roundLabel: match.roundLabel,
         homeTeamName: match.homeTournamentTeam?.team?.name ?? match.homeSlotLabel ?? null,
         homeTeamCode: match.homeTournamentTeam?.team?.code ?? null,
         homeTeamFlagEmoji: match.homeTournamentTeam?.team?.flagEmoji ?? null,
@@ -542,6 +605,9 @@ export class PredictionsService {
         predictedHomeScore: visibility === 'VISIBLE' ? (pred?.predictedHomeScore ?? null) : null,
         predictedAwayScore: visibility === 'VISIBLE' ? (pred?.predictedAwayScore ?? null) : null,
         pointsAwarded: visibility === 'VISIBLE' ? (pred?.pointsAwarded ?? 0) : 0,
+        isJoker: visibility === 'VISIBLE' ? (pred?.isJoker ?? false) : false,
+        jokerBucket: this.getJokerBucket(match.stage, match.roundLabel),
+        jokerBonusPoints: visibility === 'VISIBLE' ? jokerBonusPoints : 0,
         breakdown,
         questions,
       };
@@ -611,6 +677,7 @@ export class PredictionsService {
         matchPoints: totalMatchPoints,
         bonusPoints: totalBonusPoints,
         tournamentPoints,
+        jokerPoints: totalJokerBonus,
       },
       matchPredictions,
       tournamentPrediction: isTournamentPredVisible && tournamentPrediction
@@ -745,6 +812,8 @@ export class PredictionsService {
         tournamentId: true,
         kickoffAt: true,
         status: true,
+        stage: true,
+        roundLabel: true,
         homeScore: true,
         awayScore: true,
       },
@@ -778,6 +847,19 @@ export class PredictionsService {
     if (new Date() >= lockAt) {
       throw new ConflictException('Predictions are locked for this item');
     }
+  }
+
+  private getJokerBucket(
+    stage: string,
+    roundLabel: string | null,
+  ): 'GROUP_MATCHDAY_1' | 'GROUP_MATCHDAY_2' | 'GROUP_MATCHDAY_3' | 'KNOCKOUT' | null {
+    if (stage === MatchStage.GROUP) {
+      if (roundLabel === 'Matchday 1') return 'GROUP_MATCHDAY_1';
+      if (roundLabel === 'Matchday 2') return 'GROUP_MATCHDAY_2';
+      if (roundLabel === 'Matchday 3') return 'GROUP_MATCHDAY_3';
+      return null;
+    }
+    return 'KNOCKOUT';
   }
 
   private normalizeQuestionAnswer(
