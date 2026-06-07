@@ -554,7 +554,6 @@ export class PredictionsService {
       const questions = match.questions.map((q) => {
         const qPred = q.predictions[0] ?? null;
         const questionPoints = qPred?.pointsAwarded ?? 0;
-        totalBonusPoints += questionPoints;
 
         if (visibility === 'HIDDEN_UNTIL_LOCKED') {
           return {
@@ -567,6 +566,8 @@ export class PredictionsService {
             isCorrect: null,
           };
         }
+
+        totalBonusPoints += questionPoints;
 
         return {
           questionId: q.id,

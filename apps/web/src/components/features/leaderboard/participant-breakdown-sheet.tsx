@@ -583,7 +583,7 @@ function MatchRow({
       {/* Hidden prediction placeholder */}
       {isHidden ? (
         <p className="mt-1 text-xs text-muted-foreground/70 italic">
-          Disponible cuando cierren las predicciones
+          Predicciones y bonus ocultos hasta que cierre este partido.
         </p>
       ) : (
         <>
