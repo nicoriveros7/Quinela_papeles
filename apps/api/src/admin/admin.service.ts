@@ -775,19 +775,34 @@ export class AdminService {
     }
 
     if (dto.answerType === QuestionAnswerType.PLAYER_PICK) {
-      const missingPlayer = dto.options.some((option) => !option.playerId);
+      const noPlayerOptions = dto.options.filter((o) => !o.playerId);
+      const realPlayerOptions = dto.options.filter((o) => !!o.playerId);
+
+      // At most one NO_PLAYER option; it must use the reserved key
+      if (noPlayerOptions.length > 1) {
+        throw new BadRequestException('PLAYER_PICK questions can have at most one "Ningún jugador" option');
+      }
+      if (noPlayerOptions.length === 1 && noPlayerOptions[0]!.key !== 'NO_PLAYER') {
+        throw new BadRequestException('Options without playerId must use key "NO_PLAYER"');
+      }
+
+      // All real-player options must have playerId
+      const missingPlayer = realPlayerOptions.some((o) => !o.playerId);
       if (missingPlayer) {
         throw new BadRequestException('PLAYER_PICK options must include playerId');
       }
 
-      const uniquePlayerIds = new Set(dto.options.map((option) => option.playerId));
-      if (uniquePlayerIds.size !== dto.options.length) {
+      // No duplicate playerIds among real-player options
+      const uniquePlayerIds = new Set(realPlayerOptions.map((o) => o.playerId));
+      if (uniquePlayerIds.size !== realPlayerOptions.length) {
         throw new BadRequestException('PLAYER_PICK options cannot repeat playerId');
       }
     }
 
     return dto.options.map((option) => ({
-      key: this.normalizeQuestionKey(option.key).toUpperCase(),
+      // Preserve the key as-is for null-playerId options (e.g. 'NO_PLAYER') so downstream
+      // checks that match on key still work; normalize only for regular options.
+      key: option.playerId == null ? option.key : this.normalizeQuestionKey(option.key).toUpperCase(),
       label: option.label,
       teamId: option.teamId ?? null,
       playerId: option.playerId ?? null,

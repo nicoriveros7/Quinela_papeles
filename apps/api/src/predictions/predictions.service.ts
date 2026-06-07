@@ -955,7 +955,9 @@ export class PredictionsService {
         : undefined;
 
       const option = optionBySelectedId ?? optionByPlayer;
-      if (!option || !option.playerId) {
+      // option.playerId is null for the "Ningún jugador" option; admin validation guarantees
+      // no other null-playerId option can exist, so null playerId is a valid special case.
+      if (!option) {
         throw new BadRequestException('A valid selectedPlayerId or selectedOptionId is required for PLAYER_PICK');
       }
 
@@ -963,7 +965,7 @@ export class PredictionsService {
         selectedOptionId: option.id,
         selectedBoolean: null,
         selectedTeamId: null,
-        selectedPlayerId: option.playerId,
+        selectedPlayerId: option.playerId ?? null,
         selectedTimeRangeKey: null,
       };
     }

@@ -110,6 +110,9 @@ export default function MatchQuestionsPage() {
   const [selectedTeamPickIds, setSelectedTeamPickIds] = useState<string[]>([]);
   const [includeNeitherTeam, setIncludeNeitherTeam] = useState(false);
 
+  // Player pick — "Ningún jugador" option
+  const [includeNoPlayer, setIncludeNoPlayer] = useState(false);
+
   // Derived player pool helpers
   const selectableTeams = playerPool?.teams.filter((t) => t.matchSide) ?? [];
   const fallbackTeams = playerPool?.teams ?? [];
@@ -208,8 +211,11 @@ export default function MatchQuestionsPage() {
       }
 
       const picked = candidates.filter((p) => selectedPlayerIds.includes(p.playerId));
-      if (picked.length < 2) {
-        setError('Debes seleccionar al menos 2 jugadores.');
+      const minPlayers = includeNoPlayer ? 1 : 2;
+      if (picked.length < minPlayers) {
+        setError(includeNoPlayer
+          ? 'Debes seleccionar al menos 1 jugador cuando incluyes "Ningún jugador".'
+          : 'Debes seleccionar al menos 2 jugadores.');
         return;
       }
 
@@ -218,6 +224,9 @@ export default function MatchQuestionsPage() {
         label: p.fullName,
         playerId: p.playerId,
       }));
+      if (includeNoPlayer) {
+        payload.options.push({ key: 'NO_PLAYER', label: 'Ningún jugador' });
+      }
     } else if (newQuestion.answerType === 'TEAM_PICK') {
       if (!playerPool) {
         setError('No se pudo cargar el pool de equipos para este partido.');
@@ -268,6 +277,8 @@ export default function MatchQuestionsPage() {
       });
       setSelectedTeamPickIds([]);
       setIncludeNeitherTeam(false);
+      setIncludeNoPlayer(false);
+      setSelectedPlayerIds([]);
       setSuccess(newQuestion.isPublished ? 'Pregunta creada y publicada.' : 'Pregunta creada como borrador.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear la pregunta.');
@@ -656,6 +667,27 @@ export default function MatchQuestionsPage() {
                             )}
                           </div>
                         </div>
+                      </div>
+
+                      {/* Ningún jugador option */}
+                      <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-background/30 px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          {includeNoPlayer && (
+                            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-400">
+                              Sin jugador
+                            </span>
+                          )}
+                          <span className="text-sm text-muted-foreground">
+                            Opción <span className="font-semibold text-foreground">&quot;Ningún jugador&quot;</span>
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setIncludeNoPlayer((v) => !v)}
+                        >
+                          {includeNoPlayer ? 'Quitar' : '+ Agregar'}
+                        </Button>
                       </div>
                     </>
                   )}

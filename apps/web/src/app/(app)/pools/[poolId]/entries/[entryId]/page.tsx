@@ -1677,8 +1677,12 @@ function PlayerPickDropdown({
 }) {
   const [search, setSearch] = useState('');
 
+  // Separate the special NO_PLAYER option from real player options
+  const noPlayerOption = options.find((o) => o.key === 'NO_PLAYER');
+  const playerOptions = options.filter((o) => o.key !== 'NO_PLAYER');
+
   const q = normalizeSearchText(search);
-  const filtered = options.filter((o) =>
+  const filtered = playerOptions.filter((o) =>
     normalizeSearchText(o.player?.fullName).includes(q) ||
     normalizeSearchText(o.label).includes(q) ||
     normalizeSearchText(o.player?.teamName).includes(q),
@@ -1747,6 +1751,36 @@ function PlayerPickDropdown({
         </div>
       ) : (
         <p className="mb-2 text-xs text-muted-foreground">Elige un jugador de la lista.</p>
+      )}
+
+      {/* Ningún jugador — special option rendered above the search */}
+      {noPlayerOption && (
+        <button
+          type="button"
+          role="option"
+          aria-selected={noPlayerOption.id === selectedOption?.id}
+          onClick={() => onChange(noPlayerOption)}
+          className={cn(
+            'mb-2 flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left',
+            'transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            noPlayerOption.id === selectedOption?.id
+              ? 'border-primary/40 bg-primary/10 text-primary'
+              : 'border-border/40 bg-muted/30 text-foreground hover:border-primary/30 hover:bg-muted/50',
+          )}
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">Ningún jugador</span>
+            <span className={cn(
+              'block text-[11px]',
+              noPlayerOption.id === selectedOption?.id ? 'text-primary/70' : 'text-muted-foreground',
+            )}>
+              Si nadie aplica / No hubo goleador
+            </span>
+          </span>
+          {noPlayerOption.id === selectedOption?.id && (
+            <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+          )}
+        </button>
       )}
 
       {/* Search */}
