@@ -88,6 +88,7 @@ function filterMatches(
 interface ParticipantBreakdownSheetProps {
   poolId: string;
   entryId: string;
+  isOwner: boolean;
   token: string;
   onClose: () => void;
 }
@@ -95,6 +96,7 @@ interface ParticipantBreakdownSheetProps {
 export function ParticipantBreakdownSheet({
   poolId,
   entryId,
+  isOwner,
   token,
   onClose,
 }: ParticipantBreakdownSheetProps) {
@@ -247,7 +249,7 @@ export function ParticipantBreakdownSheet({
         )}
 
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-4 pb-8 pt-4">
+        <div className="flex-1 overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4">
           {loading && <BreakdownSkeleton />}
 
           {!loading && error && (
@@ -296,6 +298,7 @@ export function ParticipantBreakdownSheet({
                         <MatchRow
                           key={match.matchId}
                           match={match}
+                          isOwner={isOwner}
                           expanded={expandedMatches.has(match.matchId)}
                           onToggle={() => toggleMatch(match.matchId)}
                         />
@@ -518,10 +521,12 @@ function SummarySection({
 
 function MatchRow({
   match,
+  isOwner,
   expanded,
   onToggle,
 }: {
   match: MatchBreakdown;
+  isOwner: boolean;
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -695,7 +700,7 @@ function MatchRow({
                       </p>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
                         <span>
-                          Tu respuesta:{' '}
+                          {isOwner ? 'Tu respuesta' : 'Respuesta'}:{' '}
                           <span className="font-medium text-foreground">{q.answerLabel ?? '—'}</span>
                         </span>
                         {q.correctAnswerLabel && (

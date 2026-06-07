@@ -137,7 +137,7 @@ export default function PartidosPage() {
       <div
         role="tablist"
         aria-label="Filtrar partidos"
-        className="scrollbar-sport flex gap-1.5 overflow-x-auto rounded-2xl border border-border/70 bg-surface/90 p-1.5 shadow-card-sm [-webkit-overflow-scrolling:touch]"
+        className="scrollbar-sport min-w-0 flex gap-1.5 overflow-x-auto rounded-2xl border border-border/70 bg-surface/90 p-1.5 shadow-card-sm [-webkit-overflow-scrolling:touch]"
       >
         {(Object.keys(FILTER_LABELS) as MatchFilter[]).map((key) => {
           const active = filter === key;

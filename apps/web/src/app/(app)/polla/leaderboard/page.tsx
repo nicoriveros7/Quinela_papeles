@@ -17,7 +17,7 @@ export default function PollaLeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+  const [selectedEntry, setSelectedEntry] = useState<{ entryId: string; isOwner: boolean } | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -94,7 +94,7 @@ export default function PollaLeaderboardPage() {
                   matchPredictionsScored={row.matchPredictionsScored}
                   questionPredictionsScored={row.questionPredictionsScored}
                   isMe={isMe}
-                  onClick={() => setSelectedEntryId(row.entryId)}
+                  onClick={() => setSelectedEntry({ entryId: row.entryId, isOwner: isMe })}
                 />
               );
             })}
@@ -103,12 +103,13 @@ export default function PollaLeaderboardPage() {
       </div>
 
       {/* ── Breakdown sheet ──────────────────────────────────────────────────── */}
-      {selectedEntryId && mainPool && token && (
+      {selectedEntry && mainPool && token && (
         <ParticipantBreakdownSheet
           poolId={mainPool.pool.id}
-          entryId={selectedEntryId}
+          entryId={selectedEntry.entryId}
+          isOwner={selectedEntry.isOwner}
           token={token}
-          onClose={() => setSelectedEntryId(null)}
+          onClose={() => setSelectedEntry(null)}
         />
       )}
     </>
