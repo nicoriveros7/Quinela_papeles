@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff, matchProximityLabel } from '@/lib/format';
+import { SHOW_KNOCKOUT } from '@/lib/feature-flags';
 import { useAuth } from '@/providers/auth-provider';
 import { PoolMatch, WorldCupMainPool } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
@@ -54,7 +55,7 @@ export default function DashboardPage() {
   const upcomingMatches = useMemo(
     () =>
       matches
-        .filter((m) => m.status === 'SCHEDULED')
+        .filter((m) => m.status === 'SCHEDULED' && (SHOW_KNOCKOUT || m.stage === 'GROUP'))
         .sort((a, b) => new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime())
         .slice(0, 5),
     [matches],

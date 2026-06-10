@@ -7,6 +7,7 @@ import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Lock, Save, Sear
 import { cn, normalizeSearchText } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff, matchStatusLabel, questionTypeLabel } from '@/lib/format';
+import { SHOW_KNOCKOUT } from '@/lib/feature-flags';
 import { useAuth } from '@/providers/auth-provider';
 import { JokerBucket, MatchPredictionsBundle, MatchQuestionOption, PoolDetail, PoolMatch, PoolMatchesResponse, PoolMatchQuestion } from '@/types/api';
 import { PoolContextTabs } from '@/components/layout/pool-context-tabs';
@@ -247,7 +248,7 @@ function EntryPredictionsPage() {
         setMatches(list);
         const matchFromUrl = initialMatchId ? list.find((m) => m.id === initialMatchId) : null;
         if (matchFromUrl) {
-          if (matchFromUrl.stage !== 'GROUP') setPhaseFilter('KNOCKOUT');
+          if (matchFromUrl.stage !== 'GROUP' && SHOW_KNOCKOUT) setPhaseFilter('KNOCKOUT');
           setSelectedMatchId(matchFromUrl.id);
         } else {
           setSelectedMatchId(list[0]?.id ?? null);
@@ -264,8 +265,9 @@ function EntryPredictionsPage() {
   }, [poolId, token, entryId, initialMatchId]);
 
   const visibleMatches = useMemo(() => {
-    if (isOwner) return matches;
-    return matches.filter((match) => match.status === 'FINISHED');
+    let result = isOwner ? matches : matches.filter((match) => match.status === 'FINISHED');
+    if (!SHOW_KNOCKOUT) result = result.filter((m) => m.stage === 'GROUP');
+    return result;
   }, [isOwner, matches]);
 
   useEffect(() => {
@@ -679,7 +681,7 @@ function EntryPredictionsPage() {
       {/* ── Phase + group filters ─────────────────────────────────────────────── */}
       <section className="grid gap-2 rounded-2xl border border-border/70 bg-surface/90 p-3 shadow-card-sm">
         <div role="tablist" aria-label="Fase del torneo" className="flex flex-wrap gap-1.5">
-          {(['GROUP', 'KNOCKOUT'] as const).map((phase) => (
+          {(['GROUP', 'KNOCKOUT'] as const).filter((phase) => SHOW_KNOCKOUT || phase === 'GROUP').map((phase) => (
             <button
               key={phase}
               role="tab"

@@ -7,6 +7,7 @@ import { ArrowRight, CalendarDays, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff, matchProximityLabel } from '@/lib/format';
+import { SHOW_KNOCKOUT } from '@/lib/feature-flags';
 import { useAuth } from '@/providers/auth-provider';
 import { PoolMatch, WorldCupMainPool } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
@@ -84,7 +85,7 @@ export default function PartidosPage() {
     switch (filter) {
       case 'upcoming':
         return matches
-          .filter((m) => m.status === 'SCHEDULED')
+          .filter((m) => m.status === 'SCHEDULED' && (SHOW_KNOCKOUT || m.stage === 'GROUP'))
           .sort((a, b) => new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime());
       case 'group':
         return matches
@@ -139,7 +140,7 @@ export default function PartidosPage() {
         aria-label="Filtrar partidos"
         className="scrollbar-sport min-w-0 flex gap-1.5 overflow-x-auto rounded-2xl border border-border/70 bg-surface/90 p-1.5 shadow-card-sm [-webkit-overflow-scrolling:touch]"
       >
-        {(Object.keys(FILTER_LABELS) as MatchFilter[]).map((key) => {
+        {(Object.keys(FILTER_LABELS) as MatchFilter[]).filter((key) => SHOW_KNOCKOUT || key !== 'knockout').map((key) => {
           const active = filter === key;
           return (
             <button
