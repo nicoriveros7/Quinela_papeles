@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Award, Check, ChevronDown, Goal, Lock, Medal, Search, ShieldCheck, Trophy, Users } from 'lucide-react';
 
 import { cn, normalizeSearchText } from '@/lib/utils';
+import { getPlayerDisplayName, matchesPlayerSearch } from '@/lib/player-utils';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
 import {
@@ -791,13 +792,7 @@ function PlayerPickerAccordion({
     if (!isOpen) setSearch('');
   }, [isOpen, canOpen]);
 
-  const filtered = players.filter((p) => {
-    const q = normalizeSearchText(search);
-    return (
-      normalizeSearchText(p.player.fullName).includes(q) ||
-      normalizeSearchText(p.player.shortName).includes(q)
-    );
-  });
+  const filtered = players.filter((p) => matchesPlayerSearch(p.player, search));
 
   const selectedFlag = selectedPlayer ? getFlagEmoji(selectedPlayer.player.nationalityCode) : null;
 
@@ -836,7 +831,7 @@ function PlayerPickerAccordion({
           ) : selectedPlayer ? (
             <p className="mt-0.5 truncate text-xs text-muted-foreground">
               {selectedFlag ? `${selectedFlag} ` : ''}
-              {selectedPlayer.player.fullName}
+              {getPlayerDisplayName(selectedPlayer.player)}
             </p>
           ) : (
             <p className="mt-0.5 text-xs text-muted-foreground/50">Sin seleccionar</p>
@@ -908,7 +903,7 @@ function PlayerPickerAccordion({
                       )}
                     >
                       <span className="flex-1 truncate text-sm font-medium">
-                        {p.player.fullName}
+                        {getPlayerDisplayName(p.player)}
                       </span>
                       {countryCode && (
                         <span

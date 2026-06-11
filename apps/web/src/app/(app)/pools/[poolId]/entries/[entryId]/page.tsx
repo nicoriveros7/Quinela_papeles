@@ -5,6 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Lock, Save, Search, Zap } from 'lucide-react';
 
 import { cn, normalizeSearchText } from '@/lib/utils';
+import { getPlayerDisplayName, matchesPlayerSearch } from '@/lib/player-utils';
 import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff, matchStatusLabel, questionTypeLabel } from '@/lib/format';
 import { SHOW_KNOCKOUT } from '@/lib/feature-flags';
@@ -1685,9 +1686,9 @@ function PlayerPickDropdown({
 
   const q = normalizeSearchText(search);
   const filtered = playerOptions.filter((o) =>
-    normalizeSearchText(o.player?.fullName).includes(q) ||
+    (o.player ? matchesPlayerSearch(o.player, search) : false) ||
     normalizeSearchText(o.label).includes(q) ||
-    normalizeSearchText(o.player?.teamName).includes(q),
+    normalizeSearchText(o.player?.teamName ?? '').includes(q),
   );
 
   // ── readOnly: only show saved answer, no list ──────────────────────────────
@@ -1702,7 +1703,7 @@ function PlayerPickDropdown({
             Tu respuesta guardada
           </p>
           <p className="truncate font-semibold text-foreground">
-            {selectedOption.player?.fullName ?? selectedOption.label}
+            {selectedOption.player ? getPlayerDisplayName(selectedOption.player) : selectedOption.label}
           </p>
           {selectedOption.player && (() => {
             const meta = [
@@ -1737,7 +1738,7 @@ function PlayerPickDropdown({
               Seleccionado
             </p>
             <p className="truncate text-sm font-semibold text-foreground">
-              {selectedOption.player?.fullName ?? selectedOption.label}
+              {selectedOption.player ? getPlayerDisplayName(selectedOption.player) : selectedOption.label}
             </p>
             {selectedOption.player && (() => {
               const meta = [
@@ -1834,7 +1835,7 @@ function PlayerPickDropdown({
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">
-                      {option.player?.fullName ?? option.label}
+                      {option.player ? getPlayerDisplayName(option.player) : option.label}
                     </span>
                     {meta && (
                       <span

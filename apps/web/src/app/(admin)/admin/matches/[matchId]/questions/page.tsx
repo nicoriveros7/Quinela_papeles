@@ -7,6 +7,7 @@ import { ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2, Plus, Save, Trash2 } fro
 
 import { api, ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { getPlayerDisplayName } from '@/lib/player-utils';
 import { useAuth } from '@/providers/auth-provider';
 import {
   AdminMatchPlayerPoolResponse,
@@ -221,7 +222,7 @@ export default function MatchQuestionsPage() {
 
       payload.options = picked.map((p, i) => ({
         key: `PLAYER_${i + 1}`,
-        label: p.fullName,
+        label: getPlayerDisplayName(p),
         playerId: p.playerId,
       }));
       if (includeNoPlayer) {
@@ -644,7 +645,7 @@ export default function MatchQuestionsPage() {
                                       }
                                     />
                                     <span className="flex flex-col">
-                                      <span>{player.fullName}</span>
+                                      <span>{getPlayerDisplayName(player)}</span>
                                       <span className="text-xs text-muted-foreground">
                                         {[
                                           player.shirtNumber ? `#${player.shirtNumber}` : null,
@@ -847,7 +848,7 @@ export default function MatchQuestionsPage() {
                 {question.options.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {question.options.map((opt) => {
-                      const displayName = opt.player?.fullName ?? opt.label;
+                      const displayName = opt.player ? getPlayerDisplayName(opt.player) : opt.label;
                       const meta = opt.player
                         ? [
                             opt.player.shirtNumber != null ? `#${opt.player.shirtNumber}` : null,
@@ -888,7 +889,7 @@ export default function MatchQuestionsPage() {
                       <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
                       <span className="text-xs font-semibold text-emerald-300">Respuesta correcta:</span>
                       <span className="font-bold text-emerald-200">
-                        {correctOption.player?.fullName ?? correctOption.label}
+                        {correctOption.player ? getPlayerDisplayName(correctOption.player) : correctOption.label}
                       </span>
                     </div>
                     {correctOption.player && (() => {
@@ -919,7 +920,7 @@ export default function MatchQuestionsPage() {
                     >
                       {question.options.map((option) => (
                         <option key={option.id} value={option.id}>
-                          {option.player?.fullName ?? option.label}
+                          {option.player ? getPlayerDisplayName(option.player) : option.label}
                           {option.player?.shirtNumber != null ? ` (#${option.player.shirtNumber})` : ''}
                         </option>
                       ))}

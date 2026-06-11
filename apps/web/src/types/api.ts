@@ -60,6 +60,8 @@ export type MatchQuestionOptionPlayer = {
   fullName: string;
   shortName: string | null;
   nameOnShirt: string | null;
+  firstNames: string | null;
+  lastNames: string | null;
   preferredPosition: string | null;
   shirtNumber: number | null;
   position: string | null;
@@ -193,7 +195,7 @@ export type TournamentTeamOption = {
 export type TournamentPlayerOption = {
   id: string;
   isGoalkeeper: boolean;
-  player: { id: string; fullName: string; shortName: string | null; nationalityCode: string | null };
+  player: { id: string; fullName: string; shortName: string | null; nameOnShirt: string | null; firstNames: string | null; lastNames: string | null; nationalityCode: string | null };
 };
 
 export type TournamentPrediction = {
@@ -376,6 +378,8 @@ export type AdminMatchPlayerPoolResponse = {
       playerId: string;
       fullName: string;
       shortName: string | null;
+      firstNames: string | null;
+      lastNames: string | null;
       shirtNumber: number | null;
       position: string | null;
       preferredPosition: string | null;
@@ -467,6 +471,8 @@ export type AdminTournamentPlayer = {
   id: string; // TournamentPlayer.id
   fullName: string;
   shortName: string | null;
+  firstNames: string | null;
+  lastNames: string | null;
   isGoalkeeper: boolean;
   position: string | null;
   shirtNumber: number | null;

@@ -8,6 +8,7 @@ import { ArrowLeft, Calendar, CalendarDays, CheckCircle2, Check, ChevronDown, He
 import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff } from '@/lib/format';
 import { cn, normalizeSearchText } from '@/lib/utils';
+import { getPlayerDisplayName, matchesPlayerSearch } from '@/lib/player-utils';
 import { useAuth } from '@/providers/auth-provider';
 import { AdminMatch, AdminTournamentPlayer } from '@/types/api';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
@@ -1095,10 +1096,9 @@ function SinglePlayerPicker({
   const pool = onlyGk ? players.filter((p) => p.isGoalkeeper) : players;
   const selected = pool.find((p) => p.id === value);
   const filtered = pool.filter((p) => {
+    if (matchesPlayerSearch(p, search)) return true;
     const q = normalizeSearchText(search);
     return (
-      normalizeSearchText(p.fullName).includes(q) ||
-      normalizeSearchText(p.shortName).includes(q) ||
       normalizeSearchText(p.teamCode).includes(q) ||
       normalizeSearchText(p.teamName).includes(q)
     );
@@ -1113,7 +1113,7 @@ function SinglePlayerPicker({
         <div className="flex items-center gap-1.5">
           <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
             {selected.teamFlagEmoji && <span>{selected.teamFlagEmoji}</span>}
-            {selected.fullName}
+            {getPlayerDisplayName(selected)}
           </span>
           <button
             type="button"
@@ -1159,7 +1159,7 @@ function SinglePlayerPicker({
                   )}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-semibold">{p.fullName}</p>
+                    <p className="truncate text-xs font-semibold">{getPlayerDisplayName(p)}</p>
                     {p.teamCode && (
                       <p className={cn('text-[10px]', isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
                         {p.teamFlagEmoji} {p.teamCode}
