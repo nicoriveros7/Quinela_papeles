@@ -35,7 +35,7 @@ export interface MatchBreakdown {
   predictedAwayScore: number | null;
   pointsAwarded: number;
   isJoker: boolean;
-  jokerBucket: 'GROUP_MATCHDAY_1' | 'GROUP_MATCHDAY_2' | 'GROUP_MATCHDAY_3' | 'KNOCKOUT' | null;
+  jokerBucket: 'GROUP_MATCHDAY_1' | 'GROUP_MATCHDAY_2' | 'GROUP_MATCHDAY_3' | 'ROUND_OF_32' | 'ROUND_OF_16' | 'QUARTER_FINAL' | 'SEMI_FINAL' | 'FINAL_THIRD_PLACE' | null;
   jokerBonusPoints: number;
   breakdown: MatchPredictionBreakdown | null;
   questions: MatchQuestionBreakdown[];

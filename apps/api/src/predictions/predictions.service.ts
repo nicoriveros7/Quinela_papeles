@@ -41,18 +41,25 @@ export class PredictionsService {
 
       // Find existing joker in same bucket to potentially swap it
       const existingJokerWhere =
-        bucket === 'KNOCKOUT'
+        match.stage === MatchStage.GROUP
           ? {
               poolEntryId: entryId,
               isJoker: true,
               matchId: { not: matchId },
-              match: { stage: { not: MatchStage.GROUP } },
+              match: { stage: MatchStage.GROUP, roundLabel: match.roundLabel },
+            }
+          : bucket === 'FINAL_THIRD_PLACE'
+          ? {
+              poolEntryId: entryId,
+              isJoker: true,
+              matchId: { not: matchId },
+              match: { stage: { in: [MatchStage.FINAL, MatchStage.THIRD_PLACE] } },
             }
           : {
               poolEntryId: entryId,
               isJoker: true,
               matchId: { not: matchId },
-              match: { stage: MatchStage.GROUP, roundLabel: match.roundLabel },
+              match: { stage: match.stage },
             };
 
       const existingJokers = await this.prisma.matchPrediction.findMany({
@@ -863,14 +870,19 @@ export class PredictionsService {
   private getJokerBucket(
     stage: string,
     roundLabel: string | null,
-  ): 'GROUP_MATCHDAY_1' | 'GROUP_MATCHDAY_2' | 'GROUP_MATCHDAY_3' | 'KNOCKOUT' | null {
+  ): 'GROUP_MATCHDAY_1' | 'GROUP_MATCHDAY_2' | 'GROUP_MATCHDAY_3' | 'ROUND_OF_32' | 'ROUND_OF_16' | 'QUARTER_FINAL' | 'SEMI_FINAL' | 'FINAL_THIRD_PLACE' | null {
     if (stage === MatchStage.GROUP) {
-      if (roundLabel === 'Matchday 1') return 'GROUP_MATCHDAY_1';
-      if (roundLabel === 'Matchday 2') return 'GROUP_MATCHDAY_2';
-      if (roundLabel === 'Matchday 3') return 'GROUP_MATCHDAY_3';
+      if (roundLabel?.includes('Matchday 1')) return 'GROUP_MATCHDAY_1';
+      if (roundLabel?.includes('Matchday 2')) return 'GROUP_MATCHDAY_2';
+      if (roundLabel?.includes('Matchday 3')) return 'GROUP_MATCHDAY_3';
       return null;
     }
-    return 'KNOCKOUT';
+    if (stage === MatchStage.ROUND_OF_32) return 'ROUND_OF_32';
+    if (stage === MatchStage.ROUND_OF_16) return 'ROUND_OF_16';
+    if (stage === MatchStage.QUARTER_FINAL) return 'QUARTER_FINAL';
+    if (stage === MatchStage.SEMI_FINAL) return 'SEMI_FINAL';
+    if (stage === MatchStage.FINAL || stage === MatchStage.THIRD_PLACE) return 'FINAL_THIRD_PLACE';
+    return null;
   }
 
   private normalizeQuestionAnswer(

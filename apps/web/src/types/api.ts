@@ -399,7 +399,15 @@ export type MatchQuestionBreakdown = {
   isCorrect: boolean | null;
 };
 
-export type JokerBucket = 'GROUP_MATCHDAY_1' | 'GROUP_MATCHDAY_2' | 'GROUP_MATCHDAY_3' | 'KNOCKOUT';
+export type JokerBucket =
+  | 'GROUP_MATCHDAY_1'
+  | 'GROUP_MATCHDAY_2'
+  | 'GROUP_MATCHDAY_3'
+  | 'ROUND_OF_32'
+  | 'ROUND_OF_16'
+  | 'QUARTER_FINAL'
+  | 'SEMI_FINAL'
+  | 'FINAL_THIRD_PLACE';
 
 export type MatchBreakdown = {
   matchId: string;

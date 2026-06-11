@@ -88,19 +88,39 @@ function getMatchFlagEmoji(match: PoolMatch, side: 'home' | 'away'): string | nu
 
 function getJokerBucketFromMatch(match: PoolMatch): JokerBucket | null {
   if (match.stage === 'GROUP') {
-    if (match.roundLabel === 'Matchday 1') return 'GROUP_MATCHDAY_1';
-    if (match.roundLabel === 'Matchday 2') return 'GROUP_MATCHDAY_2';
-    if (match.roundLabel === 'Matchday 3') return 'GROUP_MATCHDAY_3';
+    if (match.roundLabel?.includes('Matchday 1')) return 'GROUP_MATCHDAY_1';
+    if (match.roundLabel?.includes('Matchday 2')) return 'GROUP_MATCHDAY_2';
+    if (match.roundLabel?.includes('Matchday 3')) return 'GROUP_MATCHDAY_3';
     return null;
   }
-  return 'KNOCKOUT';
+  if (match.stage === 'ROUND_OF_32') return 'ROUND_OF_32';
+  if (match.stage === 'ROUND_OF_16') return 'ROUND_OF_16';
+  if (match.stage === 'QUARTER_FINAL') return 'QUARTER_FINAL';
+  if (match.stage === 'SEMI_FINAL') return 'SEMI_FINAL';
+  if (match.stage === 'FINAL' || match.stage === 'THIRD_PLACE') return 'FINAL_THIRD_PLACE';
+  return null;
 }
 
 const BUCKET_LABELS: Record<JokerBucket, string> = {
   GROUP_MATCHDAY_1: 'Jornada 1',
   GROUP_MATCHDAY_2: 'Jornada 2',
   GROUP_MATCHDAY_3: 'Jornada 3',
-  KNOCKOUT: 'Eliminatorias',
+  ROUND_OF_32: '16vos',
+  ROUND_OF_16: '8vos',
+  QUARTER_FINAL: '4tos',
+  SEMI_FINAL: 'Semifinales',
+  FINAL_THIRD_PLACE: 'Final / 3er puesto',
+};
+
+const BUCKET_SHORT_LABELS: Record<JokerBucket, string> = {
+  GROUP_MATCHDAY_1: 'J1',
+  GROUP_MATCHDAY_2: 'J2',
+  GROUP_MATCHDAY_3: 'J3',
+  ROUND_OF_32: '16vos',
+  ROUND_OF_16: '8vos',
+  QUARTER_FINAL: '4tos',
+  SEMI_FINAL: 'Semis',
+  FINAL_THIRD_PLACE: 'Final/3er',
 };
 
 function getJornadaLabel(match: PoolMatch): string | null {
@@ -154,6 +174,46 @@ function isMatchLocked(kickoffAt: string, lockMinutes: number): boolean {
 
 function isQuestionLocked(question: Pick<PoolMatchQuestion, 'lockAt'>): boolean {
   return question.lockAt !== null && Date.now() >= new Date(question.lockAt).getTime();
+}
+
+// ── JokerBucketChip ───────────────────────────────────────────────────────────
+
+function JokerBucketChip({
+  bucket,
+  match,
+  onClick,
+}: {
+  bucket: JokerBucket;
+  match: PoolMatch | null;
+  onClick?: () => void;
+}) {
+  const label = BUCKET_SHORT_LABELS[bucket];
+  const homeCode = match?.homeTournamentTeam?.team.code ?? match?.homeSlotLabel ?? null;
+  const awayCode = match?.awayTournamentTeam?.team.code ?? match?.awaySlotLabel ?? null;
+  const matchLabel = homeCode && awayCode ? `${homeCode} vs ${awayCode}` : null;
+
+  if (match) {
+    return (
+      <button
+        onClick={onClick}
+        className={cn(
+          'flex items-center gap-1 rounded-lg border border-lime-500/30 bg-lime-500/10 px-2 py-1',
+          'text-[10px] font-semibold text-lime-400 transition-colors',
+          'hover:bg-lime-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        )}
+      >
+        <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
+        <span>{label}</span>
+        {matchLabel && <span className="opacity-70">· {matchLabel}</span>}
+      </button>
+    );
+  }
+
+  return (
+    <span className="flex items-center rounded-lg border border-border/40 bg-muted/30 px-2 py-1 text-[10px] font-semibold text-muted-foreground/60">
+      {label}
+    </span>
+  );
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -518,7 +578,9 @@ function EntryPredictionsPage() {
         : false;
 
       if (conflictLocked) {
-        setJokerError('Ya tienes un Joker bloqueado en esta jornada y no puedes cambiarlo.');
+        setJokerError(
+          `Ya tienes un Joker bloqueado en ${selectedMatchBucket ? BUCKET_LABELS[selectedMatchBucket] : 'esta fase'} y no puedes cambiarlo.`
+        );
         return;
       }
       // Requires confirmation
@@ -741,6 +803,67 @@ function EntryPredictionsPage() {
           <p className="text-[11px] text-muted-foreground">Actualizando estado de predicciones...</p>
         ) : null}
       </section>
+
+      {/* ── Joker Panel ───────────────────────────────────────────────────────── */}
+      {isOwner ? (
+        <section className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.05] p-3 shadow-card-sm">
+          <div className="mb-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Zap className="h-3.5 w-3.5 text-amber-400" aria-hidden="true" />
+              <span className="text-xs font-bold text-amber-300">
+                {SHOW_KNOCKOUT ? 'Mis Jokers' : 'Mis Jokers de grupos'}
+              </span>
+            </div>
+            <span className="text-[11px] font-semibold text-amber-400/70">
+              {jokerByBucket.size} / {SHOW_KNOCKOUT ? 8 : 3} usados
+            </span>
+          </div>
+
+          <div className="grid gap-2">
+            <div>
+              <p className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.12em] text-amber-400/50">
+                Grupos
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {(['GROUP_MATCHDAY_1', 'GROUP_MATCHDAY_2', 'GROUP_MATCHDAY_3'] as const).map((bucket) => {
+                  const matchId = jokerByBucket.get(bucket);
+                  const match = matchId ? matches.find((m) => m.id === matchId) ?? null : null;
+                  return (
+                    <JokerBucketChip
+                      key={bucket}
+                      bucket={bucket}
+                      match={match}
+                      onClick={matchId ? () => setSelectedMatchId(matchId) : undefined}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            {SHOW_KNOCKOUT ? (
+              <div>
+                <p className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.12em] text-amber-400/50">
+                  Eliminatorias
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'FINAL_THIRD_PLACE'] as const).map((bucket) => {
+                    const matchId = jokerByBucket.get(bucket);
+                    const match = matchId ? matches.find((m) => m.id === matchId) ?? null : null;
+                    return (
+                      <JokerBucketChip
+                        key={bucket}
+                        bucket={bucket}
+                        match={match}
+                        onClick={matchId ? () => setSelectedMatchId(matchId) : undefined}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       {/* ── Match picker — sticky on mobile ──────────────────────────────────────
           sticky top-14: sits just below the mobile sticky header (h-14 = 56px).
@@ -1085,7 +1208,7 @@ function EntryPredictionsPage() {
                   {jokerConfirmPending && conflictName ? (
                     <div className="mt-2.5 rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2.5">
                       <p className="text-[11px] font-semibold text-amber-300">
-                        Ya tienes un Joker activo en esta jornada:
+                        Ya tienes un Joker activo en {selectedMatchBucket ? BUCKET_LABELS[selectedMatchBucket] : 'esta fase'}:
                       </p>
                       <p className="mt-0.5 text-[11px] text-foreground/80">{conflictName}</p>
                       <p className="mt-1 text-[10px] text-muted-foreground">

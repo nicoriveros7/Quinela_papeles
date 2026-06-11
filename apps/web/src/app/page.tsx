@@ -175,7 +175,7 @@ export default function HomePage() {
                       <span className="ml-auto text-[11px] font-bold text-amber-300">×2 todo</span>
                     </div>
                     <p className="text-[10px] leading-relaxed text-amber-300/70">
-                      Tienes 4 Jokers para usar a lo largo del torneo: uno por cada jornada de grupos (J1, J2, J3) y uno para toda la fase de eliminatorias. Cuando activas el Joker en un partido, todos los puntos de ese partido (marcador + bonus) se duplican.
+                      Tienes 8 Jokers: uno por cada jornada de grupos y uno por cada fase de eliminatorias (16vos, 8vos, 4tos, Semis y Final / 3er puesto). Cuando activas el Joker en un partido, todos los puntos de ese partido (marcador + bonus) se duplican.
                     </p>
                   </div>
                 </div>
