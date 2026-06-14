@@ -85,9 +85,9 @@ export function calculateMatchPredictionBreakdown(
   const actualOutcome = getMatchOutcome(actualHomeScore, actualAwayScore);
   const isOutcomeCorrect = predictedOutcome === actualOutcome;
 
-  const hasWinner = actualOutcome !== 'DRAW';
-  const isWinnerCorrect = hasWinner && isOutcomeCorrect;
-  const isLoserCorrect = hasWinner && isOutcomeCorrect;
+  // Correctly predicting a draw also earns winner/loser points
+  const isWinnerCorrect = isOutcomeCorrect;
+  const isLoserCorrect = isOutcomeCorrect;
 
   const breakdown: MatchPredictionBreakdown = {
     exactScore: isExact ? config.pointsExactScore : 0,
