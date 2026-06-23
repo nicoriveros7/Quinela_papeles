@@ -109,7 +109,8 @@ export const api = {
       body: JSON.stringify({ token, newPassword }),
     }),
 
-  me: (token: string) => request<PublicUser>('/users/me', { method: 'GET' }, token),
+  me: (token: string, signal?: AbortSignal) =>
+    request<PublicUser>('/users/me', { method: 'GET', signal }, token),
 
   getMyMainPool: (token: string) =>
     request<WorldCupMainPool>('/pools/me/main', { method: 'GET' }, token),

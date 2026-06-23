@@ -38,13 +38,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<PublicUser | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
 
-  // Track whether we've already ensured main pool membership this session.
-  // The boot effect reruns on every pathname change, so we use a ref to fire once.
   const mainPoolEnsured = useRef(false);
 
   const ensureMainPool = useCallback((activeToken: string) => {
     api.getMyMainPool(activeToken).catch(() => {
-      // Non-fatal: log but never break the session
       console.warn('[auth] ensureMainPool failed — will retry on dashboard load');
     });
   }, []);
@@ -64,54 +61,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!activeToken) {
       throw new ApiError('No active session', 401);
     }
-
     const profile = await api.me(activeToken);
     setUser(profile);
     setToken(activeToken);
   }, []);
 
-  // Runs on every pathname change but ensureMainPool fires only once per session via ref.
+  // Runs ONCE on mount: validates the stored token against the API.
+  // Uses AbortController so a stale fetch never writes state after unmount.
   useEffect(() => {
+    const controller = new AbortController();
+
     const boot = async () => {
       const stored = getStoredToken();
-
       if (!stored) {
         setIsBootstrapping(false);
-        if (!PUBLIC_PAGES.includes(pathname)) {
-          router.replace('/login');
-        }
         return;
       }
-
       try {
-        const profile = await api.me(stored);
+        const profile = await api.me(stored, controller.signal);
+        if (controller.signal.aborted) return;
         setToken(stored);
         setUser(profile);
-
-        if (!mainPoolEnsured.current) {
-          mainPoolEnsured.current = true;
-          ensureMainPool(stored);
-        }
-
-        if (AUTH_PAGES.includes(pathname)) {
-          router.replace('/dashboard');
-        }
       } catch {
+        if (controller.signal.aborted) return;
         clearStoredToken();
         setToken(null);
         setUser(null);
-        mainPoolEnsured.current = false;
-        if (!PUBLIC_PAGES.includes(pathname)) {
-          router.replace('/login');
-        }
       } finally {
-        setIsBootstrapping(false);
+        if (!controller.signal.aborted) {
+          setIsBootstrapping(false);
+        }
       }
     };
 
     void boot();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, router]);
+    return () => controller.abort();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Redirect guard: reacts to auth state + pathname changes without calling the API.
+  useEffect(() => {
+    if (isBootstrapping) return;
+
+    if (!token || !user) {
+      mainPoolEnsured.current = false;
+      if (!PUBLIC_PAGES.includes(pathname)) {
+        router.replace('/login');
+      }
+      return;
+    }
+
+    if (!mainPoolEnsured.current) {
+      mainPoolEnsured.current = true;
+      ensureMainPool(token);
+    }
+
+    if (AUTH_PAGES.includes(pathname)) {
+      router.replace('/dashboard');
+    }
+  }, [isBootstrapping, token, user, pathname, router, ensureMainPool]);
 
   const login = useCallback(
     async (identifier: string, password: string) => {
