@@ -38,6 +38,15 @@ export class PredictionsController {
     );
   }
 
+  @Get('summary')
+  async getEntryPredictionSummary(
+    @Param('poolId') poolId: string,
+    @Param('entryId') entryId: string,
+    @CurrentUser() user: JwtUserPayload,
+  ) {
+    return this.predictionsService.getEntryPredictionSummary(poolId, entryId, user);
+  }
+
   @Get('matches/:matchId')
   async getEntryMatchPredictions(
     @Param('poolId') poolId: string,

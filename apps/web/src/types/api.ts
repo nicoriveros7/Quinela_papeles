@@ -257,6 +257,20 @@ export type ApiErrorShape = {
   statusCode?: number;
 };
 
+export type EntryPredictionSummaryItem = {
+  matchId: string;
+  hasPrediction: boolean;
+  predictedHomeScore: number | null;
+  predictedAwayScore: number | null;
+  isJoker: boolean;
+  answeredQuestions: number;
+  totalQuestions: number;
+  predictionStatus: 'NONE' | 'PARTIAL' | 'COMPLETE';
+};
+
+/** Keyed by matchId */
+export type EntryPredictionSummaryResponse = Record<string, EntryPredictionSummaryItem>;
+
 export type AdminTournament = {
   id: string;
   slug: string;

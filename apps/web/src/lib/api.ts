@@ -13,6 +13,7 @@ import {
   AuthResponse,
   CreateAdminQuestionPayload,
   EntryBreakdownResponse,
+  EntryPredictionSummaryResponse,
   LeaderboardResponse,
   MatchPredictionsBundle,
   PoolDetail,
@@ -180,6 +181,13 @@ export const api = {
 
   listPoolMatches: (poolId: string, token: string) =>
     request<PoolMatchesResponse>(`/pools/${poolId}/matches`, { method: 'GET' }, token),
+
+  getEntryPredictionSummary: (poolId: string, entryId: string, token: string) =>
+    request<EntryPredictionSummaryResponse>(
+      `/pools/${poolId}/entries/${entryId}/predictions/summary`,
+      { method: 'GET' },
+      token,
+    ),
 
   getEntryMatchPredictions: (
     poolId: string,

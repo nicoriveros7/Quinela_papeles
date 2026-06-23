@@ -369,6 +369,104 @@ export class PredictionsService {
     };
   }
 
+  async getEntryPredictionSummary(
+    poolId: string,
+    entryId: string,
+    user: JwtUserPayload,
+  ): Promise<Record<string, {
+    matchId: string;
+    hasPrediction: boolean;
+    predictedHomeScore: number | null;
+    predictedAwayScore: number | null;
+    isJoker: boolean;
+    answeredQuestions: number;
+    totalQuestions: number;
+    predictionStatus: 'NONE' | 'PARTIAL' | 'COMPLETE';
+  }>> {
+    const entryContext = await this.getEntryReadContext(poolId, entryId, user.sub);
+    const tournamentId = entryContext.pool.tournamentId;
+
+    const [matchPredictions, questionPredictions, publishedQuestions] = await Promise.all([
+      this.prisma.matchPrediction.findMany({
+        where: { poolEntryId: entryId },
+        select: {
+          matchId: true,
+          predictedHomeScore: true,
+          predictedAwayScore: true,
+          isJoker: true,
+        },
+      }),
+      this.prisma.matchQuestionPrediction.findMany({
+        where: { poolEntryId: entryId },
+        select: {
+          matchQuestion: { select: { matchId: true } },
+        },
+      }),
+      this.prisma.matchQuestion.findMany({
+        where: { match: { tournamentId }, isPublished: true },
+        select: { matchId: true },
+      }),
+    ]);
+
+    // Group answered questions per match
+    const answeredByMatch = new Map<string, number>();
+    for (const qp of questionPredictions) {
+      const mid = qp.matchQuestion.matchId;
+      answeredByMatch.set(mid, (answeredByMatch.get(mid) ?? 0) + 1);
+    }
+
+    // Count published questions per match
+    const totalByMatch = new Map<string, number>();
+    for (const q of publishedQuestions) {
+      totalByMatch.set(q.matchId, (totalByMatch.get(q.matchId) ?? 0) + 1);
+    }
+
+    const result: Record<string, {
+      matchId: string;
+      hasPrediction: boolean;
+      predictedHomeScore: number | null;
+      predictedAwayScore: number | null;
+      isJoker: boolean;
+      answeredQuestions: number;
+      totalQuestions: number;
+      predictionStatus: 'NONE' | 'PARTIAL' | 'COMPLETE';
+    }> = {};
+
+    for (const pred of matchPredictions) {
+      const answeredQuestions = answeredByMatch.get(pred.matchId) ?? 0;
+      const totalQuestions = totalByMatch.get(pred.matchId) ?? 0;
+      const isComplete = totalQuestions === 0 || answeredQuestions === totalQuestions;
+      result[pred.matchId] = {
+        matchId: pred.matchId,
+        hasPrediction: true,
+        predictedHomeScore: pred.predictedHomeScore,
+        predictedAwayScore: pred.predictedAwayScore,
+        isJoker: pred.isJoker,
+        answeredQuestions,
+        totalQuestions,
+        predictionStatus: isComplete ? 'COMPLETE' : 'PARTIAL',
+      };
+    }
+
+    // Include matches that have questions but no prediction yet
+    for (const [matchId, total] of totalByMatch) {
+      if (!result[matchId]) {
+        result[matchId] = {
+          matchId,
+          hasPrediction: false,
+          predictedHomeScore: null,
+          predictedAwayScore: null,
+          isJoker: false,
+          answeredQuestions: answeredByMatch.get(matchId) ?? 0,
+          totalQuestions: total,
+          predictionStatus: 'NONE',
+        };
+      }
+    }
+
+    return result;
+  }
+
   async getEntryBreakdown(
     poolId: string,
     entryId: string,

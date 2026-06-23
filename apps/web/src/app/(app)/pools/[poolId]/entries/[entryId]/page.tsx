@@ -340,37 +340,37 @@ function EntryPredictionsPage() {
     let cancelled = false;
     const loadSummary = async () => {
       setLoadingSummary(true);
-      const nextSummary: Record<string, PredictionSummary> = {};
+      try {
+        const summaryMap = await api.getEntryPredictionSummary(poolId, entryId, token);
+        if (cancelled) return;
 
-      const results = await Promise.allSettled(
-        visibleMatches.map(async (match) => {
-          const data = await api.getEntryMatchPredictions(poolId, entryId, match.id, token);
-          const predictedQuestionIds = new Set(data.questionPredictions.map((p) => p.matchQuestionId));
-          const questionsTotal = data.questions.length;
-          const questionsDone = data.questions.filter((q) => predictedQuestionIds.has(q.id)).length;
-          const hasMatchPrediction = Boolean(data.matchPrediction);
-          return {
-            matchId: match.id,
-            summary: {
-              hasMatchPrediction,
-              questionsDone,
-              questionsTotal,
-              isComplete: hasMatchPrediction && (questionsTotal === 0 || questionsDone === questionsTotal),
-              isJoker: data.matchPrediction?.isJoker ?? false,
-            },
-          };
-        }),
-      );
-
-      for (const result of results) {
-        if (result.status === 'fulfilled') {
-          nextSummary[result.value.matchId] = result.value.summary;
+        const nextSummary: Record<string, PredictionSummary> = {};
+        for (const match of visibleMatches) {
+          const item = summaryMap[match.id];
+          if (item) {
+            nextSummary[match.id] = {
+              hasMatchPrediction: item.hasPrediction,
+              questionsDone: item.answeredQuestions,
+              questionsTotal: item.totalQuestions,
+              isComplete: item.hasPrediction && (item.totalQuestions === 0 || item.answeredQuestions === item.totalQuestions),
+              isJoker: item.isJoker,
+            };
+          } else {
+            // No prediction and no questions for this match — treat as pending
+            nextSummary[match.id] = {
+              hasMatchPrediction: false,
+              questionsDone: 0,
+              questionsTotal: 0,
+              isComplete: false,
+              isJoker: false,
+            };
+          }
         }
-      }
-
-      if (!cancelled) {
         setPredictionSummaryByMatch(nextSummary);
-        setLoadingSummary(false);
+      } catch {
+        // Non-fatal: summary load failure doesn't block the page
+      } finally {
+        if (!cancelled) setLoadingSummary(false);
       }
     };
 
