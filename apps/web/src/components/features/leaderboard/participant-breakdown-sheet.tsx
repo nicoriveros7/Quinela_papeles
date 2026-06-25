@@ -41,8 +41,14 @@ const STATUS_CONFIG: Record<PredictionStatus, StatusConfig> = {
 
 // ── Filter types and helpers ──────────────────────────────────────────────────
 
+type VisibilityFilter = 'revealed' | 'all';
 type PredictionFilter = 'all' | 'with-pick' | 'no-pick' | 'with-points';
 type PhaseFilter = 'all' | 'groups' | 'knockout' | 'finished';
+
+const VISIBILITY_FILTERS: { value: VisibilityFilter; label: string }[] = [
+  { value: 'revealed', label: 'Revelados' },
+  { value: 'all',      label: 'Todos'     },
+];
 
 const PREDICTION_FILTERS: { value: PredictionFilter; label: string }[] = [
   { value: 'all',         label: 'Todos'      },
@@ -62,14 +68,21 @@ function filterMatches(
   matches: MatchBreakdown[],
   predFilter: PredictionFilter,
   phaseFilter: PhaseFilter,
+  visFilter: VisibilityFilter,
 ): MatchBreakdown[] {
   return matches.filter((match) => {
-    // ── Prediction filter ──
     const hasPick   = match.predictedHomeScore !== null;
     const hasPoints =
       match.pointsAwarded > 0 ||
       match.questions.some((q) => q.pointsAwarded > 0);
 
+    // ── Visibility filter ──
+    if (visFilter === 'revealed') {
+      if (match.visibility === 'HIDDEN_UNTIL_LOCKED') return false;
+      if (match.status === 'SCHEDULED' && !hasPoints) return false;
+    }
+
+    // ── Prediction filter ──
     if (predFilter === 'with-pick'   && !hasPick)   return false;
     if (predFilter === 'no-pick'     && hasPick)    return false;
     if (predFilter === 'with-points' && !hasPoints) return false;
@@ -80,6 +93,18 @@ function filterMatches(
     if (phaseFilter === 'finished' && match.status !== 'FINISHED') return false;
 
     return true;
+  });
+}
+
+// VISIBLE first (desc kickoffAt), then HIDDEN (asc kickoffAt)
+function sortMatches(matches: MatchBreakdown[]): MatchBreakdown[] {
+  return [...matches].sort((a, b) => {
+    const aHidden = a.visibility === 'HIDDEN_UNTIL_LOCKED';
+    const bHidden = b.visibility === 'HIDDEN_UNTIL_LOCKED';
+    if (aHidden !== bHidden) return aHidden ? 1 : -1;
+    const tA = new Date(a.kickoffAt).getTime();
+    const tB = new Date(b.kickoffAt).getTime();
+    return aHidden ? tA - tB : tB - tA;
   });
 }
 
@@ -106,6 +131,7 @@ export function ParticipantBreakdownSheet({
   const [expandedMatches, setExpandedMatches] = useState<Set<string>>(new Set());
 
   // ── Filter state ──
+  const [visFilter,  setVisFilter]  = useState<VisibilityFilter>('revealed');
   const [predFilter, setPredFilter] = useState<PredictionFilter>('all');
   const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>('all');
 
@@ -161,12 +187,12 @@ export function ParticipantBreakdownSheet({
   const filteredMatches = useMemo(
     () =>
       data
-        ? filterMatches(data.matchPredictions, predFilter, phaseFilter)
+        ? sortMatches(filterMatches(data.matchPredictions, predFilter, phaseFilter, visFilter))
         : [],
-    [data, predFilter, phaseFilter],
+    [data, predFilter, phaseFilter, visFilter],
   );
 
-  const hasActiveFilter = predFilter !== 'all' || phaseFilter !== 'all';
+  const hasActiveFilter = visFilter !== 'revealed' || predFilter !== 'all' || phaseFilter !== 'all';
 
   return (
     <>
@@ -240,9 +266,11 @@ export function ParticipantBreakdownSheet({
         {/* ── Filter bar — sticky below header, above scroll area ── */}
         {!loading && !error && data && data.matchPredictions.length > 0 && (
           <FilterBar
+            visFilter={visFilter}
             predFilter={predFilter}
             phaseFilter={phaseFilter}
             count={filteredMatches.length}
+            onVisFilter={setVisFilter}
             onPredFilter={setPredFilter}
             onPhaseFilter={setPhaseFilter}
           />
@@ -291,7 +319,7 @@ export function ParticipantBreakdownSheet({
                   )}
 
                   {filteredMatches.length === 0 ? (
-                    <EmptyFilterState onReset={() => { setPredFilter('all'); setPhaseFilter('all'); }} hasActiveFilter={hasActiveFilter} />
+                    <EmptyFilterState onReset={() => { setVisFilter('revealed'); setPredFilter('all'); setPhaseFilter('all'); }} hasActiveFilter={hasActiveFilter} />
                   ) : (
                     <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60">
                       {filteredMatches.map((match) => (
@@ -337,21 +365,42 @@ export function ParticipantBreakdownSheet({
 // ── FilterBar ────────────────────────────────────────────────────────────────
 
 function FilterBar({
+  visFilter,
   predFilter,
   phaseFilter,
   count,
+  onVisFilter,
   onPredFilter,
   onPhaseFilter,
 }: {
+  visFilter: VisibilityFilter;
   predFilter: PredictionFilter;
   phaseFilter: PhaseFilter;
   count: number;
+  onVisFilter: (v: VisibilityFilter) => void;
   onPredFilter: (v: PredictionFilter) => void;
   onPhaseFilter: (v: PhaseFilter) => void;
 }) {
   return (
     <div className="shrink-0 border-b border-border/60 px-4 py-2.5 space-y-2">
-      {/* Row 1: Prediction filter */}
+      {/* Row 1: Visibility filter */}
+      <div
+        role="tablist"
+        aria-label="Filtrar por visibilidad"
+        className="flex gap-1 overflow-x-auto"
+        style={{ scrollbarWidth: 'none' }}
+      >
+        {VISIBILITY_FILTERS.map(({ value, label }) => (
+          <FilterPill
+            key={value}
+            label={label}
+            active={visFilter === value}
+            onClick={() => onVisFilter(value)}
+          />
+        ))}
+      </div>
+
+      {/* Row 2: Prediction filter */}
       <div
         role="tablist"
         aria-label="Filtrar por estado de predicción"
@@ -368,7 +417,7 @@ function FilterBar({
         ))}
       </div>
 
-      {/* Row 2: Phase filter */}
+      {/* Row 3: Phase filter */}
       <div
         role="tablist"
         aria-label="Filtrar por fase"
@@ -602,13 +651,14 @@ function MatchRow({
             {isFinished && hasPrediction && (() => {
               const bonusBase = match.questions.reduce((sum, q) => sum + q.pointsAwarded, 0);
               const totalWithJoker = match.pointsAwarded + bonusBase + match.jokerBonusPoints;
+              const nonJokerTotal = match.pointsAwarded + bonusBase;
               return match.isJoker && match.jokerBonusPoints > 0 ? (
                 <span className="shrink-0 tabular-nums text-xs font-bold text-amber-300">
                   {totalWithJoker} pts <span className="text-amber-400/60 text-[10px] font-semibold">(×2)</span>
                 </span>
               ) : (
                 <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">
-                  +{match.pointsAwarded} pts
+                  +{nonJokerTotal} pts
                 </span>
               );
             })()}
@@ -640,50 +690,6 @@ function MatchRow({
               {hasBreakdown && (
                 <ScoreBreakdown breakdown={match.breakdown!} />
               )}
-
-              {/* Joker breakdown */}
-              {match.isJoker && match.jokerBonusPoints > 0 && (() => {
-                const bonusBase = match.questions.reduce((sum, q) => sum + q.pointsAwarded, 0);
-                const matchBase = match.pointsAwarded;
-                const subtotal = matchBase + bonusBase;
-                const jokerExtra = match.jokerBonusPoints;
-                return (
-                  <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-2.5">
-                    {/* Header */}
-                    <div className="mb-2 flex items-center gap-1.5">
-                      <Zap className="h-3.5 w-3.5 shrink-0 text-amber-400" aria-hidden="true" />
-                      <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-amber-400/80">
-                        Joker ×2 aplicado
-                      </span>
-                    </div>
-
-                    {/* Base rows */}
-                    <div className="grid gap-1">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-amber-300/70">Puntos partido</span>
-                        <span className="tabular-nums font-semibold text-amber-300">+{matchBase}</span>
-                      </div>
-                      {bonusBase > 0 && (
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-amber-300/70">Puntos bonus</span>
-                          <span className="tabular-nums font-semibold text-amber-300">+{bonusBase}</span>
-                        </div>
-                      )}
-
-                      {/* Formula divider */}
-                      <div className="my-1 border-t border-amber-400/20" />
-
-                      {/* Formula row */}
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-amber-300/60">
-                          {subtotal} × 2 = {subtotal * 2} pts totales
-                        </span>
-                        <span className="tabular-nums font-bold text-amber-300">+{jokerExtra} extra</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
 
               {/* Bonus questions */}
               {hasQuestions && (
@@ -726,10 +732,89 @@ function MatchRow({
                   ))}
                 </div>
               )}
+
+              {/* Points summary (partido + bonus + joker) */}
+              {isFinished && hasPrediction && (
+                <MatchPointsSummary match={match} />
+              )}
             </div>
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// ── MatchPointsSummary ───────────────────────────────────────────────────────
+
+function MatchPointsSummary({ match }: { match: MatchBreakdown }) {
+  const bonusPts = match.questions.reduce((sum, q) => sum + q.pointsAwarded, 0);
+  const matchPts = match.pointsAwarded;
+  const jokerExtra = match.jokerBonusPoints;
+  const isJokerActive = match.isJoker && jokerExtra > 0;
+
+  if (isJokerActive) {
+    const subtotal = matchPts + bonusPts;
+    const total = subtotal + jokerExtra;
+    return (
+      <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-2.5">
+        <div className="mb-2 flex items-center gap-1.5">
+          <Zap className="h-3.5 w-3.5 shrink-0 text-amber-400" aria-hidden="true" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-amber-400/80">
+            Joker ×2 aplicado
+          </span>
+        </div>
+        <div className="grid gap-1">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-amber-300/70">Base partido</span>
+            <span className="tabular-nums font-semibold text-amber-300">+{matchPts}</span>
+          </div>
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-amber-300/70">Bonus</span>
+            <span className="tabular-nums font-semibold text-amber-300">+{bonusPts}</span>
+          </div>
+          <div className="my-0.5 border-t border-amber-400/20" />
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-amber-300/70">Subtotal</span>
+            <span className="tabular-nums font-semibold text-amber-300">{subtotal}</span>
+          </div>
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-amber-300/70">Joker ×2</span>
+            <span className="tabular-nums font-semibold text-amber-300">+{jokerExtra}</span>
+          </div>
+          <div className="my-0.5 border-t border-amber-400/20" />
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="font-bold text-amber-300">Total</span>
+            <span className="tabular-nums font-bold text-amber-300">{total} pts</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const total = matchPts + bonusPts;
+  if (total === 0) return null;
+
+  return (
+    <div className="rounded-lg bg-muted/50 p-2.5">
+      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+        Resumen
+      </p>
+      <div className="grid gap-1">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-muted-foreground">Partido</span>
+          <span className="tabular-nums font-semibold text-foreground">+{matchPts}</span>
+        </div>
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-muted-foreground">Bonus</span>
+          <span className="tabular-nums font-semibold text-foreground">+{bonusPts}</span>
+        </div>
+        <div className="my-0.5 border-t border-border/50" />
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="font-bold text-foreground">Total</span>
+          <span className="tabular-nums font-bold text-foreground">{total} pts</span>
+        </div>
+      </div>
     </div>
   );
 }
