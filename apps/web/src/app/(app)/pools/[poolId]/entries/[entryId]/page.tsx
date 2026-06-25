@@ -162,6 +162,15 @@ function matchCardStateClass(
   return 'border-border/60 bg-background/70 hover:border-primary/20';
 }
 
+function pickDefaultMatch(eligible: PoolMatchListItem[]): string | null {
+  if (eligible.length === 0) return null;
+  const now = Date.now();
+  const next = eligible.find(
+    (m) => m.status === 'SCHEDULED' && new Date(m.kickoffAt).getTime() > now,
+  );
+  return next?.id ?? eligible[eligible.length - 1].id;
+}
+
 // ── Lock helpers ─────────────────────────────────────────────────────────────
 
 function computeLockAt(kickoffAt: string, lockMinutes: number): Date {
@@ -229,6 +238,8 @@ function EntryPredictionsPage() {
   const searchParams = useSearchParams();
   const initialMatchId = searchParams.get('matchId');
   const hasScrolledToInitialRef = useRef(false);
+  const defaultMatchIdRef = useRef<string | null>(null);
+  const hasScrolledToDefaultRef = useRef(false);
 
   const [pool, setPool] = useState<PoolDetail | null>(null);
   const [matches, setMatches] = useState<PoolMatchListItem[]>([]);
@@ -307,14 +318,25 @@ function EntryPredictionsPage() {
         setPool(poolData);
         const list = matchesData.matches;
         setMatches(list);
+        const isOwnerValue = myEntries.some((entry) => entry.id === entryId);
+        setIsOwner(isOwnerValue);
         const matchFromUrl = initialMatchId ? list.find((m) => m.id === initialMatchId) : null;
         if (matchFromUrl) {
           if (matchFromUrl.stage !== 'GROUP' && SHOW_KNOCKOUT) setPhaseFilter('KNOCKOUT');
           setSelectedMatchId(matchFromUrl.id);
         } else {
-          setSelectedMatchId(list[0]?.id ?? null);
+          let eligible = isOwnerValue ? list : list.filter((m) => m.status === 'FINISHED');
+          if (!SHOW_KNOCKOUT) eligible = eligible.filter((m) => m.stage === 'GROUP');
+          const defaultId = pickDefaultMatch(eligible);
+          defaultMatchIdRef.current = defaultId;
+          if (defaultId) {
+            const defaultMatch = list.find((m) => m.id === defaultId);
+            if (defaultMatch && defaultMatch.stage !== 'GROUP' && SHOW_KNOCKOUT) {
+              setPhaseFilter('KNOCKOUT');
+            }
+          }
+          setSelectedMatchId(defaultId);
         }
-        setIsOwner(myEntries.some((entry) => entry.id === entryId));
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'No se pudo cargar la pantalla de predicciones.');
       } finally {
@@ -479,6 +501,20 @@ function EntryPredictionsPage() {
         behavior: 'smooth', inline: 'center', block: 'nearest',
       });
       hasScrolledToInitialRef.current = true;
+    });
+  }, [filteredMatches, selectedMatchId, initialMatchId]);
+
+  useEffect(() => {
+    if (initialMatchId) return;
+    if (hasScrolledToDefaultRef.current) return;
+    const defaultId = defaultMatchIdRef.current;
+    if (!defaultId || selectedMatchId !== defaultId) return;
+    if (!filteredMatches.some((m) => m.id === defaultId)) return;
+    requestAnimationFrame(() => {
+      document.getElementById(`match-chip-${defaultId}`)?.scrollIntoView({
+        behavior: 'smooth', inline: 'center', block: 'nearest',
+      });
+      hasScrolledToDefaultRef.current = true;
     });
   }, [filteredMatches, selectedMatchId, initialMatchId]);
 
