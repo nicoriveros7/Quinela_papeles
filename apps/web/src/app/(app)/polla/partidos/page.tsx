@@ -9,7 +9,7 @@ import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff, matchProximityLabel } from '@/lib/format';
 import { SHOW_KNOCKOUT } from '@/lib/feature-flags';
 import { useAuth } from '@/providers/auth-provider';
-import { PoolMatchListItem, WorldCupMainPool } from '@/types/api';
+import { PoolMatchListItem } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { StatePanel } from '@/components/ui/state-panel';
@@ -53,23 +53,20 @@ function jornadaLabel(match: PoolMatchListItem): string | null {
 }
 
 export default function PartidosPage() {
-  const { token } = useAuth();
-  const [mainPool, setMainPool] = useState<WorldCupMainPool | null>(null);
+  const { token, mainPool, mainPoolLoading, mainPoolError } = useAuth();
   const [matches, setMatches] = useState<PoolMatchListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<MatchFilter>('upcoming');
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !mainPool) return;
 
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await api.getMyMainPool(token);
-        setMainPool(data);
-        const matchData = await api.listPoolMatchesLite(data.pool.id, token);
+        const matchData = await api.listPoolMatchesLite(mainPool.pool.id, token);
         setMatches(matchData.matches);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'No se pudieron cargar los partidos');
@@ -79,7 +76,7 @@ export default function PartidosPage() {
     };
 
     void load();
-  }, [token]);
+  }, [token, mainPool]);
 
   const filtered = useMemo(() => {
     switch (filter) {
@@ -102,12 +99,12 @@ export default function PartidosPage() {
     }
   }, [matches, filter]);
 
-  if (loading) {
+  if (mainPoolLoading || loading) {
     return <StatePanel variant="loading" description="Cargando partidos..." />;
   }
 
-  if (error) {
-    return <StatePanel variant="error" description={error} />;
+  if (mainPoolError ?? error) {
+    return <StatePanel variant="error" description={mainPoolError ?? error!} />;
   }
 
   if (!mainPool) return null;

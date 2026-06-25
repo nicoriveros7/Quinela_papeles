@@ -13,13 +13,17 @@ import {
 
 import { api, ApiError } from '@/lib/api';
 import { clearStoredToken, getStoredToken, setStoredToken } from '@/lib/auth-token';
-import { PublicUser } from '@/types/api';
+import { PublicUser, WorldCupMainPool } from '@/types/api';
 
 type AuthContextValue = {
   token: string | null;
   user: PublicUser | null;
   isBootstrapping: boolean;
   isAuthenticated: boolean;
+  mainPool: WorldCupMainPool | null;
+  mainPoolLoading: boolean;
+  mainPoolError: string | null;
+  refreshMainPool: () => Promise<void>;
   login: (identifier: string, password: string) => Promise<void>;
   register: (email: string, displayName: string, password: string) => Promise<void>;
   logout: () => void;
@@ -38,23 +42,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<PublicUser | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
 
+  const [mainPool, setMainPool] = useState<WorldCupMainPool | null>(null);
+  const [mainPoolLoading, setMainPoolLoading] = useState(false);
+  const [mainPoolError, setMainPoolError] = useState<string | null>(null);
+
   const mainPoolEnsured = useRef(false);
 
+  // Fire-and-store: called exactly once per session (guarded by mainPoolEnsured ref).
   const ensureMainPool = useCallback((activeToken: string) => {
-    api.getMyMainPool(activeToken).catch(() => {
-      console.warn('[auth] ensureMainPool failed — will retry on dashboard load');
-    });
+    setMainPoolLoading(true);
+    setMainPoolError(null);
+    api
+      .getMyMainPool(activeToken)
+      .then((data) => {
+        setMainPool(data);
+      })
+      .catch(() => {
+        console.warn('[auth] ensureMainPool failed — will retry on manual refresh');
+        setMainPoolError('No se pudo cargar la polla principal');
+      })
+      .finally(() => {
+        setMainPoolLoading(false);
+      });
   }, []);
+
+  const clearMainPool = useCallback(() => {
+    setMainPool(null);
+    setMainPoolLoading(false);
+    setMainPoolError(null);
+    mainPoolEnsured.current = false;
+  }, []);
+
+  // Explicit refresh — clears cache and reloads from the API.
+  const refreshMainPool = useCallback(async () => {
+    const activeToken = getStoredToken();
+    if (!activeToken) return;
+    clearMainPool();
+    mainPoolEnsured.current = true;
+    setMainPoolLoading(true);
+    setMainPoolError(null);
+    try {
+      const data = await api.getMyMainPool(activeToken);
+      setMainPool(data);
+    } catch (err) {
+      setMainPoolError(err instanceof ApiError ? err.message : 'Error al recargar la polla');
+    } finally {
+      setMainPoolLoading(false);
+    }
+  }, [clearMainPool]);
 
   const handleLogout = useCallback(() => {
     clearStoredToken();
     setToken(null);
     setUser(null);
-    mainPoolEnsured.current = false;
+    clearMainPool();
     if (!AUTH_PAGES.includes(pathname)) {
       router.push('/login');
     }
-  }, [pathname, router]);
+  }, [pathname, router, clearMainPool]);
 
   const refreshMe = useCallback(async () => {
     const activeToken = getStoredToken();
@@ -99,11 +144,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Redirect guard: reacts to auth state + pathname changes without calling the API.
+  // Also triggers the one-time mainPool load after auth is confirmed.
   useEffect(() => {
     if (isBootstrapping) return;
 
     if (!token || !user) {
-      mainPoolEnsured.current = false;
+      clearMainPool();
       if (!PUBLIC_PAGES.includes(pathname)) {
         router.replace('/login');
       }
@@ -118,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (AUTH_PAGES.includes(pathname)) {
       router.replace('/dashboard');
     }
-  }, [isBootstrapping, token, user, pathname, router, ensureMainPool]);
+  }, [isBootstrapping, token, user, pathname, router, ensureMainPool, clearMainPool]);
 
   const login = useCallback(
     async (identifier: string, password: string) => {
@@ -152,12 +198,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       isBootstrapping,
       isAuthenticated: Boolean(token && user),
+      mainPool,
+      mainPoolLoading,
+      mainPoolError,
+      refreshMainPool,
       login,
       register,
       logout: handleLogout,
       refreshMe,
     }),
-    [handleLogout, isBootstrapping, login, refreshMe, register, token, user],
+    [handleLogout, isBootstrapping, login, mainPool, mainPoolError, mainPoolLoading, refreshMainPool, refreshMe, register, token, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

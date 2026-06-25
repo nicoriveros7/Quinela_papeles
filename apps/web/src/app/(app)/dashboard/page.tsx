@@ -17,7 +17,7 @@ import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff, matchProximityLabel } from '@/lib/format';
 import { SHOW_KNOCKOUT } from '@/lib/feature-flags';
 import { useAuth } from '@/providers/auth-provider';
-import { PoolMatchListItem, WorldCupMainPool } from '@/types/api';
+import { PoolMatchListItem } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -25,23 +25,20 @@ import { StatePanel } from '@/components/ui/state-panel';
 import { TeamLabel } from '@/components/ui/team-label';
 
 export default function DashboardPage() {
-  const { token, user } = useAuth();
+  const { token, user, mainPool, mainPoolLoading, mainPoolError } = useAuth();
   const isAdmin = user?.systemRole === 'ADMIN' || user?.systemRole === 'SUPER_ADMIN';
 
-  const [mainPool, setMainPool] = useState<WorldCupMainPool | null>(null);
   const [matches, setMatches] = useState<PoolMatchListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !mainPool) return;
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await api.getMyMainPool(token);
-        setMainPool(data);
-        const matchData = await api.listPoolMatchesLite(data.pool.id, token);
+        const matchData = await api.listPoolMatchesLite(mainPool.pool.id, token);
         setMatches(matchData.matches);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'No se pudo cargar la polla');
@@ -50,7 +47,7 @@ export default function DashboardPage() {
       }
     };
     void load();
-  }, [token]);
+  }, [token, mainPool]);
 
   const upcomingMatches = useMemo(
     () =>
@@ -61,12 +58,12 @@ export default function DashboardPage() {
     [matches],
   );
 
-  if (loading) {
+  if (mainPoolLoading || loading) {
     return <StatePanel variant="loading" description="Cargando tu polla..." />;
   }
 
-  if (error) {
-    return <StatePanel variant="error" description={error} />;
+  if (mainPoolError ?? error) {
+    return <StatePanel variant="error" description={mainPoolError ?? error!} />;
   }
 
   if (!mainPool) return null;

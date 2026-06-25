@@ -6,29 +6,26 @@ import { ChevronRight, Medal, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
-import { LeaderboardResponse, WorldCupMainPool } from '@/types/api';
+import { LeaderboardResponse } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { StatePanel } from '@/components/ui/state-panel';
 import { ParticipantBreakdownSheet } from '@/components/features/leaderboard/participant-breakdown-sheet';
 
 export default function PollaLeaderboardPage() {
-  const { token } = useAuth();
-  const [mainPool, setMainPool] = useState<WorldCupMainPool | null>(null);
+  const { token, mainPool, mainPoolLoading, mainPoolError } = useAuth();
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<{ entryId: string; isOwner: boolean } | null>(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !mainPool) return;
 
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await api.getMyMainPool(token);
-        setMainPool(data);
-        const lb = await api.getLeaderboard(data.pool.id, token);
+        const lb = await api.getLeaderboard(mainPool.pool.id, token);
         setLeaderboard(lb);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'No se pudo cargar el leaderboard');
@@ -38,14 +35,14 @@ export default function PollaLeaderboardPage() {
     };
 
     void load();
-  }, [token]);
+  }, [token, mainPool]);
 
-  if (loading) {
+  if (mainPoolLoading || loading) {
     return <StatePanel variant="loading" description="Cargando ranking..." />;
   }
 
-  if (error) {
-    return <StatePanel variant="error" description={error} />;
+  if (mainPoolError ?? error) {
+    return <StatePanel variant="error" description={mainPoolError ?? error!} />;
   }
 
   if (!leaderboard || !mainPool) {
