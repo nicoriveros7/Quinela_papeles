@@ -47,6 +47,11 @@ export class PoolsController {
     return this.poolsService.getPoolDetail(poolId, user);
   }
 
+  @Get(':poolId/highlights/latest-match')
+  async getLatestMatchHighlights(@Param('poolId') poolId: string, @CurrentUser() user: JwtUserPayload) {
+    return this.poolsService.getLatestMatchHighlights(poolId, user);
+  }
+
   @Get(':poolId/matches/list')
   async listPoolMatchesLite(@Param('poolId') poolId: string, @CurrentUser() user: JwtUserPayload) {
     return this.poolsService.listPoolMatchesLite(poolId, user);

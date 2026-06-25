@@ -14,6 +14,7 @@ import {
   CreateAdminQuestionPayload,
   EntryBreakdownResponse,
   EntryPredictionSummaryResponse,
+  LatestMatchHighlightsResponse,
   LeaderboardResponse,
   MatchPredictionsBundle,
   PoolDetail,
@@ -251,6 +252,13 @@ export const api = {
 
   getLeaderboard: (poolId: string, token: string) =>
     request<LeaderboardResponse>(`/pools/${poolId}/leaderboard`, { method: 'GET' }, token),
+
+  getLatestMatchHighlights: (poolId: string, token: string) =>
+    request<LatestMatchHighlightsResponse>(
+      `/pools/${poolId}/highlights/latest-match`,
+      { method: 'GET' },
+      token,
+    ),
 
   getEntryBreakdown: (poolId: string, entryId: string, token: string) =>
     request<EntryBreakdownResponse>(

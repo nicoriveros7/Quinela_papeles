@@ -538,6 +538,36 @@ export type EntryBreakdownResponse = {
   tournamentPredictionHidden: boolean;
 };
 
+export type MatchHighlight = {
+  match: {
+    id: string;
+    kickoffAt: string;
+    homeTeam: string | null;
+    homeTeamCode: string | null;
+    homeTeamFlagEmoji: string | null;
+    awayTeam: string | null;
+    awayTeamCode: string | null;
+    awayTeamFlagEmoji: string | null;
+    homeScore: number;
+    awayScore: number;
+    stage: string;
+    roundLabel: string | null;
+  };
+  exactHits: number;
+  exactHitters: string[];
+  participantsWithPoints: number;
+  topScorers: {
+    displayName: string;
+    pointsFromMatch: number;
+    hadExactScore: boolean;
+    hadJoker: boolean;
+  }[];
+};
+
+export type LatestMatchHighlightsResponse = {
+  matches: MatchHighlight[];
+} | null;
+
 export type CreateAdminQuestionPayload = {
   key?: string;
   questionText: string;

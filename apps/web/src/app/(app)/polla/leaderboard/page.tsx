@@ -6,14 +6,16 @@ import { ChevronRight, Medal, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
-import { LeaderboardResponse } from '@/types/api';
+import { LatestMatchHighlightsResponse, LeaderboardResponse } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { StatePanel } from '@/components/ui/state-panel';
 import { ParticipantBreakdownSheet } from '@/components/features/leaderboard/participant-breakdown-sheet';
+import { LatestMatchCard } from '@/components/features/leaderboard/latest-match-card';
 
 export default function PollaLeaderboardPage() {
   const { token, mainPool, mainPoolLoading, mainPoolError } = useAuth();
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
+  const [highlights, setHighlights] = useState<LatestMatchHighlightsResponse>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<{ entryId: string; isOwner: boolean } | null>(null);
@@ -25,8 +27,12 @@ export default function PollaLeaderboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const lb = await api.getLeaderboard(mainPool.pool.id, token);
+        const [lb, hl] = await Promise.all([
+          api.getLeaderboard(mainPool.pool.id, token),
+          api.getLatestMatchHighlights(mainPool.pool.id, token).catch(() => null),
+        ]);
         setLeaderboard(lb);
+        setHighlights(hl);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'No se pudo cargar el leaderboard');
       } finally {
@@ -70,6 +76,9 @@ export default function PollaLeaderboardPage() {
             {mainPool.pool.tournament?.name ?? 'FIFA World Cup 2026'} · {leaderboard.leaderboard.length} participante{leaderboard.leaderboard.length !== 1 ? 's' : ''}
           </p>
         </header>
+
+        {/* ── Último partido ───────────────────────────────────────────────── */}
+        {highlights && <LatestMatchCard data={highlights} />}
 
         {/* ── Ranking ─────────────────────────────────────────────────────────── */}
         {leaderboard.leaderboard.length === 0 ? (

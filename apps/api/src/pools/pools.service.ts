@@ -750,6 +750,152 @@ export class PoolsService {
     return updatedPool;
   }
 
+  async getLatestMatchHighlights(poolId: string, currentUser: JwtUserPayload) {
+    await this.getActiveMembership(poolId, currentUser.sub);
+
+    const pool = await this.prisma.pool.findUnique({
+      where: { id: poolId },
+      select: { tournamentId: true },
+    });
+    if (!pool) throw new NotFoundException('Pool not found');
+
+    // Step 1: find the most recent kickoffAt among confirmed FINISHED matches
+    const latestKickoff = await this.prisma.match.findFirst({
+      where: {
+        tournamentId: pool.tournamentId,
+        status: 'FINISHED',
+        resultConfirmedAt: { not: null },
+        homeScore: { not: null },
+        awayScore: { not: null },
+      },
+      orderBy: { kickoffAt: 'desc' },
+      select: { kickoffAt: true },
+    });
+
+    if (!latestKickoff) return null;
+
+    // Step 2: get ALL matches sharing that kickoffAt
+    const matches = await this.prisma.match.findMany({
+      where: {
+        tournamentId: pool.tournamentId,
+        status: 'FINISHED',
+        resultConfirmedAt: { not: null },
+        homeScore: { not: null },
+        awayScore: { not: null },
+        kickoffAt: latestKickoff.kickoffAt,
+      },
+      select: {
+        id: true,
+        kickoffAt: true,
+        homeScore: true,
+        awayScore: true,
+        stage: true,
+        roundLabel: true,
+        homeTournamentTeam: {
+          select: { team: { select: { name: true, code: true, flagEmoji: true } } },
+        },
+        awayTournamentTeam: {
+          select: { team: { select: { name: true, code: true, flagEmoji: true } } },
+        },
+      },
+    });
+
+    if (matches.length === 0) return null;
+
+    // Step 3: fetch all predictions for all matches in one query
+    const matchIds = matches.map((m) => m.id);
+
+    const allPredictions = await this.prisma.matchPrediction.findMany({
+      where: {
+        matchId: { in: matchIds },
+        isScored: true,
+        poolEntry: { poolId, status: 'ACTIVE' },
+      },
+      select: {
+        matchId: true,
+        predictedHomeScore: true,
+        predictedAwayScore: true,
+        pointsAwarded: true,
+        isJoker: true,
+        poolEntry: {
+          select: {
+            user: { select: { displayName: true } },
+            questionPredictions: {
+              where: { matchQuestion: { matchId: { in: matchIds } } },
+              select: {
+                pointsAwarded: true,
+                matchQuestion: { select: { matchId: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    type ScoreEntry = {
+      displayName: string;
+      pointsFromMatch: number;
+      hadExactScore: boolean;
+      hadJoker: boolean;
+    };
+
+    const computeHighlights = (match: (typeof matches)[number]) => {
+      const predsForMatch = allPredictions.filter((p) => p.matchId === match.id);
+
+      const scored: ScoreEntry[] = predsForMatch.map((pred) => {
+        const bonusPts = pred.poolEntry.questionPredictions
+          .filter((q) => q.matchQuestion.matchId === match.id)
+          .reduce((s, q) => s + q.pointsAwarded, 0);
+        // MatchPrediction.pointsAwarded = base match pts (no joker).
+        // Joker bonus = one extra copy of (matchPts + bonusPts).
+        const subtotal = pred.pointsAwarded + bonusPts;
+        const jokerBonus = pred.isJoker ? subtotal : 0;
+        return {
+          displayName: pred.poolEntry.user.displayName,
+          pointsFromMatch: subtotal + jokerBonus,
+          hadExactScore:
+            pred.predictedHomeScore === match.homeScore &&
+            pred.predictedAwayScore === match.awayScore,
+          hadJoker: pred.isJoker,
+        };
+      });
+
+      const exactHitters = scored.filter((s) => s.hadExactScore).map((s) => s.displayName);
+      const withPoints = scored
+        .filter((s) => s.pointsFromMatch > 0)
+        .sort((a, b) => b.pointsFromMatch - a.pointsFromMatch);
+
+      let topScorers: ScoreEntry[] = [];
+      if (withPoints.length > 0) {
+        const cutoffScore = withPoints[Math.min(4, withPoints.length - 1)].pointsFromMatch;
+        topScorers = withPoints.filter((s) => s.pointsFromMatch >= cutoffScore);
+      }
+
+      return {
+        match: {
+          id: match.id,
+          kickoffAt: match.kickoffAt,
+          homeTeam: match.homeTournamentTeam?.team?.name ?? null,
+          homeTeamCode: match.homeTournamentTeam?.team?.code ?? null,
+          homeTeamFlagEmoji: match.homeTournamentTeam?.team?.flagEmoji ?? null,
+          awayTeam: match.awayTournamentTeam?.team?.name ?? null,
+          awayTeamCode: match.awayTournamentTeam?.team?.code ?? null,
+          awayTeamFlagEmoji: match.awayTournamentTeam?.team?.flagEmoji ?? null,
+          homeScore: match.homeScore!,
+          awayScore: match.awayScore!,
+          stage: match.stage,
+          roundLabel: match.roundLabel,
+        },
+        exactHits: exactHitters.length,
+        exactHitters,
+        participantsWithPoints: withPoints.length,
+        topScorers,
+      };
+    };
+
+    return { matches: matches.map(computeHighlights) };
+  }
+
   private async ensureTournamentExists(tournamentId: string): Promise<void> {
     const tournament = await this.prisma.tournament.findUnique({
       where: { id: tournamentId },
