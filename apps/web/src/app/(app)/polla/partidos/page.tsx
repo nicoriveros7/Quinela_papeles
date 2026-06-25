@@ -9,7 +9,7 @@ import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff, matchProximityLabel } from '@/lib/format';
 import { SHOW_KNOCKOUT } from '@/lib/feature-flags';
 import { useAuth } from '@/providers/auth-provider';
-import { PoolMatch, WorldCupMainPool } from '@/types/api';
+import { PoolMatchListItem, WorldCupMainPool } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { StatePanel } from '@/components/ui/state-panel';
@@ -42,7 +42,7 @@ function stageLabel(stage: string, groupCode?: string | null) {
   return map[stage] ?? stage;
 }
 
-function jornadaLabel(match: PoolMatch): string | null {
+function jornadaLabel(match: PoolMatchListItem): string | null {
   if (match.stage === 'GROUP') {
     if (match.roundLabel === 'Matchday 1') return 'Jornada 1';
     if (match.roundLabel === 'Matchday 2') return 'Jornada 2';
@@ -55,7 +55,7 @@ function jornadaLabel(match: PoolMatch): string | null {
 export default function PartidosPage() {
   const { token } = useAuth();
   const [mainPool, setMainPool] = useState<WorldCupMainPool | null>(null);
-  const [matches, setMatches] = useState<PoolMatch[]>([]);
+  const [matches, setMatches] = useState<PoolMatchListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<MatchFilter>('upcoming');
@@ -69,7 +69,7 @@ export default function PartidosPage() {
       try {
         const data = await api.getMyMainPool(token);
         setMainPool(data);
-        const matchData = await api.listPoolMatches(data.pool.id, token);
+        const matchData = await api.listPoolMatchesLite(data.pool.id, token);
         setMatches(matchData.matches);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'No se pudieron cargar los partidos');
@@ -85,7 +85,7 @@ export default function PartidosPage() {
     switch (filter) {
       case 'upcoming':
         return matches
-          .filter((m) => m.status === 'SCHEDULED' && (SHOW_KNOCKOUT || m.stage === 'GROUP'))
+          .filter((m) => m.status === 'SCHEDULED' && new Date(m.kickoffAt) > new Date() && (SHOW_KNOCKOUT || m.stage === 'GROUP'))
           .sort((a, b) => new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime());
       case 'group':
         return matches
@@ -190,7 +190,7 @@ function MatchRow({
   entryId,
   lockMinutes,
 }: {
-  match: PoolMatch;
+  match: PoolMatchListItem;
   poolId: string;
   entryId: string;
   lockMinutes: number;

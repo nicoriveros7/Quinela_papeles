@@ -19,6 +19,7 @@ import {
   PoolDetail,
   PoolEntry,
   PoolMatchesResponse,
+  PoolMatchListResponse,
   PoolSummary,
   PublicUser,
   TournamentPredictionResponse,
@@ -181,6 +182,9 @@ export const api = {
 
   listPoolMatches: (poolId: string, token: string) =>
     request<PoolMatchesResponse>(`/pools/${poolId}/matches`, { method: 'GET' }, token),
+
+  listPoolMatchesLite: (poolId: string, token: string) =>
+    request<PoolMatchListResponse>(`/pools/${poolId}/matches/list`, { method: 'GET' }, token),
 
   getEntryPredictionSummary: (poolId: string, entryId: string, token: string) =>
     request<EntryPredictionSummaryResponse>(

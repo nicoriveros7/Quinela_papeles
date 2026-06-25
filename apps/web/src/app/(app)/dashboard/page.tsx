@@ -17,7 +17,7 @@ import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff, matchProximityLabel } from '@/lib/format';
 import { SHOW_KNOCKOUT } from '@/lib/feature-flags';
 import { useAuth } from '@/providers/auth-provider';
-import { PoolMatch, WorldCupMainPool } from '@/types/api';
+import { PoolMatchListItem, WorldCupMainPool } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -29,7 +29,7 @@ export default function DashboardPage() {
   const isAdmin = user?.systemRole === 'ADMIN' || user?.systemRole === 'SUPER_ADMIN';
 
   const [mainPool, setMainPool] = useState<WorldCupMainPool | null>(null);
-  const [matches, setMatches] = useState<PoolMatch[]>([]);
+  const [matches, setMatches] = useState<PoolMatchListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,7 +41,7 @@ export default function DashboardPage() {
       try {
         const data = await api.getMyMainPool(token);
         setMainPool(data);
-        const matchData = await api.listPoolMatches(data.pool.id, token);
+        const matchData = await api.listPoolMatchesLite(data.pool.id, token);
         setMatches(matchData.matches);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'No se pudo cargar la polla');
@@ -55,7 +55,7 @@ export default function DashboardPage() {
   const upcomingMatches = useMemo(
     () =>
       matches
-        .filter((m) => m.status === 'SCHEDULED' && (SHOW_KNOCKOUT || m.stage === 'GROUP'))
+        .filter((m) => m.status === 'SCHEDULED' && new Date(m.kickoffAt) > new Date() && (SHOW_KNOCKOUT || m.stage === 'GROUP'))
         .sort((a, b) => new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime())
         .slice(0, 5),
     [matches],
@@ -236,7 +236,7 @@ function StatCard({
 }
 
 /** Upcoming match row — date first, then teams */
-function UpcomingMatchRow({ match, poolId, entryId }: { match: PoolMatch; poolId: string; entryId: string }) {
+function UpcomingMatchRow({ match, poolId, entryId }: { match: PoolMatchListItem; poolId: string; entryId: string }) {
   const home = match.homeTournamentTeam?.team;
   const away = match.awayTournamentTeam?.team;
   const homeCode = home?.code ?? match.homeSlotLabel ?? 'TBD';

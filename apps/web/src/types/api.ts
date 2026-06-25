@@ -112,6 +112,13 @@ export type PoolMatchesResponse = {
   matches: PoolMatch[];
 };
 
+export type PoolMatchListItem = Omit<PoolMatch, 'questions'>;
+
+export type PoolMatchListResponse = {
+  poolId: string;
+  matches: PoolMatchListItem[];
+};
+
 export type MatchPrediction = {
   id: string;
   poolEntryId: string;

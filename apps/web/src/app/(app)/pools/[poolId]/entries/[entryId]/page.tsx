@@ -10,7 +10,7 @@ import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff, matchStatusLabel, questionTypeLabel } from '@/lib/format';
 import { SHOW_KNOCKOUT } from '@/lib/feature-flags';
 import { useAuth } from '@/providers/auth-provider';
-import { JokerBucket, MatchPredictionsBundle, MatchQuestionOption, PoolDetail, PoolMatch, PoolMatchesResponse, PoolMatchQuestion } from '@/types/api';
+import { JokerBucket, MatchPredictionsBundle, MatchQuestionOption, PoolDetail, PoolMatchListItem, PoolMatchQuestion } from '@/types/api';
 import { PoolContextTabs } from '@/components/layout/pool-context-tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -66,27 +66,27 @@ function getStageLabel(stage: string) {
   }
 }
 
-function getMatchCodeLabel(match: PoolMatch, side: 'home' | 'away') {
+function getMatchCodeLabel(match: PoolMatchListItem, side: 'home' | 'away') {
   if (side === 'home') {
     return match.homeTournamentTeam?.team.code ?? match.homeSlotLabel ?? 'TBD';
   }
   return match.awayTournamentTeam?.team.code ?? match.awaySlotLabel ?? 'TBD';
 }
 
-function getMatchNameLabel(match: PoolMatch, side: 'home' | 'away') {
+function getMatchNameLabel(match: PoolMatchListItem, side: 'home' | 'away') {
   if (side === 'home') {
     return match.homeTournamentTeam?.team.name ?? match.homeSlotLabel ?? 'TBD';
   }
   return match.awayTournamentTeam?.team.name ?? match.awaySlotLabel ?? 'TBD';
 }
 
-function getMatchFlagEmoji(match: PoolMatch, side: 'home' | 'away'): string | null | undefined {
+function getMatchFlagEmoji(match: PoolMatchListItem, side: 'home' | 'away'): string | null | undefined {
   return side === 'home'
     ? match.homeTournamentTeam?.team.flagEmoji
     : match.awayTournamentTeam?.team.flagEmoji;
 }
 
-function getJokerBucketFromMatch(match: PoolMatch): JokerBucket | null {
+function getJokerBucketFromMatch(match: PoolMatchListItem): JokerBucket | null {
   if (match.stage === 'GROUP') {
     if (match.roundLabel?.includes('Matchday 1')) return 'GROUP_MATCHDAY_1';
     if (match.roundLabel?.includes('Matchday 2')) return 'GROUP_MATCHDAY_2';
@@ -123,7 +123,7 @@ const BUCKET_SHORT_LABELS: Record<JokerBucket, string> = {
   FINAL_THIRD_PLACE: 'Final/3er',
 };
 
-function getJornadaLabel(match: PoolMatch): string | null {
+function getJornadaLabel(match: PoolMatchListItem): string | null {
   if (match.stage === 'GROUP') {
     if (match.roundLabel === 'Matchday 1') return 'Jornada 1';
     if (match.roundLabel === 'Matchday 2') return 'Jornada 2';
@@ -140,7 +140,7 @@ function getJornadaLabel(match: PoolMatch): string | null {
 
 /** Returns the CSS classes for a match picker card based on its state. */
 function matchCardStateClass(
-  match: PoolMatch,
+  match: PoolMatchListItem,
   summary: PredictionSummary | undefined,
   isSelected: boolean,
 ): string {
@@ -184,7 +184,7 @@ function JokerBucketChip({
   onClick,
 }: {
   bucket: JokerBucket;
-  match: PoolMatch | null;
+  match: PoolMatchListItem | null;
   onClick?: () => void;
 }) {
   const label = BUCKET_SHORT_LABELS[bucket];
@@ -231,7 +231,7 @@ function EntryPredictionsPage() {
   const hasScrolledToInitialRef = useRef(false);
 
   const [pool, setPool] = useState<PoolDetail | null>(null);
-  const [matches, setMatches] = useState<PoolMatch[]>([]);
+  const [matches, setMatches] = useState<PoolMatchListItem[]>([]);
   const [isOwner, setIsOwner] = useState(true);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [bundle, setBundle] = useState<MatchPredictionsBundle | null>(null);
@@ -300,12 +300,12 @@ function EntryPredictionsPage() {
       try {
         const [poolData, matchesData, myEntries] = await Promise.all([
           api.getPool(poolId, token),
-          api.listPoolMatches(poolId, token),
+          api.listPoolMatchesLite(poolId, token),
           api.listMyEntries(poolId, token),
         ]);
 
         setPool(poolData);
-        const list = (matchesData as PoolMatchesResponse).matches;
+        const list = matchesData.matches;
         setMatches(list);
         const matchFromUrl = initialMatchId ? list.find((m) => m.id === initialMatchId) : null;
         if (matchFromUrl) {

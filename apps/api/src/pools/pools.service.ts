@@ -338,6 +338,53 @@ export class PoolsService {
     };
   }
 
+  async listPoolMatchesLite(poolId: string, currentUser: JwtUserPayload) {
+    const membership = await this.getActiveMembership(poolId, currentUser.sub);
+
+    const pool = await this.prisma.pool.findUnique({
+      where: { id: poolId },
+      select: { id: true, tournamentId: true },
+    });
+
+    if (!pool) {
+      throw new NotFoundException('Pool not found');
+    }
+
+    const matches = await this.prisma.match.findMany({
+      where: { tournamentId: pool.tournamentId },
+      orderBy: { kickoffAt: 'asc' },
+      select: {
+        id: true,
+        stage: true,
+        roundLabel: true,
+        matchNumber: true,
+        group: { select: { code: true } },
+        homeSlotLabel: true,
+        awaySlotLabel: true,
+        kickoffAt: true,
+        status: true,
+        homeScore: true,
+        awayScore: true,
+        homeTournamentTeam: {
+          select: {
+            team: {
+              select: { id: true, name: true, code: true, countryCode: true, flagEmoji: true },
+            },
+          },
+        },
+        awayTournamentTeam: {
+          select: {
+            team: {
+              select: { id: true, name: true, code: true, countryCode: true, flagEmoji: true },
+            },
+          },
+        },
+      },
+    });
+
+    return { poolId, membership, matches };
+  }
+
   async joinPool(currentUser: JwtUserPayload, dto: JoinPoolDto) {
     const pool = await this.prisma.pool.findFirst({
       where: { joinCode: dto.joinCode.toUpperCase() },
