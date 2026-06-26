@@ -447,6 +447,7 @@ export type MatchBreakdown = {
   homeScore: number | null;
   awayScore: number | null;
   visibility: 'VISIBLE' | 'HIDDEN_UNTIL_LOCKED';
+  isLocked: boolean;
   predictedHomeScore: number | null;
   predictedAwayScore: number | null;
   pointsAwarded: number;

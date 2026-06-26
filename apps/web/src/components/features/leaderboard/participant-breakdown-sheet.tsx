@@ -79,7 +79,7 @@ function filterMatches(
     // ── Visibility filter ──
     if (visFilter === 'revealed') {
       if (match.visibility === 'HIDDEN_UNTIL_LOCKED') return false;
-      if (match.status === 'SCHEDULED' && !hasPoints) return false;
+      if (!match.isLocked) return false;
     }
 
     // ── Prediction filter ──

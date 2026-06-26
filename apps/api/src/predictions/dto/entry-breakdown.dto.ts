@@ -31,6 +31,7 @@ export interface MatchBreakdown {
   homeScore: number | null;
   awayScore: number | null;
   visibility: MatchBreakdownVisibility;
+  isLocked: boolean;
   predictedHomeScore: number | null;
   predictedAwayScore: number | null;
   pointsAwarded: number;

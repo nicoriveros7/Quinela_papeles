@@ -720,6 +720,7 @@ export class PredictionsService {
         homeScore: match.homeScore,
         awayScore: match.awayScore,
         visibility,
+        isLocked,
         predictedHomeScore: visibility === 'VISIBLE' ? (pred?.predictedHomeScore ?? null) : null,
         predictedAwayScore: visibility === 'VISIBLE' ? (pred?.predictedAwayScore ?? null) : null,
         pointsAwarded: visibility === 'VISIBLE' ? (pred?.pointsAwarded ?? 0) : 0,
