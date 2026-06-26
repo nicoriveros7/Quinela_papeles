@@ -1390,7 +1390,7 @@ function EntryPredictionsPage() {
                   const userPred = questionPredictionById.get(question.id);
                   const userOptionId = userPred?.selectedOptionId ?? null;
                   const isCorrect = userPred?.isScored ? (userPred.pointsAwarded ?? 0) > 0 : null;
-                  const correctName = correctOpt.player?.fullName ?? correctOpt.label;
+                  const correctName = correctOpt.player ? getPlayerDisplayName(correctOpt.player) : correctOpt.label;
                   const correctMeta = correctOpt.player
                     ? [
                         correctOpt.player.shirtNumber != null ? `#${correctOpt.player.shirtNumber}` : null,
@@ -1426,7 +1426,7 @@ function EntryPredictionsPage() {
                               Tu respuesta
                             </p>
                             <p className="text-sm font-semibold text-rose-300 line-through">
-                              {userOpt.player?.fullName ?? userOpt.label}
+                              {userOpt.player ? getPlayerDisplayName(userOpt.player) : userOpt.label}
                             </p>
                             {userMeta && (
                               <p className="text-[11px] text-rose-400/60 line-through">{userMeta}</p>

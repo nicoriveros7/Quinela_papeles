@@ -555,7 +555,7 @@ export class PredictionsService {
               correctOption: {
                 select: {
                   label: true,
-                  player: { select: { fullName: true } },
+                  player: { select: { fullName: true, shortName: true } },
                 },
               },
               predictions: {
@@ -566,7 +566,7 @@ export class PredictionsService {
                   selectedBoolean: true,
                   selectedOption: { select: { label: true } },
                   selectedTeam: { select: { name: true } },
-                  selectedPlayer: { select: { fullName: true } },
+                  selectedPlayer: { select: { fullName: true, shortName: true } },
                 },
               },
             },
@@ -589,9 +589,9 @@ export class PredictionsService {
           champion: { select: { team: { select: { name: true, code: true, flagEmoji: true } } } },
           runnerUp: { select: { team: { select: { name: true, code: true, flagEmoji: true } } } },
           thirdPlace: { select: { team: { select: { name: true, code: true, flagEmoji: true } } } },
-          topScorer: { select: { player: { select: { fullName: true } } } },
-          goldenBall: { select: { player: { select: { fullName: true } } } },
-          goldenGlove: { select: { player: { select: { fullName: true } } } },
+          topScorer: { select: { player: { select: { fullName: true, shortName: true } } } },
+          goldenBall: { select: { player: { select: { fullName: true, shortName: true } } } },
+          goldenGlove: { select: { player: { select: { fullName: true, shortName: true } } } },
         },
       }),
       this.prisma.tournament.findUnique({
@@ -683,7 +683,9 @@ export class PredictionsService {
           questionText: q.questionText,
           answerLabel: this.resolveAnswerLabel(q.answerType, qPred),
           correctAnswerLabel: q.isResolved
-            ? (q.correctOption?.player?.fullName ?? q.correctOption?.label ?? null)
+            ? (q.correctOption?.player
+                ? (q.correctOption.player.shortName ?? q.correctOption.player.fullName)
+                : (q.correctOption?.label ?? null))
             : null,
           pointsAwarded: questionPoints,
           isScored: qPred?.isScored ?? false,
@@ -807,9 +809,15 @@ export class PredictionsService {
             thirdPlace: tournamentPrediction.thirdPlace?.team?.name ?? null,
             thirdPlaceCode: tournamentPrediction.thirdPlace?.team?.code ?? null,
             thirdPlaceFlagEmoji: tournamentPrediction.thirdPlace?.team?.flagEmoji ?? null,
-            topScorer: tournamentPrediction.topScorer?.player?.fullName ?? null,
-            goldenBall: tournamentPrediction.goldenBall?.player?.fullName ?? null,
-            goldenGlove: tournamentPrediction.goldenGlove?.player?.fullName ?? null,
+            topScorer: tournamentPrediction.topScorer?.player
+              ? (tournamentPrediction.topScorer.player.shortName ?? tournamentPrediction.topScorer.player.fullName)
+              : null,
+            goldenBall: tournamentPrediction.goldenBall?.player
+              ? (tournamentPrediction.goldenBall.player.shortName ?? tournamentPrediction.goldenBall.player.fullName)
+              : null,
+            goldenGlove: tournamentPrediction.goldenGlove?.player
+              ? (tournamentPrediction.goldenGlove.player.shortName ?? tournamentPrediction.goldenGlove.player.fullName)
+              : null,
             bestThirds: resolvedBestThirds,
             pointsAwarded: tournamentPoints,
             isScored: tournamentPrediction.isScored,
@@ -826,16 +834,22 @@ export class PredictionsService {
       selectedOption: { label: string } | null;
       selectedBoolean: boolean | null;
       selectedTeam: { name: string } | null;
-      selectedPlayer: { fullName: string } | null;
+      selectedPlayer: { fullName: string; shortName?: string | null } | null;
     } | null,
   ): string | null {
     if (!pred) return null;
+    // For PLAYER_PICK, prefer the live player name over the stale label snapshot
+    if (answerType === QuestionAnswerType.PLAYER_PICK && pred.selectedPlayer) {
+      return pred.selectedPlayer.shortName ?? pred.selectedPlayer.fullName;
+    }
     if (pred.selectedOption?.label) return pred.selectedOption.label;
     if (answerType === QuestionAnswerType.BOOLEAN && pred.selectedBoolean !== null) {
       return pred.selectedBoolean ? 'Sí' : 'No';
     }
     if (pred.selectedTeam?.name) return pred.selectedTeam.name;
-    if (pred.selectedPlayer?.fullName) return pred.selectedPlayer.fullName;
+    if (pred.selectedPlayer) {
+      return pred.selectedPlayer.shortName ?? pred.selectedPlayer.fullName;
+    }
     return null;
   }
 
