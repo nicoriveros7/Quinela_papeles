@@ -17,54 +17,16 @@ function titleCase(str: string): string {
 }
 
 /**
- * Returns the most user-friendly display name for a player.
+ * Returns the player's display name.
  *
- * Priority logic:
- * 1. Multi-word shortName/nameOnShirt → the FIFA jersey name is already a proper display name
- *    e.g. "CRISTIANO RONALDO" → "Cristiano Ronaldo"
- * 2. Single-word shirt that matches a first name → first given name + last surname
- *    e.g. shirt="BERNARDO", firstNames="Bernardo", lastNames="MOTA VEIGA ... SILVA" → "Bernardo Silva"
- * 3. Single-word shirt that is a popular moniker → first given name + shirt name
- *    e.g. shirt="MESSI", firstNames="Lionel" → "Lionel Messi"
- *    e.g. shirt="MBAPPÉ", firstNames="Kylian" → "Kylian Mbappé"
- * 4. No shirt info → first given name + last surname word
- * 5. Fallback → title-cased fullName
+ * Priority:
+ * 1. shortName — sourced from the "Player name" column of the official FIFA squad markdown.
+ *    e.g. "CRISTIANO RONALDO" → "Cristiano Ronaldo", "VINICIUS JUNIOR" → "Vinicius Junior"
+ * 2. fullName — firstName(s) + lastName(s) concatenated at seed time.
  */
 export function getPlayerDisplayName(player: PlayerNameFields): string {
-  const shirt = (player.shortName || player.nameOnShirt || '').trim();
-
-  // Multi-word shirt = proper FIFA popular name (e.g. "CRISTIANO RONALDO", "VINICIUS JR.")
-  if (shirt.includes(' ')) {
-    return titleCase(shirt);
-  }
-
-  const firstNames = (player.firstNames || '').trim();
-  const lastNames = (player.lastNames || '').trim();
-  const firstNameWord = firstNames.split(/\s+/)[0] || '';
-
-  if (firstNameWord && shirt) {
-    const shirtNorm = shirt.toLowerCase();
-    const firstNamesWords = firstNames.toLowerCase().split(/\s+/);
-
-    if (firstNamesWords.includes(shirtNorm)) {
-      // Shirt equals a first name (e.g. shirt="BERNARDO" matches firstNames="Bernardo")
-      // Show as: first given name + last part of compound surname
-      const lastSurname = lastNames.split(/\s+/).pop() || '';
-      if (lastSurname) {
-        return titleCase(`${firstNameWord} ${lastSurname}`);
-      }
-      return titleCase(firstNameWord);
-    }
-
-    // Shirt is a moniker or last name used as popular name (MESSI, MBAPPÉ, KANE, MARTÍNEZ)
-    return titleCase(`${firstNameWord} ${shirt}`);
-  }
-
-  if (firstNameWord && lastNames) {
-    const lastSurname = lastNames.split(/\s+/).pop() || '';
-    return titleCase(`${firstNameWord} ${lastSurname}`);
-  }
-
+  const name = player.shortName?.trim();
+  if (name) return titleCase(name);
   return titleCase(player.fullName);
 }
 

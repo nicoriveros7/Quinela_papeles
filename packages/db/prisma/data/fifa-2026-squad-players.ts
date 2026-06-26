@@ -65,6 +65,7 @@ function parseSquadMarkdown(): TeamPlayersSeed[] {
 
       const shirtNumber  = parseInt(shirtRaw, 10);
       const pos          = cells[2] as 'GK' | 'DF' | 'MF' | 'FW';
+      const playerName   = cells[3] ?? '';  // FIFA "Player name" column — popular display name
       const firstNames   = cells[4] ?? '';
       const lastNames    = cells[5] ?? '';
       const nameOnShirt  = cells[6] ?? '';
@@ -78,9 +79,14 @@ function parseSquadMarkdown(): TeamPlayersSeed[] {
       const birthDate   = dobRaw ? parseDOB(dobRaw) : undefined;
       const externalRef = `wc2026-${teamCode}-${shirtNumber}`;
 
+      // shortName = "Player name" column (cells[3]) — the FIFA official display name.
+      // This is the canonical visible name used throughout the app.
+      // Falls back to nameOnShirt only if Player name is missing.
+      const shortName = playerName.trim() || nameOnShirt || undefined;
+
       players.push({
         fullName,
-        shortName:         nameOnShirt || undefined,
+        shortName,
         externalRef,
         nationalityCode,
         preferredPosition: pos,
