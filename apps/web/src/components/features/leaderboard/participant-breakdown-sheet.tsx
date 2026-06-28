@@ -71,6 +71,9 @@ function filterMatches(
   visFilter: VisibilityFilter,
 ): MatchBreakdown[] {
   return matches.filter((match) => {
+    // Hide knockout matches that have no teams assigned yet
+    if (!match.isDefined) return false;
+
     const hasPick   = match.predictedHomeScore !== null;
     const hasPoints =
       match.pointsAwarded > 0 ||

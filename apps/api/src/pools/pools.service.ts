@@ -382,7 +382,14 @@ export class PoolsService {
       },
     });
 
-    return { poolId, membership, matches };
+    return {
+      poolId,
+      membership,
+      matches: matches.map((m) => ({
+        ...m,
+        isDefined: m.stage === 'GROUP' || (m.homeTournamentTeam !== null && m.awayTournamentTeam !== null),
+      })),
+    };
   }
 
   async joinPool(currentUser: JwtUserPayload, dto: JoinPoolDto) {

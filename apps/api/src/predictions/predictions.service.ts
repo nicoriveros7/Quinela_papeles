@@ -709,6 +709,7 @@ export class PredictionsService {
         status: match.status,
         stage: match.stage,
         roundLabel: match.roundLabel,
+        isDefined: match.stage === 'GROUP' || (match.homeTournamentTeam !== null && match.awayTournamentTeam !== null),
         homeTeamName: match.homeTournamentTeam?.team?.name ?? match.homeSlotLabel ?? null,
         homeTeamCode: match.homeTournamentTeam?.team?.code ?? null,
         homeTeamFlagEmoji: match.homeTournamentTeam?.team?.flagEmoji ?? null,

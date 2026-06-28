@@ -7,7 +7,6 @@ import { ArrowRight, CalendarDays, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff, matchProximityLabel } from '@/lib/format';
-import { SHOW_KNOCKOUT } from '@/lib/feature-flags';
 import { useAuth } from '@/providers/auth-provider';
 import { PoolMatchListItem } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
@@ -82,7 +81,7 @@ export default function PartidosPage() {
     switch (filter) {
       case 'upcoming':
         return matches
-          .filter((m) => m.status === 'SCHEDULED' && new Date(m.kickoffAt) > new Date() && (SHOW_KNOCKOUT || m.stage === 'GROUP'))
+          .filter((m) => m.status === 'SCHEDULED' && new Date(m.kickoffAt) > new Date() && m.isDefined)
           .sort((a, b) => new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime());
       case 'group':
         return matches
@@ -90,7 +89,7 @@ export default function PartidosPage() {
           .sort((a, b) => new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime());
       case 'knockout':
         return matches
-          .filter((m) => KNOCKOUT_STAGES.has(m.stage))
+          .filter((m) => m.isDefined && KNOCKOUT_STAGES.has(m.stage))
           .sort((a, b) => new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime());
       case 'finished':
         return matches
@@ -137,7 +136,7 @@ export default function PartidosPage() {
         aria-label="Filtrar partidos"
         className="scrollbar-sport min-w-0 flex gap-1.5 overflow-x-auto rounded-2xl border border-border/70 bg-surface/90 p-1.5 shadow-card-sm [-webkit-overflow-scrolling:touch]"
       >
-        {(Object.keys(FILTER_LABELS) as MatchFilter[]).filter((key) => SHOW_KNOCKOUT || key !== 'knockout').map((key) => {
+        {(Object.keys(FILTER_LABELS) as MatchFilter[]).map((key) => {
           const active = filter === key;
           return (
             <button

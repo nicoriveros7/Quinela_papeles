@@ -8,7 +8,6 @@ import { cn, normalizeSearchText } from '@/lib/utils';
 import { getPlayerDisplayName, matchesPlayerSearch } from '@/lib/player-utils';
 import { api, ApiError } from '@/lib/api';
 import { formatMatchKickoff, matchStatusLabel, questionTypeLabel } from '@/lib/format';
-import { SHOW_KNOCKOUT } from '@/lib/feature-flags';
 import { useAuth } from '@/providers/auth-provider';
 import { JokerBucket, MatchPredictionsBundle, MatchQuestionOption, PoolDetail, PoolMatchListItem, PoolMatchQuestion } from '@/types/api';
 import { PoolContextTabs } from '@/components/layout/pool-context-tabs';
@@ -322,16 +321,16 @@ function EntryPredictionsPage() {
         setIsOwner(isOwnerValue);
         const matchFromUrl = initialMatchId ? list.find((m) => m.id === initialMatchId) : null;
         if (matchFromUrl) {
-          if (matchFromUrl.stage !== 'GROUP' && SHOW_KNOCKOUT) setPhaseFilter('KNOCKOUT');
+          if (matchFromUrl.stage !== 'GROUP') setPhaseFilter('KNOCKOUT');
           setSelectedMatchId(matchFromUrl.id);
         } else {
           let eligible = isOwnerValue ? list : list.filter((m) => m.status === 'FINISHED');
-          if (!SHOW_KNOCKOUT) eligible = eligible.filter((m) => m.stage === 'GROUP');
+          eligible = eligible.filter((m) => m.isDefined);
           const defaultId = pickDefaultMatch(eligible);
           defaultMatchIdRef.current = defaultId;
           if (defaultId) {
             const defaultMatch = list.find((m) => m.id === defaultId);
-            if (defaultMatch && defaultMatch.stage !== 'GROUP' && SHOW_KNOCKOUT) {
+            if (defaultMatch && defaultMatch.stage !== 'GROUP') {
               setPhaseFilter('KNOCKOUT');
             }
           }
@@ -348,9 +347,8 @@ function EntryPredictionsPage() {
   }, [poolId, token, entryId, initialMatchId]);
 
   const visibleMatches = useMemo(() => {
-    let result = isOwner ? matches : matches.filter((match) => match.status === 'FINISHED');
-    if (!SHOW_KNOCKOUT) result = result.filter((m) => m.stage === 'GROUP');
-    return result;
+    const result = isOwner ? matches : matches.filter((match) => match.status === 'FINISHED');
+    return result.filter((m) => m.isDefined);
   }, [isOwner, matches]);
 
   useEffect(() => {
@@ -460,8 +458,18 @@ function EntryPredictionsPage() {
     }
   }, [filteredMatches, selectedMatchId]);
 
+  const definedKnockoutBuckets = useMemo((): Set<JokerBucket> => {
+    const result = new Set<JokerBucket>();
+    for (const m of matches) {
+      if (!m.isDefined || m.stage === 'GROUP') continue;
+      const bucket = getJokerBucketFromMatch(m);
+      if (bucket) result.add(bucket);
+    }
+    return result;
+  }, [matches]);
+
   const progress = useMemo(() => {
-    const editableMatches = matches.filter((match) => match.status === 'SCHEDULED');
+    const editableMatches = visibleMatches.filter((match) => match.status === 'SCHEDULED');
     const completeCount = editableMatches.reduce(
       (acc, match) => acc + (predictionSummaryByMatch[match.id]?.isComplete ? 1 : 0),
       0,
@@ -471,7 +479,7 @@ function EntryPredictionsPage() {
       completeCount,
       percent: editableMatches.length > 0 ? Math.round((completeCount / editableMatches.length) * 100) : 0,
     };
-  }, [matches, predictionSummaryByMatch]);
+  }, [visibleMatches, predictionSummaryByMatch]);
 
   // Index of selected match in the current filtered list — used for prev/next nav.
   const currentMatchIndex = useMemo(
@@ -780,7 +788,7 @@ function EntryPredictionsPage() {
       {/* ── Phase + group filters ─────────────────────────────────────────────── */}
       <section className="grid gap-2 rounded-2xl border border-border/70 bg-surface/90 p-3 shadow-card-sm">
         <div role="tablist" aria-label="Fase del torneo" className="flex flex-wrap gap-1.5">
-          {(['GROUP', 'KNOCKOUT'] as const).filter((phase) => SHOW_KNOCKOUT || phase === 'GROUP').map((phase) => (
+          {(['GROUP', 'KNOCKOUT'] as const).map((phase) => (
             <button
               key={phase}
               role="tab"
@@ -847,11 +855,11 @@ function EntryPredictionsPage() {
             <div className="flex items-center gap-1.5">
               <Zap className="h-3.5 w-3.5 text-amber-400" aria-hidden="true" />
               <span className="text-xs font-bold text-amber-300">
-                {SHOW_KNOCKOUT ? 'Mis Jokers' : 'Mis Jokers de grupos'}
+                {definedKnockoutBuckets.size > 0 ? 'Mis Jokers' : 'Mis Jokers de grupos'}
               </span>
             </div>
             <span className="text-[11px] font-semibold text-amber-400/70">
-              {jokerByBucket.size} / {SHOW_KNOCKOUT ? 8 : 3} usados
+              {jokerByBucket.size} / {3 + definedKnockoutBuckets.size} usados
             </span>
           </div>
 
@@ -876,24 +884,26 @@ function EntryPredictionsPage() {
               </div>
             </div>
 
-            {SHOW_KNOCKOUT ? (
+            {definedKnockoutBuckets.size > 0 ? (
               <div>
                 <p className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.12em] text-amber-400/50">
                   Eliminatorias
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {(['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'FINAL_THIRD_PLACE'] as const).map((bucket) => {
-                    const matchId = jokerByBucket.get(bucket);
-                    const match = matchId ? matches.find((m) => m.id === matchId) ?? null : null;
-                    return (
-                      <JokerBucketChip
-                        key={bucket}
-                        bucket={bucket}
-                        match={match}
-                        onClick={matchId ? () => setSelectedMatchId(matchId) : undefined}
-                      />
-                    );
-                  })}
+                  {(['ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'FINAL_THIRD_PLACE'] as const)
+                    .filter((bucket) => definedKnockoutBuckets.has(bucket))
+                    .map((bucket) => {
+                      const matchId = jokerByBucket.get(bucket);
+                      const match = matchId ? matches.find((m) => m.id === matchId) ?? null : null;
+                      return (
+                        <JokerBucketChip
+                          key={bucket}
+                          bucket={bucket}
+                          match={match}
+                          onClick={matchId ? () => setSelectedMatchId(matchId) : undefined}
+                        />
+                      );
+                    })}
                 </div>
               </div>
             ) : null}

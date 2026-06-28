@@ -104,6 +104,7 @@ export type PoolMatch = {
   awayScore: number | null;
   homeTournamentTeam: { team: { id: string; name: string; code: string; countryCode: string | null; flagEmoji: string | null } } | null;
   awayTournamentTeam: { team: { id: string; name: string; code: string; countryCode: string | null; flagEmoji: string | null } } | null;
+  isDefined: boolean;
   questions: PoolMatchQuestion[];
 };
 
@@ -436,6 +437,7 @@ export type MatchBreakdown = {
   status: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'POSTPONED' | 'CANCELLED';
   stage: string;
   roundLabel: string | null;
+  isDefined: boolean;
   homeTeamName: string | null;
   homeTeamCode: string | null;
   homeTeamFlagEmoji: string | null;
