@@ -4,7 +4,7 @@ Quiniela/polla web para predecir el Mundial FIFA 2026: marcador de cada partido,
 
 **Demo en vivo:** https://quinela-papeles-web.vercel.app
 
-[CAPTURA: dashboard "Mi Quiniela" con próximos partidos y predicciones]
+![Desglose de puntuación por partido y ranking de participantes](apps/web/public/screenshots/Drilldown.png)
 
 ---
 
@@ -17,6 +17,9 @@ Lo que está implementado y funcionando hoy:
 - **Auth completo**: registro, login con JWT, y recuperación de contraseña de punta a punta (token de un solo uso, expiración de 60 min, invalidación de tokens anteriores, envío de email vía Resend).
 - **Modelo de torneo**: equipos, grupos, partidos (soporta partidos de grupo y slots de knockout tipo `W73`/`L101` antes de que se definan los equipos), venues, roles de sistema (`USER` / `ADMIN` / `SUPER_ADMIN`).
 - **Predicciones por partido**: marcador exacto, con un motor de scoring que separa puntos por resultado exacto, diferencia de gol, ganador/perdedor, goles de local, goles de visita y total de goles.
+
+![Vista de ranking con resumen del último partido y top de aciertos](apps/web/public/screenshots/Ranking.png)
+
 - **Predicciones de torneo completo**: campeón, subcampeón, tercer lugar, goleador, balón de oro, guante de oro y "mejores terceros" de la fase de grupos.
 - **Sistema de joker**: cada participante puede marcar un partido para duplicar los puntos que gane en él (marcador + bonus).
 - **Preguntas bonus por partido**: 5 tipos (`BOOLEAN`, `SINGLE_CHOICE`, `TEAM_PICK`, `PLAYER_PICK`, `TIME_RANGE`), con catálogo de jugadores por torneo y validación de que las opciones de tipo jugador no lleguen con payloads ambiguos.
@@ -24,7 +27,7 @@ Lo que está implementado y funcionando hoy:
 - **Recálculo de leaderboard**: idempotente, corre bajo demanda desde el panel admin.
 - **Panel de administración**: gestión de torneos, pools, partidos, resultados oficiales, preguntas bonus y resolución, y recálculo de scoring.
 
-[CAPTURA: leaderboard de la pool principal]
+![Predicciones por fase con contador de jokers usados](apps/web/public/screenshots/Mispredicciones.png)
 
 ---
 
@@ -35,6 +38,8 @@ Lo que está implementado y funcionando hoy:
 **`pointsConfig` es JSON configurable por pool, no una tabla de puntos fija.** El torneo tiene una sola pool principal hoy, pero el modelo de puntaje (exacto, diferencia de gol, ganador, goles de local/visita, etc.) vive en un JSON por pool con fallback a columnas legacy y defaults razonables. Permitió iterar las reglas de puntaje sin migraciones mientras el grupo de amigos las estaba ajustando.
 
 **"Mejores terceros" se resuelve por umbral de aciertos, no por comparación exacta de conjunto.** El Mundial 2026 clasifica a los 8 mejores terceros de 12 grupos: en vez de exigir que el usuario acierte el conjunto exacto, se cuentan aciertos (hits) contra el resultado real y se otorgan puntos parciales a partir de 4 aciertos y el máximo a partir de 8 — refleja mejor la dificultad real de la predicción que un todo-o-nada.
+
+![Predicciones pre-torneo con puntaje de mejores terceros clasificados](apps/web/public/screenshots/pretorneo.png)
 
 ---
 

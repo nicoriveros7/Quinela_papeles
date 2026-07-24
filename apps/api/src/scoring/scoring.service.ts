@@ -90,7 +90,7 @@ export class ScoringService {
     });
 
     for (const match of finishedMatches) {
-      await this.recalculateMatchPredictions(poolId, match.id, user, true);
+      await this.recalculateMatchPredictions(poolId, match.id, user, true, true);
     }
 
     await this.prisma.matchQuestionPrediction.updateMany({
@@ -118,15 +118,17 @@ export class ScoringService {
     });
 
     for (const question of resolvedQuestions) {
-      await this.recalculateQuestionPredictions(poolId, question.id, user, true);
+      await this.recalculateQuestionPredictions(poolId, question.id, user, true, true);
     }
 
-    await this.recalculateTournamentPredictions(poolId, true);
+    await this.recalculateTournamentPredictions(poolId, true, undefined, true);
+
+    await this.recalculatePoolEntryTotals(pool.id, pool.tournamentId);
 
     return this.readLeaderboard(poolId);
   }
 
-  async recalculateTournamentPredictions(poolId: string, skipAuth = false, user?: JwtUserPayload) {
+  async recalculateTournamentPredictions(poolId: string, skipAuth = false, user?: JwtUserPayload, skipTotals = false) {
     if (!skipAuth && user) {
       await this.ensurePoolAdminOrOwner(poolId, user);
     }
@@ -180,7 +182,9 @@ export class ScoringService {
         where: { poolEntry: { poolId }, tournamentId: pool.tournamentId },
         data: { pointsAwarded: 0, isScored: false, scoredAt: null },
       });
-      await this.recalculatePoolEntryTotals(poolId, pool.tournamentId);
+      if (!skipTotals) {
+        await this.recalculatePoolEntryTotals(poolId, pool.tournamentId);
+      }
       return;
     }
 
@@ -250,7 +254,9 @@ export class ScoringService {
       await this.prisma.$transaction(updates);
     }
 
-    await this.recalculatePoolEntryTotals(poolId, pool.tournamentId);
+    if (!skipTotals) {
+      await this.recalculatePoolEntryTotals(poolId, pool.tournamentId);
+    }
   }
 
   async recalculateMatchPredictions(
@@ -258,6 +264,7 @@ export class ScoringService {
     matchId: string,
     user: JwtUserPayload,
     skipAuth = false,
+    skipTotals = false,
   ) {
     if (!skipAuth) {
       await this.ensurePoolAdminOrOwner(poolId, user);
@@ -348,7 +355,9 @@ export class ScoringService {
       }),
     );
 
-    await this.recalculatePoolEntryTotals(poolId, pool.tournamentId);
+    if (!skipTotals) {
+      await this.recalculatePoolEntryTotals(poolId, pool.tournamentId);
+    }
 
     return {
       poolId,
@@ -363,6 +372,7 @@ export class ScoringService {
     questionId: string,
     user: JwtUserPayload,
     skipAuth = false,
+    skipTotals = false,
   ) {
     if (!skipAuth) {
       await this.ensurePoolAdminOrOwner(poolId, user);
@@ -455,7 +465,9 @@ export class ScoringService {
       }),
     );
 
-    await this.recalculatePoolEntryTotals(poolId, pool.tournamentId);
+    if (!skipTotals) {
+      await this.recalculatePoolEntryTotals(poolId, pool.tournamentId);
+    }
 
     return {
       poolId,
