@@ -10,7 +10,7 @@ Quiniela/polla web para predecir el Mundial FIFA 2026: marcador de cada partido,
 
 ## Estado del producto
 
-Es un producto propio, desplegado y en uso activo (~50 usuarios este mes durante la fase de grupos). No es un tutorial ni un boilerplate — lo construí para resolver la quiniela de un grupo real, y sigue en desarrollo mientras avanza el torneo.
+Es un producto propio, desplegado y en uso activo (52 usuarios este mes). No es un tutorial ni un boilerplate — lo construí para resolver la quiniela de un grupo real, y sigue en desarrollo mientras avanza el torneo.
 
 Lo que está implementado y funcionando hoy:
 
