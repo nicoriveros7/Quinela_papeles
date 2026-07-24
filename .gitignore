@@ -6,3 +6,7 @@ coverage
 .env
 .env.local
 .DS_Store
+
+# Working files for data cleanup, not part of the app
+players-name-audit*.xlsx
+players-review.csv

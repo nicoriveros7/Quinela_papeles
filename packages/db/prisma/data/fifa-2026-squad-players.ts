@@ -1,7 +1,7 @@
 /**
  * Official FIFA World Cup 2026 squad lists.
  *
- * Source: apps/web/public/mundial2026_squad_lists.md
+ * Source: packages/db/prisma/data/fifa-2026-squad-lists.md
  * Parsed at seed time from the official PDF-extracted markdown.
  *
  * 48 teams · 26 players each · 1248 total
@@ -13,10 +13,7 @@ import * as path from 'path';
 
 import type { TeamPlayersSeed, TournamentPlayerSeed } from './fifa-2026-players.types';
 
-const MARKDOWN_PATH = path.resolve(
-  __dirname,
-  '../../../../apps/web/public/mundial2026_squad_lists.md',
-);
+const MARKDOWN_PATH = path.resolve(__dirname, './fifa-2026-squad-lists.md');
 
 // FIFA 3-letter code → ISO 3166-1 alpha-2 nationality code
 const FIFA_TO_NATIONALITY: Record<string, string> = {
