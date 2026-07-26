@@ -20,6 +20,10 @@ Lo que está implementado y funcionando hoy:
 
 ![Vista de ranking con resumen del último partido y top de aciertos](apps/web/public/screenshots/Ranking.png)
 
+- **Diseño mobile-first**: la mayoría de los usuarios predicen desde el celular durante los partidos en vivo, así que la UI prioriza navegación inferior tipo app, controles táctiles grandes para el marcador, y el desglose de puntos colapsable para no saturar la pantalla.
+
+![Vista mobile de predicción de partido con joker activo y desglose de puntos](apps/web/public/screenshots/mobile-prediccion.png)
+
 - **Predicciones de torneo completo**: campeón, subcampeón, tercer lugar, goleador, balón de oro, guante de oro y "mejores terceros" de la fase de grupos.
 - **Sistema de joker**: cada participante puede marcar un partido para duplicar los puntos que gane en él (marcador + bonus).
 - **Preguntas bonus por partido**: 5 tipos (`BOOLEAN`, `SINGLE_CHOICE`, `TEAM_PICK`, `PLAYER_PICK`, `TIME_RANGE`), con catálogo de jugadores por torneo y validación de que las opciones de tipo jugador no lleguen con payloads ambiguos.
