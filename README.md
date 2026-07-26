@@ -22,7 +22,9 @@ Lo que está implementado y funcionando hoy:
 
 - **Diseño mobile-first**: la mayoría de los usuarios predicen desde el celular durante los partidos en vivo, así que la UI prioriza navegación inferior tipo app, controles táctiles grandes para el marcador, y el desglose de puntos colapsable para no saturar la pantalla.
 
-![Vista mobile de predicción de partido con joker activo y desglose de puntos](apps/web/public/screenshots/mobile-prediccion.png)
+<p align="center">
+  <img src="apps/web/public/screenshots/mobile-prediccion.png" alt="Vista mobile de predicción de partido con joker activo y desglose de puntos" width="320">
+</p>
 
 - **Predicciones de torneo completo**: campeón, subcampeón, tercer lugar, goleador, balón de oro, guante de oro y "mejores terceros" de la fase de grupos.
 - **Sistema de joker**: cada participante puede marcar un partido para duplicar los puntos que gane en él (marcador + bonus).
